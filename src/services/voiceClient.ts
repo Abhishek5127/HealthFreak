@@ -5,9 +5,11 @@ import {
   setAudioModeAsync,
   requestRecordingPermissionsAsync,
   getRecordingPermissionsAsync,
+  createAudioPlayer,
   type AudioRecorder,
+  type AudioPlayer,
 } from 'expo-audio';
-import { File } from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import { askDishaAI, transcribeAndReplyAudio, getBackendBaseUrl } from './aiChatService';
 
 export type VoiceConnectionStatus =
@@ -71,6 +73,8 @@ export class VoiceClientService {
   // Native Mobile Recording (iOS / Android via expo-audio)
   private nativeRecorder: AudioRecorder | null = null;
   private nativeInterval: any = null;
+  private currentPlayer: AudioPlayer | null = null;
+  private currentWebAudio: any = null;
 
   public subscribe(listener: (state: VoiceSessionState) => void) {
     this.listeners.add(listener);
@@ -124,6 +128,101 @@ export class VoiceClientService {
   }
 
   /**
+   * Plays high-fidelity human speech synthesized directly by Gemini's neural voice
+   * with authentic Indian accent and natural intonation.
+   */
+  public async playGeneratedAudio(
+    audioBase64: string,
+    audioMime = 'audio/wav',
+    fallbackText = ''
+  ): Promise<void> {
+    this.status = 'speaking';
+    this.notify();
+
+    let finished = false;
+    const finishSpeaking = () => {
+      if (finished) return;
+      finished = true;
+      if (this.status === 'speaking') {
+        this.startListening();
+      }
+    };
+
+    // 1. Web HTML5 Audio
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      try {
+        if (this.currentWebAudio) {
+          try {
+            this.currentWebAudio.pause();
+          } catch {}
+          this.currentWebAudio = null;
+        }
+
+        const audio = new Audio(`data:${audioMime};base64,${audioBase64}`);
+        this.currentWebAudio = audio;
+
+        audio.onended = () => {
+          this.currentWebAudio = null;
+          finishSpeaking();
+        };
+
+        audio.onerror = (e) => {
+          console.warn('[VoiceClient] Web audio error, using speech fallback:', e);
+          this.currentWebAudio = null;
+          this.speakAloud(fallbackText);
+        };
+
+        await audio.play();
+        return;
+      } catch (err) {
+        console.warn('[VoiceClient] Web audio play error:', err);
+      }
+    }
+
+    // 2. Native Mobile (iOS / Android via expo-audio & expo-file-system)
+    try {
+      if (this.currentPlayer) {
+        try {
+          this.currentPlayer.pause();
+          this.currentPlayer.remove();
+        } catch {}
+        this.currentPlayer = null;
+      }
+
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+      });
+
+      const speechFile = new File(Paths.cache, `disha_speech_${Date.now()}.wav`);
+      await speechFile.write(audioBase64, { encoding: 'base64' });
+
+      const player = createAudioPlayer(speechFile.uri);
+      this.currentPlayer = player;
+
+      player.addListener('playbackStatusUpdate', (status: any) => {
+        if (status.didJustFinish) {
+          if (this.currentPlayer === player) {
+            this.currentPlayer = null;
+            try {
+              player.remove();
+            } catch {}
+            finishSpeaking();
+          }
+        }
+      });
+
+      player.play();
+      return;
+    } catch (err) {
+      console.warn('[VoiceClient] Native player error, falling back to TTS:', err);
+    }
+
+    // 3. Fallback to device speech engine
+    this.speakAloud(fallbackText);
+  }
+
+  /**
    * Speaks text aloud through device speakers with safety watchdog timer to prevent UI hanging.
    */
   public speakAloud(text: string, onEnd?: () => void) {
@@ -145,6 +244,12 @@ export class VoiceClientService {
     const estimatedDurationMs = Math.max(3000, wordCount * 350 + 1000);
     const watchdogTimer = setTimeout(finishSpeaking, estimatedDurationMs);
 
+    // Detect Indian English vs Hindi for accurate pronunciation
+    const isHindiText =
+      /[\u0900-\u097F]/.test(text) ||
+      /\b(namaste|aap|kaisa|kaise|karti|karta|hoon|hai|karein|theek|accha|shukriya|shuru|bol)\b/i.test(text);
+    const speechLang = isHindiText ? 'hi-IN' : 'en-IN';
+
     // 1. Web Speech Synthesis (Reliable across Chrome, Edge, Safari, Firefox)
     if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
@@ -152,13 +257,13 @@ export class VoiceClientService {
         window.speechSynthesis.resume();
 
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
+        utterance.rate = 0.98;
+        utterance.pitch = 1.05;
 
         const voices = window.speechSynthesis.getVoices();
         if (voices && voices.length > 0) {
           const matchedVoice =
-            voices.find((v) => v.lang.startsWith('hi') || v.lang.includes('IN')) ||
+            voices.find((v) => v.lang === speechLang || v.lang.startsWith(isHindiText ? 'hi' : 'en-IN')) ||
             voices.find(
               (v) =>
                 v.name.toLowerCase().includes('india') ||
@@ -206,8 +311,8 @@ export class VoiceClientService {
       }
       Speech.stop();
       Speech.speak(text, {
-        language: 'hi-IN',
-        pitch: 1.0,
+        language: speechLang,
+        pitch: 1.05,
         rate: 0.96,
         onDone: () => {
           clearTimeout(watchdogTimer);
@@ -348,7 +453,7 @@ export class VoiceClientService {
                 this.currentSpeechText = '';
                 this.handleUserSpokenInput(phrase);
               }
-            }, 1200);
+            }, 900);
           }
         };
 
@@ -472,7 +577,7 @@ export class VoiceClientService {
           const now = Date.now();
           if (this.vadSilenceStart === 0) {
             this.vadSilenceStart = now;
-          } else if (now - this.vadSilenceStart > 1200) {
+          } else if (now - this.vadSilenceStart > 900) {
             this.isUserSpeakingVAD = false;
             this.vadSilenceStart = 0;
             if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
@@ -508,7 +613,11 @@ export class VoiceClientService {
       this.isProcessingTurn = false;
       this.notify();
 
-      this.speakAloud(result.coachReply);
+      if (result.audioBase64) {
+        await this.playGeneratedAudio(result.audioBase64, result.audioMime || 'audio/wav', result.coachReply);
+      } else {
+        this.speakAloud(result.coachReply);
+      }
     } catch (err) {
       console.error('[VoiceClient] Audio turn error:', err);
       this.isProcessingTurn = false;
@@ -560,9 +669,9 @@ export class VoiceClientService {
 
         const platformOptions = {
           extension: '.m4a',
-          sampleRate: 44100,
+          sampleRate: 16000,
           numberOfChannels: 1,
-          bitRate: 64000,
+          bitRate: 32000,
           isMeteringEnabled: true,
           outputFormat: 'mpeg4',
           audioEncoder: 'aac',
@@ -609,12 +718,12 @@ export class VoiceClientService {
               speechStartTime = now;
             }
             silenceStartTime = 0;
-          } else if (speechDetected && now - speechStartTime > 800) {
-            // Require at least 800ms of user speech before detecting pauses
+          } else if (speechDetected && now - speechStartTime > 600) {
+            // Require at least 600ms of user speech before detecting pauses
             if (silenceStartTime === 0) {
               silenceStartTime = now;
-            } else if (now - silenceStartTime > 1600 && now - turnStartTime > 2000) {
-              // 1.6 seconds of natural pause detected after >= 2 seconds: complete hands-free turn!
+            } else if (now - silenceStartTime > 900 && now - turnStartTime > 1400) {
+              // 900ms natural pause detected: complete hands-free turn!
               speechDetected = false;
               silenceStartTime = 0;
               this.stopListening();
@@ -752,7 +861,11 @@ export class VoiceClientService {
       this.isProcessingTurn = false;
       this.notify();
 
-      this.speakAloud(replyText);
+      if (aiResponse.audioBase64) {
+        await this.playGeneratedAudio(aiResponse.audioBase64, aiResponse.audioMime || 'audio/wav', replyText);
+      } else {
+        this.speakAloud(replyText);
+      }
     } catch (err) {
       console.error('[VoiceClient] Input error:', err);
       this.isProcessingTurn = false;
@@ -842,6 +955,19 @@ export class VoiceClientService {
    * Instant interruption: yields floor to user immediately.
    */
   public interrupt(): void {
+    if (this.currentPlayer) {
+      try {
+        this.currentPlayer.pause();
+        this.currentPlayer.remove();
+      } catch {}
+      this.currentPlayer = null;
+    }
+    if (this.currentWebAudio) {
+      try {
+        this.currentWebAudio.pause();
+      } catch {}
+      this.currentWebAudio = null;
+    }
     if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
@@ -865,6 +991,19 @@ export class VoiceClientService {
   }
 
   public endSession(): void {
+    if (this.currentPlayer) {
+      try {
+        this.currentPlayer.pause();
+        this.currentPlayer.remove();
+      } catch {}
+      this.currentPlayer = null;
+    }
+    if (this.currentWebAudio) {
+      try {
+        this.currentWebAudio.pause();
+      } catch {}
+      this.currentWebAudio = null;
+    }
     if (this.nativeInterval) {
       clearInterval(this.nativeInterval);
       this.nativeInterval = null;

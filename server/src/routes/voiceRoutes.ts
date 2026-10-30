@@ -216,6 +216,66 @@ voiceRouter.get('/metrics', (_req: Request, res: Response) => {
   res.json(metrics);
 });
 
+/**
+ * Synthesizes natural human speech with authentic Indian accent and cadence
+ * using Gemini's neural voice model ('gemini-3.8-flash-lite-tts' with Aoede voice).
+ */
+export async function synthesizeSpeechWithGemini(
+  text: string
+): Promise<{ audioBase64: string; audioMime: string } | null> {
+  if (!config.gemini.apiKey) return null;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 7000);
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-lite-tts:generateContent?key=${config.gemini.apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  text: `Speak naturally as Disha, a caring wellness coach with warm Indian English and Hindi accent:\n\n${text}`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: 'Aoede',
+                },
+              },
+            },
+          },
+        }),
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timeout);
+
+    if (res.ok) {
+      const data = await res.json();
+      const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+      if (inlineData?.data) {
+        return {
+          audioBase64: inlineData.data,
+          audioMime: inlineData.mimeType || 'audio/wav',
+        };
+      }
+    }
+  } catch (err: any) {
+    console.warn('⚠️  [GEMINI NEURAL TTS]:', err?.message || err);
+  }
+  return null;
+}
+
 // 12. Real-time Gemini AI Coach Chat
 voiceRouter.post('/chat', async (req: Request, res: Response) => {
   const start = Date.now();
@@ -238,7 +298,7 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.gemini.model}:generateContent?key=${config.gemini.apiKey}`;
 
-    const promptText = `${systemPrompt}\n\nUser says: "${message}"\nRespond directly as Disha in 1-2 concise, warm, actionable sentences.`;
+    const promptText = `${systemPrompt}\n\nUser says: "${message}"\nRespond directly as Disha in 1 concise, warm, actionable coaching sentence (max 25 words).`;
 
     const geminiRes = await fetch(url, {
       method: 'POST',
@@ -251,7 +311,7 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
           },
         ],
         generationConfig: {
-          maxOutputTokens: 100,
+          maxOutputTokens: 90,
           temperature: 0.6,
         },
       }),
@@ -282,8 +342,20 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
       }
     }
 
+    let audioBase64Out: string | undefined = undefined;
+    let audioMimeOut: string | undefined = undefined;
+
+    const speechResult = await synthesizeSpeechWithGemini(replyText.trim());
+    if (speechResult) {
+      audioBase64Out = speechResult.audioBase64;
+      audioMimeOut = speechResult.audioMime;
+      console.log(`🔊  [CHAT NEURAL AUDIO READY]: ${audioMimeOut}`);
+    }
+
     res.json({
       text: replyText.trim(),
+      audioBase64: audioBase64Out,
+      audioMime: audioMimeOut,
       suggestions: ['Check my active plan', 'How is my hydration today?', 'Adjust my workout intensity'],
     });
   } catch (err: any) {
@@ -317,7 +389,9 @@ voiceRouter.post('/audio-turn', async (req: Request, res: Response) => {
     const instruction = `${systemPrompt}
 Listen carefully to the attached user voice recording.
 1. Transcribe what the user said verbatim in English, Hindi, or Hinglish. Listen carefully even if the speech is soft, fast, or has minor background noise.
-2. If the user spoke, respond warmly and concisely in 1-2 actionable coaching sentences as Disha.
+2. If the user spoke, respond warmly and concisely in 1 concise, actionable coaching sentence (under 25 words) as Disha.
+   - If user spoke in Hindi/Hinglish, reply in natural, everyday conversational Hinglish with warm Hindi pronunciation.
+   - If user spoke in English, reply in natural, friendly Indian English.
 3. Only if there is zero speech (only pure ambient silence), set userTranscript to "(Silence or brief pause)" and set coachReply to "Namaste Alex! Main sun rahi hoon. Aapka mic connect ho gaya—please go ahead, I am listening!"
 Return strictly a valid JSON object in this format:
 {
@@ -351,7 +425,7 @@ Return strictly a valid JSON object in this format:
           },
         ],
         generationConfig: {
-          maxOutputTokens: 120,
+          maxOutputTokens: 90,
           temperature: 0.6,
         },
       }),
@@ -380,8 +454,7 @@ Return strictly a valid JSON object in this format:
 
     console.log(`📝  TRANSCRIPTION: "${userTranscript}"`);
     console.log(`🤖  DISHA AI RESPONSE: "${coachReply}"`);
-    console.log(`⚡  Total Latency: ${elapsed}ms`);
-    console.log('============================================================\n');
+    console.log(`⚡  Text Turn Latency: ${elapsed}ms`);
 
     // Progressive memory extraction for symptoms or energy
     if (user && userTranscript) {
@@ -394,10 +467,26 @@ Return strictly a valid JSON object in this format:
       }
     }
 
+    let audioBase64Out: string | undefined = undefined;
+    let audioMimeOut: string | undefined = undefined;
+
+    // Synthesize human voice audio with natural Indian accent
+    const speechResult = await synthesizeSpeechWithGemini(coachReply);
+    if (speechResult) {
+      audioBase64Out = speechResult.audioBase64;
+      audioMimeOut = speechResult.audioMime;
+      console.log(`🔊  [GEMINI NEURAL AUDIO READY]: ${audioMimeOut} (${((audioBase64Out.length * 0.75) / 1024).toFixed(1)} KB)`);
+    }
+
+    console.log(`⚡  Total Turn + Voice Latency: ${Date.now() - start}ms`);
+    console.log('============================================================\n');
+
     res.json({
       userTranscript,
       coachReply,
-      latencyMs: elapsed,
+      audioBase64: audioBase64Out,
+      audioMime: audioMimeOut,
+      latencyMs: Date.now() - start,
     });
   } catch (err: any) {
     console.error('❌  [AUDIO TURN ERROR]:', err.message);

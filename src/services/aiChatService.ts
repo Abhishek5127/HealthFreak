@@ -21,7 +21,7 @@ export async function askDishaAI(
   message: string,
   userName = 'there',
   conditions: string[] = []
-): Promise<{ text: string; suggestions: string[] }> {
+): Promise<{ text: string; suggestions: string[]; audioBase64?: string; audioMime?: string }> {
   // 1. First try local backend server
   try {
     const backendUrl = getBackendBaseUrl();
@@ -46,6 +46,8 @@ export async function askDishaAI(
             'Suggest a balanced dinner',
             'Check my active plan',
           ],
+          audioBase64: data.audioBase64,
+          audioMime: data.audioMime,
         };
       }
     }
@@ -122,7 +124,7 @@ export async function transcribeAndReplyAudio(
   mimeType = 'audio/webm',
   userName = 'Alex',
   conditions: string[] = []
-): Promise<{ userTranscript: string; coachReply: string }> {
+): Promise<{ userTranscript: string; coachReply: string; audioBase64?: string; audioMime?: string }> {
   // 1. First attempt backend server (logs to server terminal in real-time)
   try {
     const backendUrl = getBackendBaseUrl();
@@ -147,6 +149,8 @@ export async function transcribeAndReplyAudio(
         return {
           userTranscript: data.userTranscript || 'Voice note recorded',
           coachReply: data.coachReply,
+          audioBase64: data.audioBase64,
+          audioMime: data.audioMime,
         };
       }
     }

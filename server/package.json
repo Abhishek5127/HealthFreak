@@ -5,6 +5,7 @@
   "main": "src/index.ts",
   "scripts": {
     "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "worker": "tsx src/agent-worker.ts",
     "test": "tsx tests/run-all-tests.ts",
     "build": "tsc"
