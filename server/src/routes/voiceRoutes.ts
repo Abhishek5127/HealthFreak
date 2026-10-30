@@ -415,11 +415,14 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
     let audioBase64Out: string | undefined = undefined;
     let audioMimeOut: string | undefined = undefined;
 
-    const speechResult = await synthesizeSpeechWithGemini(replyText.trim());
-    if (speechResult) {
-      audioBase64Out = speechResult.audioBase64;
-      audioMimeOut = speechResult.audioMime;
-      console.log(`🔊  [CHAT NEURAL AUDIO READY]: ${audioMimeOut}`);
+    const { generateCloudAudio } = req.body;
+    if (generateCloudAudio) {
+      const speechResult = await synthesizeSpeechWithGemini(replyText.trim());
+      if (speechResult) {
+        audioBase64Out = speechResult.audioBase64;
+        audioMimeOut = speechResult.audioMime;
+        console.log(`🔊  [CHAT NEURAL AUDIO READY]: ${audioMimeOut}`);
+      }
     }
 
     res.json({
@@ -524,7 +527,8 @@ Return strictly a valid JSON object in this format:
 
     console.log(`📝  TRANSCRIPTION: "${userTranscript}"`);
     console.log(`🤖  DISHA AI RESPONSE: "${coachReply}"`);
-    console.log(`⚡  Text Turn Latency: ${elapsed}ms`);
+    console.log(`⚡  Live Turn Latency: ${elapsed}ms`);
+    console.log('============================================================\n');
 
     // Progressive memory extraction for symptoms or energy
     if (user && userTranscript) {
@@ -537,26 +541,26 @@ Return strictly a valid JSON object in this format:
       }
     }
 
+    // Optional cloud audio if explicitly requested by client; default responds immediately for sub-second latency
+    const { generateCloudAudio } = req.body;
     let audioBase64Out: string | undefined = undefined;
     let audioMimeOut: string | undefined = undefined;
 
-    // Synthesize human voice audio with natural Indian accent
-    const speechResult = await synthesizeSpeechWithGemini(coachReply);
-    if (speechResult) {
-      audioBase64Out = speechResult.audioBase64;
-      audioMimeOut = speechResult.audioMime;
-      console.log(`🔊  [GEMINI NEURAL AUDIO READY]: ${audioMimeOut} (${((audioBase64Out.length * 0.75) / 1024).toFixed(1)} KB)`);
+    if (generateCloudAudio) {
+      const speechResult = await synthesizeSpeechWithGemini(coachReply);
+      if (speechResult) {
+        audioBase64Out = speechResult.audioBase64;
+        audioMimeOut = speechResult.audioMime;
+        console.log(`🔊  [GEMINI NEURAL AUDIO READY]: ${audioMimeOut} (${((audioBase64Out.length * 0.75) / 1024).toFixed(1)} KB)`);
+      }
     }
-
-    console.log(`⚡  Total Turn + Voice Latency: ${Date.now() - start}ms`);
-    console.log('============================================================\n');
 
     res.json({
       userTranscript,
       coachReply,
       audioBase64: audioBase64Out,
       audioMime: audioMimeOut,
-      latencyMs: Date.now() - start,
+      latencyMs: elapsed,
     });
   } catch (err: any) {
     console.error('❌  [AUDIO TURN ERROR]:', err.message);

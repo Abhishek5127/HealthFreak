@@ -75,6 +75,49 @@ export class VoiceClientService {
   private nativeInterval: any = null;
   private currentPlayer: AudioPlayer | null = null;
   private currentWebAudio: any = null;
+  private cachedIndianVoices: { hindi?: string; indianEnglish?: string } = {};
+
+  constructor() {
+    this.initAvailableVoices();
+  }
+
+  public async initAvailableVoices(): Promise<void> {
+    try {
+      if (Platform.OS !== 'web') {
+        const voices = await Speech.getAvailableVoicesAsync();
+        if (voices && voices.length > 0) {
+          // Indian English female voice (e.g. Google en-in-x-end-network, en-in-x-ene, iOS Isha)
+          const enInVoice = voices.find(
+            (v) =>
+              (v.language === 'en-IN' || v.identifier.toLowerCase().includes('en_in') || v.identifier.toLowerCase().includes('en-in')) &&
+              (v.name.toLowerCase().includes('female') ||
+                v.identifier.includes('end') ||
+                v.identifier.includes('ene') ||
+                v.identifier.includes('enc') ||
+                v.name.toLowerCase().includes('isha') ||
+                v.name.toLowerCase().includes('veena'))
+          ) || voices.find((v) => v.language === 'en-IN' || v.identifier.includes('en_IN'));
+
+          // Hindi female voice (e.g. Google hi-in-x-hie-local, hi-in-x-hid, iOS Lekha)
+          const hiInVoice = voices.find(
+            (v) =>
+              (v.language === 'hi-IN' || v.language === 'hi' || v.identifier.toLowerCase().includes('hi_in') || v.identifier.toLowerCase().includes('hi-in')) &&
+              (v.name.toLowerCase().includes('female') ||
+                v.identifier.includes('hie') ||
+                v.identifier.includes('hid') ||
+                v.identifier.includes('hia') ||
+                v.name.toLowerCase().includes('lekha') ||
+                v.name.toLowerCase().includes('kalpana'))
+          ) || voices.find((v) => v.language.startsWith('hi'));
+
+          if (enInVoice) this.cachedIndianVoices.indianEnglish = enInVoice.identifier;
+          if (hiInVoice) this.cachedIndianVoices.hindi = hiInVoice.identifier;
+        }
+      }
+    } catch {
+      // Handled gracefully
+    }
+  }
 
   public subscribe(listener: (state: VoiceSessionState) => void) {
     this.listeners.add(listener);
@@ -301,7 +344,7 @@ export class VoiceClientService {
       }
     }
 
-    // 2. Native mobile fallback via expo-speech (iOS / Android)
+    // 2. Native mobile playback via expo-speech with dedicated Indian voices (iOS / Android)
     try {
       if (Platform.OS !== 'web') {
         setAudioModeAsync({
@@ -309,11 +352,16 @@ export class VoiceClientService {
           playsInSilentMode: true,
         }).catch(() => {});
       }
+      const chosenVoice = isHindiText
+        ? this.cachedIndianVoices.hindi
+        : this.cachedIndianVoices.indianEnglish;
+
       Speech.stop();
       Speech.speak(text, {
         language: speechLang,
+        voice: chosenVoice,
         pitch: 1.05,
-        rate: 0.96,
+        rate: 0.98,
         onDone: () => {
           clearTimeout(watchdogTimer);
           finishSpeaking();
@@ -928,6 +976,7 @@ export class VoiceClientService {
 
     this.unlockAudio();
     await this.initMicrophone();
+    await this.initAvailableVoices();
 
     try {
       const backendUrl = getBackendBaseUrl();
