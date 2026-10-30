@@ -5,16 +5,13 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft, ArrowRight } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withTiming,
   withSpring,
-  Easing,
 } from 'react-native-reanimated';
 import { useApp } from '../../state/AppContext';
 import { CheckInMood } from '../../types';
@@ -23,8 +20,6 @@ import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
 import { CheckInCharacterView } from '../../components/illustrations/CheckInCharacters';
 import { PrimaryButton } from '../../components/common/PrimaryButton';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface MoodOption {
   id: CheckInMood;
@@ -133,7 +128,7 @@ export const CheckInFlow: React.FC = () => {
           <ChevronLeft size={22} color={Colors.textPrimary} />
         </Pressable>
 
-        <Text style={styles.headerTitle}>Todays' energy level</Text>
+        <Text style={styles.headerTitle}>{"Today's energy level"}</Text>
 
         <View style={styles.headerRightSpacer} />
       </View>

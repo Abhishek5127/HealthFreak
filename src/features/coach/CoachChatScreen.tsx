@@ -23,6 +23,7 @@ import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
 import { DishaLogoEmblem } from '../../components/illustrations/DishaLogo';
 import { VoiceOverlay } from './VoiceOverlay';
+import { voiceClient } from '../../services/voiceClient';
 
 export const CoachChatScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -89,7 +90,10 @@ export const CoachChatScreen: React.FC = () => {
         {/* Voice Mode Button */}
         <Pressable
           style={styles.voiceButton}
-          onPress={() => setIsVoiceActive(true)}
+          onPress={() => {
+            voiceClient.unlockAudio();
+            setIsVoiceActive(true);
+          }}
           hitSlop={8}
         >
           <Mic size={18} color={Colors.coralCTA} />

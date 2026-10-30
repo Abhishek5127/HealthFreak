@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import {
   Flame,
   TrendingUp,
-  Award,
   FileText,
   Activity,
   Heart,
@@ -21,7 +20,7 @@ import { ProgressRing } from '../../components/illustrations/ProgressRing';
 import { MetricLineChart } from '../../components/illustrations/MetricLineChart';
 
 export const ProgressScreen: React.FC = () => {
-  const { userProfile, metrics, setActiveModal } = useApp();
+  const { userProfile, setActiveModal } = useApp();
   const [timeRange, setTimeRange] = useState<'Week' | 'Month'>('Week');
 
   return (

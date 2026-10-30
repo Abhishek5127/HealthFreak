@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import {
   TabType,
@@ -16,7 +16,8 @@ import {
   mockProgressMetrics,
   mockFeaturedWorkout,
 } from '../mock-data/healthData';
-import { initialCoachMessages, coachResponses } from '../mock-data/coachChat';
+import { initialCoachMessages } from '../mock-data/coachChat';
+import { askDishaAI } from '../services/aiChatService';
 
 interface AppContextType {
   // Navigation
@@ -141,7 +142,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const sendChatMessage = (text: string) => {
+  const sendChatMessage = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
 
@@ -156,44 +157,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setChatMessages((prev) => [...prev, userMsg]);
     setIsCoachTyping(true);
 
-    // Simulate smart contextual response
-    setTimeout(() => {
-      const lower = trimmed.toLowerCase();
-      let matchedResponse = coachResponses[lower];
-
-      if (!matchedResponse) {
-        // Fallback contextual search
-        const keys = Object.keys(coachResponses);
-        const foundKey = keys.find((k) => lower.includes(k) || k.includes(lower));
-        if (foundKey) {
-          matchedResponse = coachResponses[foundKey];
-        } else if (lower.includes('food') || lower.includes('eat') || lower.includes('diet') || lower.includes('meal')) {
-          matchedResponse = coachResponses['suggest a balanced dinner'];
-        } else if (lower.includes('lab') || lower.includes('report') || lower.includes('blood') || lower.includes('test')) {
-          matchedResponse = coachResponses['explain my recent lab report'];
-        } else if (lower.includes('plan') || lower.includes('routine') || lower.includes('today')) {
-          matchedResponse = coachResponses['help me plan my day'];
-        } else {
-          matchedResponse = {
-            text: `Thank you for sharing that, ${userProfile.name.split(' ')[0]}. Consistency in small daily micro-habits creates profound metabolic resilience. Let’s focus on staying hydrated, taking mindful breaths, and sticking to your scheduled evening movement!`,
-            suggestions: ['Help me plan my day', 'Explain my recent lab report', 'Suggest a balanced dinner'],
-          };
-        }
-      }
+    try {
+      const aiResponse = await askDishaAI(
+        trimmed,
+        userProfile.name.split(' ')[0] || 'friend',
+        userProfile.healthConditions || []
+      );
 
       const coachMsg: ChatMessage = {
         id: `msg_coach_${Date.now()}`,
         sender: 'coach',
-        text: matchedResponse.text,
+        text: aiResponse.text,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        suggestions: matchedResponse.suggestions,
-        actionLink: matchedResponse.actionLink,
+        suggestions: aiResponse.suggestions || [
+          'Help me plan my day',
+          'Explain my recent lab report',
+          'Suggest a balanced dinner',
+        ],
       };
 
       setChatMessages((prev) => [...prev, coachMsg]);
       setIsCoachTyping(false);
       triggerHaptic('selection');
-    }, 1100);
+    } catch (err) {
+      console.error('[sendChatMessage error]', err);
+      const coachMsg: ChatMessage = {
+        id: `msg_coach_${Date.now()}`,
+        sender: 'coach',
+        text: `Namaste ${userProfile.name.split(' ')[0]}! Main sun rahi hoon. Aaj aap kaisa feel kar rahe hain? Any health questions or meal goals I can help guide?`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        suggestions: ['Help me plan my day', 'Explain my recent lab report', 'Suggest a balanced dinner'],
+      };
+      setChatMessages((prev) => [...prev, coachMsg]);
+      setIsCoachTyping(false);
+      triggerHaptic('selection');
+    }
   };
 
   const resetAll = () => {

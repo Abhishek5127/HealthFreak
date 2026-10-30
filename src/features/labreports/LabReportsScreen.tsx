@@ -12,8 +12,6 @@ import {
   ChevronLeft,
   UploadCloud,
   FileCheck,
-  AlertCircle,
-  CheckCircle2,
   Info,
   Sparkles,
 } from 'lucide-react-native';
@@ -23,7 +21,6 @@ import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
 import { mockRecentLabReport } from '../../mock-data/labReports';
-import { PrimaryButton } from '../../components/common/PrimaryButton';
 
 export const LabReportsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();

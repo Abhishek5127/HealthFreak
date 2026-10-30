@@ -1,7 +1,7 @@
 import { UserProfile, DailyActivityItem, ActivitySession, ProgressMetric } from '../types';
 
 export const initialUserProfile: UserProfile = {
-  name: 'George Davidson',
+  name: 'Alex Sharma',
   streakDays: 21,
   selectedGoal: 'metabolic_fitness',
   goalLabel: 'Metabolic Health & Energy',

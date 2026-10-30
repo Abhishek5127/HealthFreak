@@ -5,14 +5,10 @@ import {
   StyleSheet,
   Image,
   Pressable,
-  Switch,
 } from 'react-native';
 import {
   ChevronRight,
-  Globe,
-  Target,
   FileText,
-  Bell,
   ShieldCheck,
   RotateCcw,
   Sparkles,
@@ -157,7 +153,7 @@ export const ProfileScreen: React.FC = () => {
         </View>
         <View style={styles.menuTextCol}>
           <Text style={styles.menuTitle}>Energy & Mood Check-In</Text>
-          <Text style={styles.menuSub}>Update today's mental and physical status</Text>
+          <Text style={styles.menuSub}>{"Update today's mental and physical status"}</Text>
         </View>
         <ChevronRight size={18} color={Colors.textSecondary} />
       </Pressable>

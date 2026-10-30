@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Pressable, Platform } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Home,
@@ -49,7 +49,6 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
       <View style={styles.container}>
         {TABS.map((tab) => {
           const isActive = activeTab === tab.id;
-          const Icon = tab.icon;
 
           return (
             <TabButton

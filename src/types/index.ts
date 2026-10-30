@@ -22,6 +22,7 @@ export type LanguagePreference = 'English' | 'Hindi' | 'Hinglish';
 export type CheckInMood = 'lowEnergy' | 'tense' | 'calm' | 'balanced' | 'energized';
 
 export interface UserProfile {
+  id?: string;
   name: string;
   avatarUrl?: string;
   streakDays: number;

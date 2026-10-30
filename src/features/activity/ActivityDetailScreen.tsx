@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Image,
   Pressable,
-  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -15,7 +14,6 @@ import {
   Play,
   Pause,
   SkipForward,
-  CheckCircle2,
   Award,
 } from 'lucide-react-native';
 import { useApp } from '../../state/AppContext';
@@ -24,8 +22,6 @@ import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
 import { PrimaryButton } from '../../components/common/PrimaryButton';
 import { ProgressRing } from '../../components/illustrations/ProgressRing';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export const ActivityDetailScreen: React.FC = () => {
   const insets = useSafeAreaInsets();

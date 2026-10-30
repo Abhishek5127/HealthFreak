@@ -16,7 +16,6 @@ import {
   Sparkles,
   Zap,
   Salad,
-  Heart,
   ChevronRight,
 } from 'lucide-react-native';
 import { useApp } from '../../state/AppContext';

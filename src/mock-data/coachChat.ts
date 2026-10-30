@@ -4,7 +4,7 @@ export const initialCoachMessages: ChatMessage[] = [
   {
     id: 'msg_1',
     sender: 'coach',
-    text: "Namaste George! I'm Disha, your dedicated wellness companion. I noticed you logged high energy today — fantastic! How can I support your routine?",
+    text: "Namaste Alex! I'm Disha, your AI wellness coach. I'm here to listen, answer your health questions, and guide your daily nutrition & movement. What would you like to focus on today?",
     timestamp: '9:30 AM',
     suggestions: [
       'Help me plan my day',

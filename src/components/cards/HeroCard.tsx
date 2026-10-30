@@ -5,7 +5,6 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
-import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
 import { EnergizedSunCharacter } from '../illustrations/CheckInCharacters';
