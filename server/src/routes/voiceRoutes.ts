@@ -217,64 +217,134 @@ voiceRouter.get('/metrics', (_req: Request, res: Response) => {
 });
 
 /**
+ * Converts raw 16-bit linear PCM audio into standard RIFF WAVE (.wav) container.
+ */
+function pcmToWav(pcmBuffer: Buffer, sampleRate = 24000, numChannels = 1, bitDepth = 16): Buffer {
+  const header = Buffer.alloc(44);
+  const dataLen = pcmBuffer.length;
+  const byteRate = (sampleRate * numChannels * bitDepth) / 8;
+  const blockAlign = (numChannels * bitDepth) / 8;
+
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + dataLen, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(numChannels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitDepth, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(dataLen, 40);
+
+  return Buffer.concat([header, pcmBuffer]);
+}
+
+/**
  * Synthesizes natural human speech with authentic Indian accent and cadence
- * using Gemini's neural voice model ('gemini-3.8-flash-lite-tts' with Aoede voice).
+ * using a high-quota multi-model TTS chain with Aoede voice.
  */
 export async function synthesizeSpeechWithGemini(
   text: string
 ): Promise<{ audioBase64: string; audioMime: string } | null> {
   if (!config.gemini.apiKey) return null;
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 7000);
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-lite-tts:generateContent?key=${config.gemini.apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  text: `Speak naturally as Disha, a caring wellness coach with warm Indian English and Hindi accent:\n\n${text}`,
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            responseModalities: ['AUDIO'],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: {
-                  voiceName: 'Aoede',
+  const ttsModels = [
+    'gemini-3.1-flash-tts-preview',
+    'gemini-2.5-flash-preview-tts',
+    'gemini-3.8-flash-lite-tts',
+  ];
+
+  for (const model of ttsModels) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8500);
+
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.gemini.apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text }],
+              },
+            ],
+            generationConfig: {
+              responseModalities: ['AUDIO'],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: {
+                    voiceName: 'Aoede',
+                  },
                 },
               },
             },
-          },
-        }),
-        signal: controller.signal,
-      }
-    );
-    clearTimeout(timeout);
+          }),
+          signal: controller.signal,
+        }
+      );
+      clearTimeout(timeout);
 
-    if (res.ok) {
-      const data = await res.json();
-      const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
-      if (inlineData?.data) {
-        return {
-          audioBase64: inlineData.data,
-          audioMime: inlineData.mimeType || 'audio/wav',
-        };
+      if (res.ok) {
+        const data = await res.json();
+        const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+        if (inlineData?.data) {
+          let audioBuffer = Buffer.from(inlineData.data, 'base64');
+          const mime = inlineData.mimeType || '';
+
+          // If raw PCM (L16), convert to standard playable WAV with RIFF header
+          if (mime.includes('l16') || mime.includes('pcm') || !mime.includes('wav')) {
+            audioBuffer = pcmToWav(audioBuffer, 24000, 1, 16);
+          }
+
+          return {
+            audioBase64: audioBuffer.toString('base64'),
+            audioMime: 'audio/wav',
+          };
+        }
       }
+    } catch (err: any) {
+      console.warn(`⚠️  [TTS MODEL ${model}]:`, err?.message || err);
     }
-  } catch (err: any) {
-    console.warn('⚠️  [GEMINI NEURAL TTS]:', err?.message || err);
   }
   return null;
 }
+
+// 12. Dynamic Neural Greeting Audio
+voiceRouter.post('/greeting', async (req: Request, res: Response) => {
+  try {
+    const { userId = 'usr_synthetic_alex' } = req.body;
+    const user = db.getUser(userId) || db.getUser('usr_synthetic_alex');
+    const name = user ? user.name.split(' ')[0] : 'Alex';
+
+    const hour = new Date().getHours();
+    let greeting = '';
+    if (hour >= 5 && hour < 12) {
+      greeting = `Good morning ${name}! Main Disha bol rahi hoon, aapki AI health coach. How did you sleep, and how is your morning energy today?`;
+    } else if (hour >= 12 && hour < 17) {
+      greeting = `Namaste ${name}! Main Disha bol rahi hoon. Taking a quick wellness check-in—how was your lunch and routine so far?`;
+    } else if (hour >= 17 && hour < 22) {
+      greeting = `Good evening ${name}! Disha here. How are you feeling after today's activities? Any discomfort or meal questions tonight?`;
+    } else {
+      greeting = `Namaste ${name}! Main Disha bol rahi hoon. Time for a peaceful wind-down. How did your day go overall?`;
+    }
+
+    const speech = await synthesizeSpeechWithGemini(greeting);
+
+    res.json({
+      greeting,
+      audioBase64: speech?.audioBase64,
+      audioMime: speech?.audioMime || 'audio/wav',
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // 12. Real-time Gemini AI Coach Chat
 voiceRouter.post('/chat', async (req: Request, res: Response) => {

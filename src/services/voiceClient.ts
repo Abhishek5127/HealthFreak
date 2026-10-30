@@ -551,7 +551,7 @@ export class VoiceClientService {
       const avg = sum / bufferLength;
       this.audioLevel = Math.min(100, Math.round((avg / 128) * 100));
 
-      const isSpeakingNow = this.audioLevel > 12;
+      const isSpeakingNow = this.audioLevel > 18;
 
       // Barge-in: User starts speaking while Disha is speaking
       if (isSpeakingNow && this.status === 'speaking') {
@@ -577,7 +577,7 @@ export class VoiceClientService {
           const now = Date.now();
           if (this.vadSilenceStart === 0) {
             this.vadSilenceStart = now;
-          } else if (now - this.vadSilenceStart > 900) {
+          } else if (now - this.vadSilenceStart > 750) {
             this.isUserSpeakingVAD = false;
             this.vadSilenceStart = 0;
             if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
@@ -689,6 +689,9 @@ export class VoiceClientService {
         let speechDetected = false;
         let speechStartTime = 0;
         let silenceStartTime = 0;
+        let peakVoiceDb = -100;
+        let lastVoicePeakTime = 0;
+        let ambientFloorDb = -50;
         const turnStartTime = Date.now();
 
         this.nativeInterval = setInterval(() => {
@@ -698,13 +701,27 @@ export class VoiceClientService {
           if (!status.isRecording) return;
 
           const metering = status.metering ?? -100;
-          // dB mapping: -160 is total silence, > -48 dB is active human speech
-          const level = Math.min(100, Math.max(0, Math.round(((metering + 60) / 60) * 100)));
+          // Normalized level: 0 to 100 based on realistic speech range (-60 dB to -10 dB)
+          const level = Math.min(100, Math.max(0, Math.round(((metering + 60) / 50) * 100)));
           this.audioLevel = level;
           this.notify();
 
-          const isVoiceNow = metering > -48 || level > 12;
           const now = Date.now();
+
+          // 1. Initial 250ms ambient noise floor calibration
+          if (now - turnStartTime < 250) {
+            ambientFloorDb = Math.max(ambientFloorDb, metering);
+            return;
+          }
+
+          // 2. Dynamic thresholds:
+          // Active speech must be significantly above ambient noise and at least -34 dB
+          const speechThreshold = Math.max(-34, ambientFloorDb + 8);
+          // Silence drops below -38 dB or 9 dB below the user's voice peak
+          const silenceThreshold = Math.min(-38, peakVoiceDb > -30 ? peakVoiceDb - 9 : -37);
+
+          const isVoiceNow = metering >= speechThreshold;
+          const isQuietNow = metering < silenceThreshold;
 
           // Barge-in: User speaks while Disha is speaking
           if (isVoiceNow && this.status === 'speaking') {
@@ -717,21 +734,38 @@ export class VoiceClientService {
               speechDetected = true;
               speechStartTime = now;
             }
+            if (metering > peakVoiceDb) {
+              peakVoiceDb = metering;
+            }
+            lastVoicePeakTime = now;
             silenceStartTime = 0;
-          } else if (speechDetected && now - speechStartTime > 600) {
-            // Require at least 600ms of user speech before detecting pauses
-            if (silenceStartTime === 0) {
-              silenceStartTime = now;
-            } else if (now - silenceStartTime > 900 && now - turnStartTime > 1400) {
-              // 900ms natural pause detected: complete hands-free turn!
-              speechDetected = false;
-              silenceStartTime = 0;
-              this.stopListening();
+          } else if (speechDetected) {
+            const speakingDuration = now - speechStartTime;
+            if (speakingDuration >= 500) {
+              if (isQuietNow) {
+                if (silenceStartTime === 0) {
+                  silenceStartTime = now;
+                } else if (now - silenceStartTime >= 750) {
+                  // 750ms of quietness detected: hands-free turn complete!
+                  speechDetected = false;
+                  silenceStartTime = 0;
+                  this.stopListening();
+                  return;
+                }
+              }
+
+              // Vocal Inactivity Guard: If 1.1s elapsed without any speech peaks, finish turn!
+              if (lastVoicePeakTime > 0 && now - lastVoicePeakTime >= 1100) {
+                speechDetected = false;
+                silenceStartTime = 0;
+                this.stopListening();
+                return;
+              }
             }
           }
 
-          // Safety guard: max 15 seconds recording turn
-          if (now - turnStartTime > 15000 && speechDetected) {
+          // Safety guard: max 12 seconds per turn
+          if (now - turnStartTime > 12000 && speechDetected) {
             speechDetected = false;
             this.stopListening();
           }
@@ -935,10 +969,38 @@ export class VoiceClientService {
       greeting = 'Namaste Alex! Main Disha bol rahi hoon. Time for a peaceful wind-down. How did your day go overall?';
     }
 
-    setTimeout(() => {
-      this.coachTranscript = greeting;
-      this.speakAloud(greeting);
-    }, 300);
+    // Fetch neural greeting from backend so initial voice is ALWAYS Gemini Aoede
+    try {
+      const backendUrl = getBackendBaseUrl();
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 6000);
+      const greetRes = await fetch(`${backendUrl}/api/voice/greeting`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (greetRes.ok) {
+        const greetData = await greetRes.json();
+        if (greetData.greeting) {
+          greeting = greetData.greeting;
+          this.coachTranscript = greeting;
+          if (greetData.audioBase64) {
+            this.status = 'speaking';
+            this.notify();
+            await this.playGeneratedAudio(greetData.audioBase64, greetData.audioMime || 'audio/wav', greeting);
+            return;
+          }
+        }
+      }
+    } catch {
+      // Fallback to local audio
+    }
+
+    this.coachTranscript = greeting;
+    this.speakAloud(greeting);
   }
 
   public toggleMute(): void {
