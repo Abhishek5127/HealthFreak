@@ -110,3 +110,4 @@ export async function runMealScannerTests() {
   console.log(`   📊 Meal Scanner Unit Tests: ${passCount}/5 PASSED`);
   return true;
 }
+

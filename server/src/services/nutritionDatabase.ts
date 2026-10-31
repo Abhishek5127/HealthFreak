@@ -990,3 +990,4 @@ export class MealNutritionService {
     return `Looking very balanced, ${firstName}! Total calories come out to ~${macros.calories} kcal with solid micronutrient variety. Enjoy your meal mindfully!`;
   }
 }
+

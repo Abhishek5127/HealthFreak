@@ -160,10 +160,13 @@ Return STRICT JSON matching this schema:
       }
     }
 
-    // If Gemini API could not be reached, use synthetic high-fidelity fallback
+    // If Gemini API could not be reached, report error
     if (!rawVisionOutput || rawVisionOutput.foods.length === 0) {
-      console.log('[Gemini Vision] Using intelligent fallback meal estimation');
-      rawVisionOutput = this.generateFallbackVisionOutput();
+      console.warn('[Gemini Vision] No foods recognized or models exhausted:', lastError?.message);
+      if (lastError) {
+        throw new Error(`Gemini Vision analysis error: ${lastError.message}`);
+      }
+      throw new Error('No food detected in image. Please point camera directly at your plate.');
     }
 
     // Now convert vision output to fully calculated Nutrition Report

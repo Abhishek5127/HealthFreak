@@ -98,3 +98,4 @@ export interface DailyNutritionSummary {
   waterTargetMl: number;
   meals: MealAnalysisResult[];
 }
+

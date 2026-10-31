@@ -50,7 +50,6 @@ export const CameraScannerScreen: React.FC = () => {
   const [facing, setFacing] = useState<CameraType>('back');
   const [flash, setFlash] = useState<FlashMode>('off');
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
-  const [isCameraReady, setIsCameraReady] = useState<boolean>(false);
 
   // Scanning stages: idle -> uploading -> identifying -> estimating -> calculating -> done
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
@@ -99,30 +98,24 @@ export const CameraScannerScreen: React.FC = () => {
 
   // Handle Photo Capture
   const handleCapture = async () => {
-    if (!isCameraReady && Platform.OS !== 'web') {
-      console.log('[Camera] Camera view not ready yet');
-      return;
-    }
-
     triggerHaptic('impact');
 
     try {
       if (cameraRef.current) {
         const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.85,
-          skipProcessing: false,
+          quality: 0.8,
+          skipProcessing: Platform.OS === 'android',
         });
         if (photo?.uri) {
+          console.log('[Camera] Captured real photo:', photo.uri);
           setCapturedPhotoUri(photo.uri);
           return;
         }
       }
     } catch (err) {
-      console.warn('[Camera] takePictureAsync failed, fallback to sample plate:', err);
+      console.warn('[Camera] takePictureAsync failed, launching picker:', err);
+      await handlePickFromGallery();
     }
-
-    // Fallback if camera capture fails or running on emulator
-    setCapturedPhotoUri('https://images.unsplash.com/photo-1546833999-b9f581a1996d?q=80&w=800&auto=format&fit=crop');
   };
 
   // Handle Gallery Pick
@@ -224,7 +217,6 @@ export const CameraScannerScreen: React.FC = () => {
           style={StyleSheet.absoluteFill}
           facing={facing}
           flash={flash}
-          onCameraReady={() => setIsCameraReady(true)}
         >
           {/* Viewfinder Overlay */}
           <View style={styles.overlayContainer}>
@@ -307,15 +299,15 @@ export const CameraScannerScreen: React.FC = () => {
                 <View style={styles.shutterInnerCircle} />
               </TouchableOpacity>
 
-              {/* Quick Sample Demo */}
+              {/* Camera Flip */}
               <TouchableOpacity
                 style={styles.secondaryCircleBtn}
                 onPress={() => {
                   triggerHaptic('selection');
-                  setCapturedPhotoUri('https://images.unsplash.com/photo-1546833999-b9f581a1996d?q=80&w=800&auto=format&fit=crop');
+                  setFacing(facing === 'back' ? 'front' : 'back');
                 }}
               >
-                <Utensils color={Colors.textPrimary} size={20} />
+                <SwitchCamera color={Colors.textPrimary} size={22} />
               </TouchableOpacity>
             </View>
           </View>
