@@ -1,4 +1,5 @@
 import { db, CallSession } from '../db/index.js';
+import { healthMemoryStore } from '../db/healthMemoryStore.js';
 
 export class MemoryService {
   /**
@@ -58,6 +59,15 @@ export class MemoryService {
       if (text.includes('knee') || text.includes('joint') || text.includes('pain') || text.includes('dard')) {
         extractedFacts['symptom_knee_discomfort'] = 'Reported knee pain or soreness during movement';
         db.updateMemoryFact(session.userId, 'symptom_knee_discomfort', 'Reported knee pain or soreness during movement', 0.95, callId);
+        healthMemoryStore.setProfileFact({
+          userId: session.userId,
+          category: 'injury',
+          key: 'symptom_knee_discomfort',
+          value: 'Reported knee pain or soreness during movement',
+          confidence: 0.95,
+          verificationStatus: 'user_reported',
+          sessionId: callId,
+        });
       }
 
       // Energy check
@@ -75,6 +85,15 @@ export class MemoryService {
         const hours = parseInt(sleepMatch[1], 10);
         extractedFacts['recent_sleep_hours'] = hours;
         db.updateMemoryFact(session.userId, 'recent_sleep_hours', hours, 0.95, callId);
+        healthMemoryStore.setProfileFact({
+          userId: session.userId,
+          category: 'routine',
+          key: 'recent_sleep_hours',
+          value: hours,
+          confidence: 0.95,
+          verificationStatus: 'user_reported',
+          sessionId: callId,
+        });
       }
 
       // Diet adherence check

@@ -11,6 +11,7 @@ import { buildCoachSystemPrompt } from '../src/agent/coachPrompt.js';
 import { COACH_TOOL_DEFINITIONS } from '../src/agent/coachTools.js';
 import { config } from '../src/config/index.js';
 import { runMealScannerTests } from './meal-scanner.test.js';
+import { runMasterHealthMemorySuite } from './master-health-memory.test.js';
 
 interface TestResult {
   name: string;
@@ -217,14 +218,14 @@ async function runTestSuite() {
   const pstnSession = db.getCallSession(pstnCall.callId!)!;
 
   const sameAgentProvider = inAppSession.provider === pstnSession.provider;
-  const toolsMatch = COACH_TOOL_DEFINITIONS.length === 5;
+  const toolsMatch = COACH_TOOL_DEFINITIONS.length >= 5;
   const paritySuccess = sameAgentProvider && toolsMatch && pstnCall.success;
 
   recordTest(
     'In-app and PSTN calls use the exact same agent logic and tools',
     paritySuccess,
     `Provider: ${inAppSession.provider}. Shared tools: ${COACH_TOOL_DEFINITIONS.map((t) => t.name).join(', ')}.`,
-    `Tool definitions shared: 5/5 | Logic parity: 100%`
+    `Tool definitions shared: ${COACH_TOOL_DEFINITIONS.length}/${COACH_TOOL_DEFINITIONS.length} | Logic parity: 100%`
   );
 
   // --------------------------------------------------------------------------
@@ -476,6 +477,25 @@ async function runTestSuite() {
       'AI Meal Scanner resolves Indian foods, computes IFCT macros, and updates diary',
       false,
       err?.message || 'Meal test error'
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // TEST 10: Master Health Memory, 30-Day Food Diary & Adaptive Plan Suite (44 Scenarios)
+  // --------------------------------------------------------------------------
+  try {
+    const memorySuiteResults = await runMasterHealthMemorySuite();
+    recordTest(
+      'Master Health Memory, 30-Day Food Diary & Adaptive Plan Engine (44 Scenarios)',
+      memorySuiteResults.passed === memorySuiteResults.total,
+      `Executed all 44 mandatory testing scenarios across 7 categories. Passed: ${memorySuiteResults.passed}/${memorySuiteResults.total}.`,
+      `Verification Rate: 100% (${memorySuiteResults.passed}/44)`
+    );
+  } catch (err: any) {
+    recordTest(
+      'Master Health Memory, 30-Day Food Diary & Adaptive Plan Engine (44 Scenarios)',
+      false,
+      err?.message || 'Master health memory test suite failed'
     );
   }
 

@@ -9,6 +9,7 @@ import {
   Moon,
   Droplet,
   ChevronRight,
+  History,
 } from 'lucide-react-native';
 import { useApp } from '../../state/AppContext';
 import { Colors } from '../../theme/colors';
@@ -116,6 +117,59 @@ export const ProgressScreen: React.FC = () => {
           height={160}
           width={330}
         />
+      </View>
+
+      {/* 30-Day Nutrition & Food Diary Analytics */}
+      <SectionHeader
+        title={timeRange === 'Week' ? '7-Day Nutrition Insights' : '30-Day Food Diary & Trends'}
+        actionText="Food diary"
+        onActionPress={() => {}}
+      />
+      <View style={styles.nutritionTrendCard}>
+        <View style={styles.nutritionHeaderRow}>
+          <View>
+            <Text style={styles.nutritionCoverageHeadline}>
+              {timeRange === 'Week' ? '7 of 7 Days Tracked' : '28 of 30 Days Logged (93% Coverage)'}
+            </Text>
+            <Text style={styles.nutritionCoverageSub}>
+              IFCT Verified • High Confidence Food Data
+            </Text>
+          </View>
+          <View style={styles.coverageBadgePill}>
+            <History size={12} color={Colors.success} style={{ marginRight: 4 }} />
+            <Text style={styles.coverageBadgeText}>
+              {timeRange === 'Week' ? '100% Coverage' : '93% Coverage'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Macro Averages Grid */}
+        <View style={styles.macroAvgGrid}>
+          <View style={styles.macroAvgBox}>
+            <Text style={styles.macroAvgNum}>2,050</Text>
+            <Text style={styles.macroAvgLabel}>Avg Daily kcal</Text>
+          </View>
+          <View style={styles.macroAvgBox}>
+            <Text style={[styles.macroAvgNum, { color: Colors.coralCTA }]}>108g</Text>
+            <Text style={styles.macroAvgLabel}>Avg Protein</Text>
+          </View>
+          <View style={styles.macroAvgBox}>
+            <Text style={[styles.macroAvgNum, { color: Colors.softYellow }]}>218g</Text>
+            <Text style={styles.macroAvgLabel}>Avg Carbs</Text>
+          </View>
+          <View style={styles.macroAvgBox}>
+            <Text style={[styles.macroAvgNum, { color: Colors.lightSage }]}>31g</Text>
+            <Text style={styles.macroAvgLabel}>Avg Fiber</Text>
+          </View>
+        </View>
+
+        {/* Frequent Food Habits */}
+        <View style={styles.frequentFoodRow}>
+          <Text style={styles.frequentFoodTitle}>Top Logged Foods (30 Days):</Text>
+          <Text style={styles.frequentFoodList}>
+            • Roti (62x) • Dal Tadka (30x) • Kanda Poha (24x) • Paneer Curry (22x)
+          </Text>
+        </View>
       </View>
 
       {/* Key Biomarkers & Wellness Metrics Grid */}
@@ -387,6 +441,82 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSizes.xs,
     fontFamily: Typography.fontFamilies.sansRegular,
     marginTop: 2,
+    lineHeight: 16,
+  },
+  nutritionTrendCard: {
+    backgroundColor: '#1C201D',
+    borderRadius: Spacing.borderRadius.xl,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#262D28',
+  },
+  nutritionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  nutritionCoverageHeadline: {
+    color: Colors.textPrimary,
+    fontSize: Typography.fontSizes.sm + 1,
+    fontFamily: Typography.fontFamilies.serif,
+  },
+  nutritionCoverageSub: {
+    color: Colors.textSecondary,
+    fontSize: Typography.fontSizes.xs - 1,
+    fontFamily: Typography.fontFamilies.sansRegular,
+    marginTop: 2,
+  },
+  coverageBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(78, 154, 111, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  coverageBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.success,
+  },
+  macroAvgGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: Spacing.borderRadius.md,
+    padding: 12,
+    marginBottom: 12,
+  },
+  macroAvgBox: {
+    alignItems: 'center',
+  },
+  macroAvgNum: {
+    fontSize: Typography.fontSizes.base,
+    fontFamily: Typography.fontFamilies.sansBold,
+    color: Colors.textPrimary,
+  },
+  macroAvgLabel: {
+    fontSize: 9.5,
+    fontFamily: Typography.fontFamilies.sansMedium,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  frequentFoodRow: {
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  frequentFoodTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.lightSage,
+    marginBottom: 2,
+  },
+  frequentFoodList: {
+    fontSize: 11.5,
+    color: Colors.textSecondary,
     lineHeight: 16,
   },
 });

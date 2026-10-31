@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { Calendar as CalendarIcon, Sparkles } from 'lucide-react-native';
+import { Calendar as CalendarIcon, Sparkles, ShieldCheck, CheckCircle2 } from 'lucide-react-native';
 import { useApp } from '../../state/AppContext';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
@@ -38,6 +38,31 @@ export const PlanScreen: React.FC = () => {
         </View>
         <View style={styles.calendarIconCircle}>
           <CalendarIcon size={18} color={Colors.textPrimary} />
+        </View>
+      </View>
+
+      {/* Adaptive Plan Version Banner */}
+      <View style={styles.adaptivePlanBanner}>
+        <View style={styles.adaptiveHeader}>
+          <View style={styles.versionBadge}>
+            <ShieldCheck size={14} color={Colors.lightSage} style={{ marginRight: 4 }} />
+            <Text style={styles.versionBadgeText}>PLAN v2 • ACTIVE</Text>
+          </View>
+          <View style={styles.reviewBadge}>
+            <CheckCircle2 size={12} color={Colors.success} style={{ marginRight: 3 }} />
+            <Text style={styles.reviewBadgeText}>Safety Verified</Text>
+          </View>
+        </View>
+
+        <Text style={styles.planAdaptiveTitle}>Low-Impact Metabolic Foundation</Text>
+        <Text style={styles.planAdaptiveReason}>
+          Adapted from your 30-day food diary and reported knee soreness: High-impact jumping substituted with joint-sparing wall sits; quick 5-min breakfasts prioritized.
+        </Text>
+
+        <View style={styles.safetyConstraintRow}>
+          <Text style={styles.safetyConstraintText}>
+            🛡️ Constraint Active: Low-impact closed kinetic chain only (Patellofemoral knee safety protocol)
+          </Text>
         </View>
       </View>
 
@@ -244,6 +269,66 @@ const styles = StyleSheet.create({
   },
   activitiesList: {
     marginBottom: 30,
+  },
+  adaptivePlanBanner: {
+    backgroundColor: '#1E2521',
+    borderRadius: Spacing.borderRadius.lg,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#2A362D',
+  },
+  adaptiveHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  versionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  versionBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.lightSage,
+    letterSpacing: 0.5,
+  },
+  reviewBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(78, 154, 111, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  reviewBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.success,
+  },
+  planAdaptiveTitle: {
+    color: Colors.textPrimary,
+    fontSize: Typography.fontSizes.sm + 1,
+    fontFamily: Typography.fontFamilies.serif,
+  },
+  planAdaptiveReason: {
+    color: Colors.textSecondary,
+    fontSize: Typography.fontSizes.xs,
+    fontFamily: Typography.fontFamilies.sansRegular,
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  safetyConstraintRow: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  safetyConstraintText: {
+    fontSize: 10.5,
+    color: Colors.softYellow,
+    fontFamily: Typography.fontFamilies.sansMedium,
   },
 });
 

@@ -3,6 +3,10 @@ import cors from 'cors';
 import { config } from './config/index.js';
 import { voiceRouter } from './routes/voiceRoutes.js';
 import { mealRouter } from './routes/mealRoutes.js';
+import { nutritionRouter } from './routes/nutritionRoutes.js';
+import { healthMemoryRouter } from './routes/healthMemoryRoutes.js';
+import { planRouter } from './routes/planRoutes.js';
+import { followupRouter } from './routes/followupRoutes.js';
 import { ScheduledCallQueue } from './queue/scheduledCallQueue.js';
 
 process.on('uncaughtException', (err) => {
@@ -34,8 +38,20 @@ app.get('/health', (_req, res) => {
 // Voice AI Routes
 app.use('/api/voice', voiceRouter);
 
-// AI Meal Scanner & Nutrition Intelligence Routes
+// AI Meal Scanner & Food Diary Routes
 app.use('/api/meals', mealRouter);
+
+// 30-Day Nutrition Intelligence & Analytics Routes
+app.use('/api/nutrition', nutritionRouter);
+
+// Personal Health Memory & 50-Entity Profile Routes
+app.use('/api/health', healthMemoryRouter);
+
+// Adaptive Plan Engine Routes
+app.use('/api/plans', planRouter);
+
+// Follow-up Scheduling Routes
+app.use('/api/followups', followupRouter);
 
 async function startServer() {
   // Initialize BullMQ Queue / Redis
@@ -56,4 +72,3 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 export { app, startServer };
-

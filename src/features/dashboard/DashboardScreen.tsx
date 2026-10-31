@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Camera,
   Utensils,
+  History,
 } from 'lucide-react-native';
 import { useApp } from '../../state/AppContext';
 import { Colors } from '../../theme/colors';
@@ -258,6 +259,37 @@ export const DashboardScreen: React.FC = () => {
             </Text>
           </Pressable>
         )}
+
+        {/* 30-Day Nutrition & Follow-Up Strip */}
+        <Pressable
+          style={styles.thirtyDayDiaryCard}
+          onPress={() => setActiveTab('progress')}
+        >
+          <View style={styles.thirtyDayHeaderRow}>
+            <View style={styles.thirtyDayTitleCol}>
+              <View style={styles.badgeRow}>
+                <History size={13} color={Colors.lightSage} style={{ marginRight: 4 }} />
+                <Text style={styles.thirtyDayBadgeText}>30-DAY FOOD DIARY</Text>
+                <View style={styles.coveragePill}>
+                  <Text style={styles.coverageText}>93% Logged</Text>
+                </View>
+              </View>
+              <Text style={styles.thirtyDayHeadline}>28 Days Logged • 108g Protein Avg</Text>
+              <Text style={styles.thirtyDaySub}>
+                Roti, Dal Tadka, Poha & Paneer tracked at item level
+              </Text>
+            </View>
+            <ChevronRight size={18} color={Colors.textSecondary} />
+          </View>
+
+          {/* Disha Voice Follow-Up Note */}
+          <View style={styles.coachFollowupNote}>
+            <Sparkles size={13} color={Colors.softYellow} style={{ marginRight: 6 }} />
+            <Text style={styles.coachFollowupText} numberOfLines={2}>
+              {'Disha Follow-Up: "Yesterday\'s lunch verified with 3 rotis & curd adjustment."'}
+            </Text>
+          </View>
+        </Pressable>
       </View>
 
       {/* 5. Your Progress Section */}
@@ -573,6 +605,71 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
     lineHeight: 16,
+  },
+  thirtyDayDiaryCard: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  thirtyDayHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  thirtyDayTitleCol: {
+    flex: 1,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  thirtyDayBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.lightSage,
+    letterSpacing: 0.6,
+    marginRight: 8,
+  },
+  coveragePill: {
+    backgroundColor: 'rgba(78, 154, 111, 0.18)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  coverageText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Colors.success,
+  },
+  thirtyDayHeadline: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginTop: 2,
+  },
+  thirtyDaySub: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  coachFollowupNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(238, 222, 178, 0.08)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(238, 222, 178, 0.15)',
+  },
+  coachFollowupText: {
+    flex: 1,
+    fontSize: 11,
+    color: Colors.softYellow,
+    fontStyle: 'italic',
   },
 });
 

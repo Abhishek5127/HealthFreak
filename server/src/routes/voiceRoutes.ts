@@ -291,15 +291,15 @@ export async function synthesizeSpeechWithGemini(
       clearTimeout(timeout);
 
       if (res.ok) {
-        const data = await res.json();
+        const data: any = await res.json();
         const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
         if (inlineData?.data) {
-          let audioBuffer = Buffer.from(inlineData.data, 'base64');
+          let audioBuffer: Buffer = Buffer.from(inlineData.data, 'base64');
           const mime = inlineData.mimeType || '';
 
           // If raw PCM (L16), convert to standard playable WAV with RIFF header
           if (mime.includes('l16') || mime.includes('pcm') || !mime.includes('wav')) {
-            audioBuffer = pcmToWav(audioBuffer, 24000, 1, 16);
+            audioBuffer = pcmToWav(audioBuffer, 24000, 1, 16) as Buffer;
           }
 
           return {
@@ -400,7 +400,7 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
           }),
         });
 
-        const resJson = await geminiRes.json();
+        const resJson: any = await geminiRes.json();
         if (resJson.error) {
           console.warn(`⚠️  [GEMINI ${modelCandidate} BUSY/SPIKE]: ${resJson.error.message}. Switching to next model...`);
           continue;
@@ -628,7 +628,7 @@ Return strictly a valid JSON object in this format:
           }),
         });
 
-        const resJson = await geminiRes.json();
+        const resJson: any = await geminiRes.json();
         if (resJson.error) {
           console.warn(`⚠️  [GEMINI AUDIO ${modelCandidate} HIGH DEMAND / BUSY]: ${resJson.error.message}. Trying next fallback model...`);
           continue;

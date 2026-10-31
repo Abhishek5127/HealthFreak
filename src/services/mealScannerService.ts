@@ -341,6 +341,123 @@ export class MealScannerService {
   }
 
   /**
+   * Fetch 30-day rolling food history, averages, and data coverage
+   */
+  public static async fetchThirtyDayHistory(userId: string = 'usr_synthetic_alex'): Promise<any> {
+    const backendBase = getBackendBaseUrl();
+    try {
+      const response = await fetch(`${backendBase}/api/nutrition/last-30-days?userId=${userId}`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data.report;
+      }
+    } catch (err) {
+      console.log('[MealScannerService] fetchThirtyDayHistory local fallback:', err);
+    }
+    return null;
+  }
+
+  /**
+   * Fetch 7-day and 30-day trends
+   */
+  public static async fetchNutritionTrends(userId: string = 'usr_synthetic_alex'): Promise<any> {
+    const backendBase = getBackendBaseUrl();
+    try {
+      const response = await fetch(`${backendBase}/api/nutrition/trends?userId=${userId}`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data.trends;
+      }
+    } catch (err) {
+      console.log('[MealScannerService] fetchNutritionTrends local fallback:', err);
+    }
+    return null;
+  }
+
+  /**
+   * Submit conversational follow-up utterance to resolve or correct past meals
+   */
+  public static async submitFollowupUtterance(utterance: string, userId: string = 'usr_synthetic_alex'): Promise<any> {
+    const backendBase = getBackendBaseUrl();
+    try {
+      const response = await fetch(`${backendBase}/api/meals/followups`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ userId, utterance }),
+      });
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (err) {
+      console.log('[MealScannerService] submitFollowupUtterance failed:', err);
+    }
+    return null;
+  }
+
+  /**
+   * Fetch active adaptive plan with justification reasons
+   */
+  public static async fetchActivePlan(userId: string = 'usr_synthetic_alex'): Promise<any> {
+    const backendBase = getBackendBaseUrl();
+    try {
+      const response = await fetch(`${backendBase}/api/plans/active?userId=${userId}`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data.plan;
+      }
+    } catch (err) {
+      console.log('[MealScannerService] fetchActivePlan local fallback:', err);
+    }
+    return null;
+  }
+
+  /**
+   * Request adaptive plan draft generation
+   */
+  public static async requestAdaptivePlan(reason: string, userId: string = 'usr_synthetic_alex'): Promise<any> {
+    const backendBase = getBackendBaseUrl();
+    try {
+      const response = await fetch(`${backendBase}/api/plans/generate-draft`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ userId, reason, requestedLevel: 2 }),
+      });
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (err) {
+      console.log('[MealScannerService] requestAdaptivePlan failed:', err);
+    }
+    return null;
+  }
+
+  /**
+   * Approve and activate a reviewed plan version
+   */
+  public static async approvePlan(planId: string, userId: string = 'usr_synthetic_alex'): Promise<any> {
+    const backendBase = getBackendBaseUrl();
+    try {
+      const response = await fetch(`${backendBase}/api/plans/${planId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (err) {
+      console.log('[MealScannerService] approvePlan failed:', err);
+    }
+    return null;
+  }
+
+  /**
    * Recalculate nutrition when client adjusts portion weights or adds items
    */
   public static recalculateClientNutrition(foods: FoodItem[]): {
