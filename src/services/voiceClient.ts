@@ -188,6 +188,8 @@ export class VoiceClientService {
       if (finished) return;
       finished = true;
       if (this.status === 'speaking') {
+        this.status = 'listening';
+        this.notify();
         this.startListening();
       }
     };
@@ -205,12 +207,23 @@ export class VoiceClientService {
         const audio = new Audio(`data:${audioMime};base64,${audioBase64}`);
         this.currentWebAudio = audio;
 
+        const wordCount = (fallbackText || '').split(/\s+/).length;
+        const watchdogMs = Math.max(4000, wordCount * 500 + 2000);
+        const watchdog = setTimeout(() => {
+          if (this.currentWebAudio === audio) {
+            this.currentWebAudio = null;
+            finishSpeaking();
+          }
+        }, watchdogMs);
+
         audio.onended = () => {
+          clearTimeout(watchdog);
           this.currentWebAudio = null;
           finishSpeaking();
         };
 
         audio.onerror = (e) => {
+          clearTimeout(watchdog);
           console.warn('[VoiceClient] Web audio error, using speech fallback:', e);
           this.currentWebAudio = null;
           this.speakAloud(fallbackText);
@@ -234,16 +247,11 @@ export class VoiceClientService {
       }
 
       await setAudioModeAsync({
-        allowsRecording: true, // Keep full-duplex active for instant barge-in
+        allowsRecording: true,
         playsInSilentMode: true,
         interruptionMode: 'duckOthers',
         shouldRouteThroughEarpiece: false, // Stay loud and clear on speakerphone!
       });
-
-      // Keep microphone active and listening while Disha speaks
-      if (!this.nativeRecorder && Platform.OS !== 'web' && this.hasAudioPermission) {
-        this.startListening();
-      }
 
       const speechPath = `${FileSystem.cacheDirectory || ''}disha_speech_${Date.now()}.wav`;
       await FileSystem.writeAsStringAsync(speechPath, audioBase64, {
@@ -253,17 +261,27 @@ export class VoiceClientService {
       const player = createAudioPlayer(speechPath);
       this.currentPlayer = player;
 
+      const wordCount = (fallbackText || '').split(/\s+/).length;
+      const watchdogMs = Math.max(4000, wordCount * 500 + 2000);
+      const watchdog = setTimeout(() => {
+        if (this.currentPlayer === player) {
+          this.currentPlayer = null;
+          try {
+            player.remove();
+          } catch {}
+          finishSpeaking();
+        }
+      }, watchdogMs);
+
       player.addListener('playbackStatusUpdate', (status: any) => {
         if (status.didJustFinish) {
+          clearTimeout(watchdog);
           if (this.currentPlayer === player) {
             this.currentPlayer = null;
             try {
               player.remove();
             } catch {}
-            if (this.status === 'speaking') {
-              this.status = 'listening';
-              this.notify();
-            }
+            finishSpeaking();
           }
         }
       });
@@ -290,6 +308,8 @@ export class VoiceClientService {
       if (finished) return;
       finished = true;
       if (this.status === 'speaking') {
+        this.status = 'listening';
+        this.notify();
         this.startListening();
       }
       if (onEnd) onEnd();
@@ -361,15 +381,11 @@ export class VoiceClientService {
     try {
       if (Platform.OS !== 'web') {
         setAudioModeAsync({
-          allowsRecording: true, // Keep recording enabled for continuous full-duplex voice
+          allowsRecording: true,
           playsInSilentMode: true,
           interruptionMode: 'duckOthers',
           shouldRouteThroughEarpiece: false, // Stay on loud speaker!
         }).catch(() => {});
-
-        if (!this.nativeRecorder && this.hasAudioPermission) {
-          this.startListening();
-        }
       }
       const chosenVoice = isHindiText
         ? this.cachedIndianVoices.hindi
@@ -383,19 +399,11 @@ export class VoiceClientService {
         rate: 0.98,
         onDone: () => {
           clearTimeout(watchdogTimer);
-          if (this.status === 'speaking') {
-            this.status = 'listening';
-            this.notify();
-          }
-          if (onEnd) onEnd();
+          finishSpeaking();
         },
         onError: () => {
           clearTimeout(watchdogTimer);
-          if (this.status === 'speaking') {
-            this.status = 'listening';
-            this.notify();
-          }
-          if (onEnd) onEnd();
+          finishSpeaking();
         },
       });
     } catch {
@@ -501,8 +509,9 @@ export class VoiceClientService {
         this.recognition.lang = 'en-IN';
 
         this.recognition.onresult = (event: any) => {
+          // Ignore speech recognition feedback while Disha is speaking
           if (this.status === 'speaking') {
-            this.interrupt();
+            return;
           }
 
           let interimTranscript = '';
@@ -631,11 +640,6 @@ export class VoiceClientService {
       this.audioLevel = Math.min(100, Math.round((avg / 128) * 100));
 
       const isSpeakingNow = this.audioLevel > 18;
-
-      // Barge-in: User starts speaking while Disha is speaking
-      if (isSpeakingNow && this.status === 'speaking') {
-        this.interrupt();
-      }
 
       // Continuous VAD Turn Detection on Web
       if (this.status === 'listening' && !this.isMuted) {
@@ -833,26 +837,14 @@ export class VoiceClientService {
           const now = Date.now();
           const totalElapsed = now - turnStartTime;
 
-          // Barge-in: While Disha is speaking, if the user speaks directly into the mic:
-          // User voice right next to phone mic registers >= -24 dB (well above speaker volume).
+          // While Disha is speaking, let her complete her entire sentence without auto-stopping!
           if (this.status === 'speaking') {
-            const isUserBargeIn = metering >= -24;
-            if (isUserBargeIn) {
-              consecutiveSpeechFrames++;
-              if (consecutiveSpeechFrames >= 2) {
-                console.log('[VoiceClient] Barge-in detected during AI speech! Interrupting...');
-                consecutiveSpeechFrames = 0;
-                this.interrupt();
-                return;
-              }
-            } else {
-              consecutiveSpeechFrames = 0;
-            }
+            return;
           }
 
           // Active Turn Silence Detection
           if (this.status === 'listening' && !this.isMuted) {
-            const isSpeechFrame = metering >= -40;
+            const isSpeechFrame = metering >= -38;
             if (isSpeechFrame) {
               consecutiveSpeechFrames++;
               // 2 consecutive frames (~160ms) confirms user is speaking (filters sudden mic bumps/clicks)
@@ -871,7 +863,7 @@ export class VoiceClientService {
               consecutiveSpeechFrames = 0;
               if (speechDetected) {
                 // User spoke, and volume has now dropped below the voice peak or below quiet threshold
-                const silenceThreshold = Math.min(-42, peakVoiceDb - 8);
+                const silenceThreshold = Math.max(-38, peakVoiceDb - 10);
                 const isQuietNow = metering <= silenceThreshold;
 
                 if (isQuietNow) {
@@ -901,10 +893,10 @@ export class VoiceClientService {
               return;
             }
 
-            // Safety Guard 2: Inactivity timeout if user never spoke after 8 seconds of listening
-            if (!speechDetected && totalElapsed > 8000) {
-              console.log('[VoiceClient] Inactivity timeout (8s of quiet), resetting turn');
-              this.stopListening();
+            // Safety Guard 2: Inactivity timeout if user never spoke after 10 seconds of listening - roll over buffer
+            if (!speechDetected && totalElapsed > 10000) {
+              console.log('[VoiceClient] Inactivity timeout (10s quiet), refreshing audio buffer');
+              this.startListening();
               return;
             }
           }
@@ -1091,11 +1083,6 @@ export class VoiceClientService {
 
     this.status = 'connected';
     this.notify();
-
-    // Immediately start listening so the microphone is HOT from the very beginning of the call!
-    if (this.hasAudioPermission) {
-      this.startListening();
-    }
 
     if (this.timer) clearInterval(this.timer);
     this.timer = setInterval(() => {
