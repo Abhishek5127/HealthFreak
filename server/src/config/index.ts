@@ -1,5 +1,21 @@
 import dotenv from 'dotenv';
-dotenv.config();
+import path from 'path';
+import fs from 'fs';
+
+// Robust .env resolution whether launched from root or server/
+const possibleEnvPaths = [
+  path.resolve(process.cwd(), 'server/.env'),
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(__dirname, '../../.env'),
+  path.resolve(__dirname, '../../../.env'),
+];
+
+for (const envPath of possibleEnvPaths) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+    break;
+  }
+}
 
 export interface ServerConfig {
   port: number;
@@ -13,6 +29,7 @@ export interface ServerConfig {
   gemini: {
     apiKey: string;
     model: string;
+    visionModel: string;
   };
   openai: {
     apiKey: string;
@@ -53,6 +70,7 @@ export const config: ServerConfig = {
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || 'AIzaSyDemoKeyForGeminiLiveFreeTier2026',
     model: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
+    visionModel: process.env.GEMINI_VISION_MODEL || 'gemini-3.8-flash',
   },
   openai: {
     apiKey: process.env.OPENAI_API_KEY || '',

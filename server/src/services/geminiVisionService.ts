@@ -110,7 +110,7 @@ Return STRICT JSON matching this schema:
 
     // Model fallback chain: primary (configurable) -> fast flash-lite -> latest
     const modelsToTry = [
-      process.env.GEMINI_VISION_MODEL || 'gemini-3.8-flash',
+      config.gemini.visionModel || process.env.GEMINI_VISION_MODEL || 'gemini-3.8-flash',
       'gemini-3.5-flash-lite',
       'gemini-flash-latest',
     ];
@@ -295,3 +295,4 @@ Return STRICT JSON matching this schema:
     };
   }
 }
+
