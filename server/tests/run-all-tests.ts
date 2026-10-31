@@ -10,6 +10,7 @@ import { CostAndPrivacyTracker } from '../src/services/costTracker.js';
 import { buildCoachSystemPrompt } from '../src/agent/coachPrompt.js';
 import { COACH_TOOL_DEFINITIONS } from '../src/agent/coachTools.js';
 import { config } from '../src/config/index.js';
+import { runMealScannerTests } from './meal-scanner.test.js';
 
 interface TestResult {
   name: string;
@@ -458,6 +459,25 @@ async function runTestSuite() {
     `Standardized E.164 +91 prefix. Foreign and invalid Indian telecom numbers rejected.`,
     `Phone validation accuracy: 100%`
   );
+
+  // --------------------------------------------------------------------------
+  // TEST 9: AI Meal Scanner & Nutrition Intelligence
+  // --------------------------------------------------------------------------
+  try {
+    const mealTestsPassed = await runMealScannerTests();
+    recordTest(
+      'AI Meal Scanner resolves Indian foods, computes IFCT macros, and updates diary',
+      mealTestsPassed,
+      'Canonical IFCT/USDA matching, portion multipliers, micronutrients (% DV), and dynamic diary updates.',
+      'Meal Intelligence: 100% VERIFIED'
+    );
+  } catch (err: any) {
+    recordTest(
+      'AI Meal Scanner resolves Indian foods, computes IFCT macros, and updates diary',
+      false,
+      err?.message || 'Meal test error'
+    );
+  }
 
   // --------------------------------------------------------------------------
   // SUMMARY REPORT

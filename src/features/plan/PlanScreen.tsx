@@ -21,7 +21,7 @@ const DAYS = [
 ];
 
 export const PlanScreen: React.FC = () => {
-  const { activities, toggleActivityCompletion, setActiveModal } = useApp();
+  const { activities, toggleActivityCompletion, setActiveModal, openMealScanner } = useApp();
   const [selectedDay, setSelectedDay] = useState<number>(29);
 
   const completedActivities = activities.filter((a) => a.completed).length;
@@ -117,6 +117,8 @@ export const PlanScreen: React.FC = () => {
             onPressDetails={() => {
               if (activity.category === 'movement') {
                 setActiveModal('activity_session');
+              } else if (activity.category === 'nutrition') {
+                openMealScanner();
               }
             }}
           />

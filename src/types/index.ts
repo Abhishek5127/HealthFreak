@@ -7,7 +7,9 @@ export type ModalType =
   | 'checkin'
   | 'activity_session'
   | 'lab_report'
-  | 'voice_overlay';
+  | 'voice_overlay'
+  | 'meal_scanner'
+  | 'meal_result';
 
 export type WellnessGoal =
   | 'weight_management'

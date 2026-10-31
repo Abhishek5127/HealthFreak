@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { config } from './config/index.js';
 import { voiceRouter } from './routes/voiceRoutes.js';
+import { mealRouter } from './routes/mealRoutes.js';
 import { ScheduledCallQueue } from './queue/scheduledCallQueue.js';
 
 process.on('uncaughtException', (err) => {
@@ -32,6 +33,9 @@ app.get('/health', (_req, res) => {
 
 // Voice AI Routes
 app.use('/api/voice', voiceRouter);
+
+// AI Meal Scanner & Nutrition Intelligence Routes
+app.use('/api/meals', mealRouter);
 
 async function startServer() {
   // Initialize BullMQ Queue / Redis

@@ -30,6 +30,8 @@ import { CheckInFlow } from './src/features/checkin/CheckInFlow';
 import { ActivityDetailScreen } from './src/features/activity/ActivityDetailScreen';
 import { LabReportsScreen } from './src/features/labreports/LabReportsScreen';
 import { OnboardingFlow } from './src/features/onboarding/OnboardingFlow';
+import { CameraScannerScreen } from './src/features/scanner/CameraScannerScreen';
+import { NutritionResultScreen } from './src/features/scanner/NutritionResultScreen';
 
 const MainAppContent: React.FC = () => {
   const { activeTab, setActiveTab, activeModal } = useApp();
@@ -93,6 +95,18 @@ const MainAppContent: React.FC = () => {
       {activeModal === 'onboarding' && (
         <View style={styles.modalOverlay}>
           <OnboardingFlow />
+        </View>
+      )}
+
+      {activeModal === 'meal_scanner' && (
+        <View style={styles.modalOverlay}>
+          <CameraScannerScreen />
+        </View>
+      )}
+
+      {activeModal === 'meal_result' && (
+        <View style={styles.modalOverlay}>
+          <NutritionResultScreen />
         </View>
       )}
     </View>

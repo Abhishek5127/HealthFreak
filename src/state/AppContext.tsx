@@ -19,6 +19,22 @@ import {
 import { initialCoachMessages } from '../mock-data/coachChat';
 import { askDishaAI } from '../services/aiChatService';
 import { voiceClient } from '../services/voiceClient';
+import { MealAnalysisResult } from '../types/meal';
+import { MealScannerService } from '../services/mealScannerService';
+
+export interface DailyNutritionState {
+  caloriesTotal: number;
+  caloriesTarget: number;
+  proteinTotal: number;
+  proteinTarget: number;
+  carbsTotal: number;
+  carbsTarget: number;
+  fatTotal: number;
+  fatTarget: number;
+  fiberTotal: number;
+  fiberTarget: number;
+  mealsCount: number;
+}
 
 interface AppContextType {
   // Navigation
@@ -39,6 +55,17 @@ interface AppContextType {
 
   // Metrics
   metrics: ProgressMetric[];
+
+  // Meal Scanner & Nutrition Diary
+  todaysNutrition: DailyNutritionState;
+  recentMeals: MealAnalysisResult[];
+  activeScannedMeal: MealAnalysisResult | null;
+  setActiveScannedMeal: (meal: MealAnalysisResult | null) => void;
+  openMealScanner: () => void;
+  openMealResult: (meal: MealAnalysisResult) => void;
+  saveMealToDiary: (meal: MealAnalysisResult) => Promise<void>;
+  deleteMealFromDiary: (mealId: string) => Promise<void>;
+  updateMealPortion: (mealId: string, foodId: string, newWeightGrams: number) => void;
 
   // Coach Chat
   chatMessages: ChatMessage[];
@@ -65,6 +92,217 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(initialCoachMessages);
   const [isCoachTyping, setIsCoachTyping] = useState<boolean>(false);
   const [isVoiceActive, setIsVoiceActiveState] = useState<boolean>(false);
+
+  // Meal Scanner & Nutrition Diary State
+  const [todaysNutrition, setTodaysNutrition] = useState<DailyNutritionState>({
+    caloriesTotal: 453,
+    caloriesTarget: 2100,
+    proteinTotal: 21,
+    proteinTarget: 130,
+    carbsTotal: 64,
+    carbsTarget: 220,
+    fatTotal: 13,
+    fatTarget: 65,
+    fiberTotal: 10,
+    fiberTarget: 35,
+    mealsCount: 1,
+  });
+
+  const [recentMeals, setRecentMeals] = useState<MealAnalysisResult[]>([
+    {
+      id: 'seed_meal_breakfast',
+      userId: 'usr_synthetic_alex',
+      mealName: 'Sprouted Moong & Poha Breakfast',
+      mealType: 'breakfast',
+      timestamp: new Date().toISOString(),
+      recognitionConfidence: 0.95,
+      foods: [
+        {
+          id: 'f_seed_1',
+          name: 'Poha',
+          localizedName: 'Kanda Poha',
+          estimatedWeightGrams: 140,
+          servingDescription: '1 bowl (~140g)',
+          confidence: 0.96,
+          visibleIngredients: ['Flattened rice', 'Mustard seeds', 'Peanuts'],
+          inferredIngredients: ['Turmeric', 'Green chillies'],
+          cookingMethod: 'Tempered and steamed',
+          nutrition: {
+            calories: 250,
+            protein: 4.8,
+            carbs: 44.1,
+            fat: 6.4,
+            fiber: 3.6,
+            sugar: 2.5,
+            sodium: 308,
+            potassium: 210,
+          },
+        },
+        {
+          id: 'f_seed_2',
+          name: 'Sprouted Moong Salad',
+          localizedName: 'Moong Sprouts',
+          estimatedWeightGrams: 120,
+          servingDescription: '1 medium bowl (~120g)',
+          confidence: 0.95,
+          visibleIngredients: ['Moong sprouts', 'Tomato', 'Coriander'],
+          inferredIngredients: ['Lemon juice', 'Chaat masala'],
+          cookingMethod: 'Raw sprouted',
+          nutrition: {
+            calories: 118,
+            protein: 9.4,
+            carbs: 19.4,
+            fat: 1.0,
+            fiber: 5.9,
+            sugar: 2.5,
+            sodium: 22,
+            potassium: 384,
+          },
+        },
+        {
+          id: 'f_seed_3',
+          name: 'Boiled Egg / Egg Omelette',
+          localizedName: 'Boiled Egg',
+          estimatedWeightGrams: 55,
+          servingDescription: '1 egg (~55g)',
+          confidence: 0.98,
+          visibleIngredients: ['1 hard boiled egg'],
+          inferredIngredients: ['Black pepper'],
+          cookingMethod: 'Boiled',
+          nutrition: {
+            calories: 85,
+            protein: 6.9,
+            carbs: 0.6,
+            fat: 5.8,
+            fiber: 0.0,
+            sugar: 0.6,
+            sodium: 77,
+            potassium: 76,
+          },
+        },
+      ],
+      totalNutrition: {
+        calories: 453,
+        proteinGrams: 21.1,
+        carbsGrams: 64.1,
+        fatGrams: 13.2,
+        fiberGrams: 9.5,
+        sugarGrams: 5.6,
+        sodiumMg: 407,
+        potassiumMg: 670,
+        proteinPercent: 19,
+        carbsPercent: 56,
+        fatPercent: 25,
+      },
+      micronutrients: [
+        { name: 'Iron', amount: 5.2, unit: 'mg', dailyValuePercent: 29, category: 'mineral' },
+        { name: 'Calcium', amount: 96, unit: 'mg', dailyValuePercent: 10, category: 'mineral' },
+        { name: 'Folate (B9)', amount: 155, unit: 'mcg', dailyValuePercent: 39, category: 'vitamin' },
+        { name: 'Vitamin C', amount: 28, unit: 'mg', dailyValuePercent: 31, category: 'vitamin' },
+      ],
+      healthBenefits: [
+        {
+          title: 'High Bioavailable Protein',
+          description: 'Moong sprouts + egg provide a clean amino acid profile to fuel morning metabolic tone.',
+          category: 'muscle',
+        },
+        {
+          title: 'Slow Glycemic Release',
+          description: '9.5g fiber buffers morning blood sugar spikes and sustains energy.',
+          category: 'digestion',
+        },
+      ],
+      considerations: [
+        {
+          title: 'Solid Hydration Baseline',
+          description: 'Follow this breakfast with 400ml water to optimize fiber digestion.',
+          type: 'info',
+        },
+      ],
+      coachInsight: 'Great start to your day Alex! 21g protein in your breakfast sets a strong metabolic foundation.',
+      status: 'saved',
+    },
+  ]);
+
+  const [activeScannedMeal, setActiveScannedMeal] = useState<MealAnalysisResult | null>(null);
+
+  const openMealScanner = () => {
+    triggerHaptic('impact');
+    if (isVoiceActive) {
+      voiceClient.endSession();
+      setIsVoiceActiveState(false);
+    }
+    setActiveModalState('meal_scanner');
+  };
+
+  const openMealResult = (meal: MealAnalysisResult) => {
+    triggerHaptic('selection');
+    setActiveScannedMeal(meal);
+    setActiveModalState('meal_result');
+  };
+
+  const saveMealToDiary = async (meal: MealAnalysisResult) => {
+    triggerHaptic('success');
+    const updatedMeal: MealAnalysisResult = { ...meal, status: 'saved' };
+
+    // Update local recent meals
+    setRecentMeals((prev) => {
+      const filtered = prev.filter((m) => m.id !== updatedMeal.id);
+      return [updatedMeal, ...filtered];
+    });
+
+    // Update today's totals
+    setTodaysNutrition((prev) => ({
+      ...prev,
+      caloriesTotal: prev.caloriesTotal + updatedMeal.totalNutrition.calories,
+      proteinTotal: Math.round(prev.proteinTotal + updatedMeal.totalNutrition.proteinGrams),
+      carbsTotal: Math.round(prev.carbsTotal + updatedMeal.totalNutrition.carbsGrams),
+      fatTotal: Math.round(prev.fatTotal + updatedMeal.totalNutrition.fatGrams),
+      fiberTotal: Math.round(prev.fiberTotal + updatedMeal.totalNutrition.fiberGrams),
+      mealsCount: prev.mealsCount + 1,
+    }));
+
+    // Save to backend asynchronously
+    await MealScannerService.saveMeal(updatedMeal);
+  };
+
+  const deleteMealFromDiary = async (mealId: string) => {
+    triggerHaptic('impact');
+    const mealToDelete = recentMeals.find((m) => m.id === mealId);
+    if (!mealToDelete) return;
+
+    setRecentMeals((prev) => prev.filter((m) => m.id !== mealId));
+
+    setTodaysNutrition((prev) => ({
+      ...prev,
+      caloriesTotal: Math.max(0, prev.caloriesTotal - mealToDelete.totalNutrition.calories),
+      proteinTotal: Math.max(0, Math.round(prev.proteinTotal - mealToDelete.totalNutrition.proteinGrams)),
+      carbsTotal: Math.max(0, Math.round(prev.carbsTotal - mealToDelete.totalNutrition.carbsGrams)),
+      fatTotal: Math.max(0, Math.round(prev.fatTotal - mealToDelete.totalNutrition.fatGrams)),
+      fiberTotal: Math.max(0, Math.round(prev.fiberTotal - mealToDelete.totalNutrition.fiberGrams)),
+      mealsCount: Math.max(0, prev.mealsCount - 1),
+    }));
+
+    await MealScannerService.deleteMeal(mealId);
+  };
+
+  const updateMealPortion = (mealId: string, foodId: string, newWeightGrams: number) => {
+    triggerHaptic('selection');
+    if (!activeScannedMeal || activeScannedMeal.id !== mealId) return;
+
+    const updatedFoods = activeScannedMeal.foods.map((item) =>
+      item.id === foodId ? { ...item, estimatedWeightGrams: newWeightGrams } : item
+    );
+
+    const recalculation = MealScannerService.recalculateClientNutrition(updatedFoods);
+
+    setActiveScannedMeal({
+      ...activeScannedMeal,
+      foods: recalculation.foods,
+      totalNutrition: recalculation.totalNutrition,
+      micronutrients: recalculation.micronutrients,
+    });
+  };
 
   const triggerHaptic = (type: 'selection' | 'success' | 'impact' = 'selection') => {
     try {
@@ -237,6 +475,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleActivityCompletion,
         featuredWorkout: mockFeaturedWorkout,
         metrics,
+        todaysNutrition,
+        recentMeals,
+        activeScannedMeal,
+        setActiveScannedMeal,
+        openMealScanner,
+        openMealResult,
+        saveMealToDiary,
+        deleteMealFromDiary,
+        updateMealPortion,
         chatMessages,
         isCoachTyping,
         sendChatMessage,

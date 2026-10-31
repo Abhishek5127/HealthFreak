@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, Mic, MicOff, Sparkles, Volume2, Send } from 'lucide-react-native';
+import { X, Mic, MicOff, Sparkles, Volume2, Send, Utensils } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -14,6 +14,7 @@ import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { DishaLogoEmblem } from '../../components/illustrations/DishaLogo';
 import { voiceClient, VoiceSessionState } from '../../services/voiceClient';
+import { useApp } from '../../state/AppContext';
 
 interface VoiceOverlayProps {
   onClose: () => void;
@@ -21,6 +22,7 @@ interface VoiceOverlayProps {
 
 export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
   const insets = useSafeAreaInsets();
+  const { activeScannedMeal } = useApp();
   const [sessionState, setSessionState] = useState<VoiceSessionState>(voiceClient.getState());
   const [typedInput, setTypedInput] = useState<string>('');
 
@@ -152,6 +154,16 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
         <Text style={styles.voiceTitle}>Disha Live Voice</Text>
         <Text style={styles.callTimer}>{formatDuration(sessionState.callDuration)}</Text>
       </View>
+
+      {/* Active Meal Context Banner */}
+      {activeScannedMeal && (
+        <View style={styles.mealContextBanner}>
+          <Utensils size={13} color={Colors.lightSage} style={{ marginRight: 6 }} />
+          <Text style={styles.mealContextText} numberOfLines={1}>
+            Discussing: {activeScannedMeal.mealName} ({activeScannedMeal.totalNutrition.calories} kcal)
+          </Text>
+        </View>
+      )}
 
       {/* Permission alert banner if microphone is not yet granted */}
       {!sessionState.hasAudioPermission && (
@@ -405,6 +417,23 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSizes.sm,
     fontFamily: Typography.fontFamilies.sansMedium,
     marginTop: 4,
+  },
+  mealContextBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: Colors.surfaceElevated,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
+    marginTop: 8,
+  },
+  mealContextText: {
+    color: Colors.lightSage,
+    fontSize: 12,
+    fontWeight: '600',
   },
   permBanner: {
     flexDirection: 'row',

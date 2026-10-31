@@ -11,12 +11,15 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@google/genai": "^2.32.0",
+    "@types/multer": "^2.3.0",
     "bullmq": "^5.41.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "ioredis": "^5.5.0",
     "livekit-server-sdk": "^2.10.1",
+    "multer": "^2.5.0",
     "uuid": "^11.1.0",
     "zod": "^3.24.2"
   },
@@ -29,4 +32,3 @@
     "typescript": "^5.7.3"
   }
 }
-
