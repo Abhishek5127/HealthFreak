@@ -87,29 +87,45 @@ export class VoiceClientService {
       if (Platform.OS !== 'web') {
         const voices = await Speech.getAvailableVoicesAsync();
         if (voices && voices.length > 0) {
-          // Indian English female voice (e.g. Google en-in-x-end-network, en-in-x-ene, iOS Isha)
-          const enInVoice = voices.find(
-            (v) =>
-              (v.language === 'en-IN' || v.identifier.toLowerCase().includes('en_in') || v.identifier.toLowerCase().includes('en-in')) &&
-              (v.name.toLowerCase().includes('female') ||
-                v.identifier.includes('end') ||
-                v.identifier.includes('ene') ||
-                v.identifier.includes('enc') ||
-                v.name.toLowerCase().includes('isha') ||
-                v.name.toLowerCase().includes('veena'))
-          ) || voices.find((v) => v.language === 'en-IN' || v.identifier.includes('en_IN'));
+          // Prefer instant on-device local voices to eliminate 3-5s network TTS buffering
+          const isLocal = (v: any) =>
+            v.identifier.toLowerCase().includes('local') ||
+            !v.identifier.toLowerCase().includes('network');
 
-          // Hindi female voice (e.g. Google hi-in-x-hie-local, hi-in-x-hid, iOS Lekha)
-          const hiInVoice = voices.find(
-            (v) =>
-              (v.language === 'hi-IN' || v.language === 'hi' || v.identifier.toLowerCase().includes('hi_in') || v.identifier.toLowerCase().includes('hi-in')) &&
-              (v.name.toLowerCase().includes('female') ||
-                v.identifier.includes('hie') ||
-                v.identifier.includes('hid') ||
-                v.identifier.includes('hia') ||
-                v.name.toLowerCase().includes('lekha') ||
-                v.name.toLowerCase().includes('kalpana'))
-          ) || voices.find((v) => v.language.startsWith('hi'));
+          // Indian English female voice (e.g. Google en-in-x-end-local, iOS Isha)
+          const enInVoice =
+            voices.find(
+              (v) =>
+                isLocal(v) &&
+                (v.language === 'en-IN' || v.identifier.toLowerCase().includes('en_in') || v.identifier.toLowerCase().includes('en-in')) &&
+                (v.name.toLowerCase().includes('female') ||
+                  v.identifier.includes('end') ||
+                  v.identifier.includes('ene') ||
+                  v.identifier.includes('enc') ||
+                  v.name.toLowerCase().includes('isha') ||
+                  v.name.toLowerCase().includes('veena'))
+            ) ||
+            voices.find((v) => isLocal(v) && (v.language === 'en-IN' || v.identifier.includes('en_IN'))) ||
+            voices.find(
+              (v) =>
+                v.language === 'en-IN' || v.identifier.toLowerCase().includes('en_in') || v.identifier.toLowerCase().includes('en-in')
+            );
+
+          // Hindi female voice (e.g. Google hi-in-x-hie-local, iOS Lekha)
+          const hiInVoice =
+            voices.find(
+              (v) =>
+                isLocal(v) &&
+                (v.language === 'hi-IN' || v.language === 'hi' || v.identifier.toLowerCase().includes('hi_in') || v.identifier.toLowerCase().includes('hi-in')) &&
+                (v.name.toLowerCase().includes('female') ||
+                  v.identifier.includes('hie') ||
+                  v.identifier.includes('hid') ||
+                  v.identifier.includes('hia') ||
+                  v.name.toLowerCase().includes('lekha') ||
+                  v.name.toLowerCase().includes('kalpana'))
+            ) ||
+            voices.find((v) => isLocal(v) && v.language.startsWith('hi')) ||
+            voices.find((v) => v.language.startsWith('hi'));
 
           if (enInVoice) this.cachedIndianVoices.indianEnglish = enInVoice.identifier;
           if (hiInVoice) this.cachedIndianVoices.hindi = hiInVoice.identifier;
@@ -397,6 +413,9 @@ export class VoiceClientService {
         voice: chosenVoice,
         pitch: 1.05,
         rate: 0.98,
+        onStart: () => {
+          console.log(`[VoiceClient] Speech playback started (voice: ${chosenVoice || 'default'})`);
+        },
         onDone: () => {
           clearTimeout(watchdogTimer);
           finishSpeaking();
@@ -688,8 +707,10 @@ export class VoiceClientService {
     this.coachTranscript = 'Disha is thinking...';
     this.notify();
 
+    const turnStartTime = Date.now();
     try {
       const result = await transcribeAndReplyAudio(base64Data, mimeType, 'Alex', ['patellofemoral_knee_pain']);
+      console.log(`[VoiceClient] Turn response received from backend in ${Date.now() - turnStartTime}ms`);
       this.userTranscript = result.userTranscript;
       this.coachTranscript = result.coachReply;
       this.status = 'speaking';
