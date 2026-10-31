@@ -18,6 +18,7 @@ import {
 } from '../mock-data/healthData';
 import { initialCoachMessages } from '../mock-data/coachChat';
 import { askDishaAI } from '../services/aiChatService';
+import { voiceClient } from '../services/voiceClient';
 
 interface AppContextType {
   // Navigation
@@ -63,7 +64,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [metrics, setMetrics] = useState<ProgressMetric[]>(mockProgressMetrics);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(initialCoachMessages);
   const [isCoachTyping, setIsCoachTyping] = useState<boolean>(false);
-  const [isVoiceActive, setIsVoiceActive] = useState<boolean>(false);
+  const [isVoiceActive, setIsVoiceActiveState] = useState<boolean>(false);
 
   const triggerHaptic = (type: 'selection' | 'success' | 'impact' = 'selection') => {
     try {
@@ -81,14 +82,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const setActiveTab = (tab: TabType) => {
     triggerHaptic('selection');
+    if (isVoiceActive) {
+      voiceClient.endSession();
+      setIsVoiceActiveState(false);
+    }
     setActiveTabState(tab);
   };
 
   const setActiveModal = (modal: ModalType) => {
     if (modal) {
       triggerHaptic('impact');
+      if (isVoiceActive) {
+        voiceClient.endSession();
+        setIsVoiceActiveState(false);
+      }
     }
     setActiveModalState(modal);
+  };
+
+  const setIsVoiceActive = (active: boolean) => {
+    if (!active && isVoiceActive) {
+      voiceClient.endSession();
+    }
+    setIsVoiceActiveState(active);
   };
 
   const updateUserProfile = (updates: Partial<UserProfile>) => {
@@ -195,6 +211,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const resetAll = () => {
+    if (isVoiceActive) {
+      voiceClient.endSession();
+      setIsVoiceActiveState(false);
+    }
     setUserProfile(initialUserProfile);
     setActivities(mockDailyActivities);
     setMetrics(mockProgressMetrics);

@@ -237,7 +237,13 @@ export class VoiceClientService {
         allowsRecording: true, // Keep full-duplex active for instant barge-in
         playsInSilentMode: true,
         interruptionMode: 'duckOthers',
+        shouldRouteThroughEarpiece: false, // Stay loud and clear on speakerphone!
       });
+
+      // Keep microphone active and listening while Disha speaks
+      if (!this.nativeRecorder && Platform.OS !== 'web' && this.hasAudioPermission) {
+        this.startListening();
+      }
 
       const speechPath = `${FileSystem.cacheDirectory || ''}disha_speech_${Date.now()}.wav`;
       await FileSystem.writeAsStringAsync(speechPath, audioBase64, {
@@ -254,7 +260,10 @@ export class VoiceClientService {
             try {
               player.remove();
             } catch {}
-            finishSpeaking();
+            if (this.status === 'speaking') {
+              this.status = 'listening';
+              this.notify();
+            }
           }
         }
       });
@@ -355,7 +364,12 @@ export class VoiceClientService {
           allowsRecording: true, // Keep recording enabled for continuous full-duplex voice
           playsInSilentMode: true,
           interruptionMode: 'duckOthers',
+          shouldRouteThroughEarpiece: false, // Stay on loud speaker!
         }).catch(() => {});
+
+        if (!this.nativeRecorder && this.hasAudioPermission) {
+          this.startListening();
+        }
       }
       const chosenVoice = isHindiText
         ? this.cachedIndianVoices.hindi
@@ -369,11 +383,19 @@ export class VoiceClientService {
         rate: 0.98,
         onDone: () => {
           clearTimeout(watchdogTimer);
-          finishSpeaking();
+          if (this.status === 'speaking') {
+            this.status = 'listening';
+            this.notify();
+          }
+          if (onEnd) onEnd();
         },
         onError: () => {
           clearTimeout(watchdogTimer);
-          finishSpeaking();
+          if (this.status === 'speaking') {
+            this.status = 'listening';
+            this.notify();
+          }
+          if (onEnd) onEnd();
         },
       });
     } catch {
@@ -394,6 +416,7 @@ export class VoiceClientService {
             allowsRecording: true,
             playsInSilentMode: true,
             interruptionMode: 'duckOthers',
+            shouldRouteThroughEarpiece: false,
           });
         }
         this.notify();
@@ -431,6 +454,7 @@ export class VoiceClientService {
             allowsRecording: true,
             playsInSilentMode: true,
             interruptionMode: 'duckOthers',
+            shouldRouteThroughEarpiece: false,
           });
         } else {
           console.warn('[VoiceClient] Mobile microphone permission was denied by user.');
@@ -721,6 +745,7 @@ export class VoiceClientService {
           allowsRecording: true, // Keep full-duplex active
           playsInSilentMode: true,
           interruptionMode: 'duckOthers',
+          shouldRouteThroughEarpiece: false, // Prevents switching to earpiece ("voice mode")!
         });
 
         const isAndroid = Platform.OS === 'android';
@@ -735,7 +760,7 @@ export class VoiceClientService {
               isMeteringEnabled: true,
               outputFormat: 'mpeg4',
               audioEncoder: 'aac',
-              audioSource: 'voice_communication', // Enables native hardware Echo Cancellation (AEC) & AGC
+              audioSource: 'mic', // Normal mic mode keeps Android on speaker without switching to earpiece
             }
           : isIOS
           ? {
@@ -770,7 +795,7 @@ export class VoiceClientService {
           android: {
             outputFormat: 'mpeg4',
             audioEncoder: 'aac',
-            audioSource: 'voice_communication' as any,
+            audioSource: 'mic' as any,
           },
           ios: {
             outputFormat: 'aac ',
@@ -808,21 +833,26 @@ export class VoiceClientService {
           const now = Date.now();
           const totalElapsed = now - turnStartTime;
 
-          // Real human vocal energy typically registers above -42 dB on mobile devices
-          const isSpeechFrame = metering >= -42;
-
-          // Barge-in: If Disha is speaking and user begins talking, yield the floor instantly!
-          if (isSpeechFrame && this.status === 'speaking') {
-            consecutiveSpeechFrames++;
-            if (consecutiveSpeechFrames >= 2) {
-              console.log('[VoiceClient] Barge-in detected during AI speech! Interrupting...');
-              this.interrupt();
-              return;
+          // Barge-in: While Disha is speaking, if the user speaks directly into the mic:
+          // User voice right next to phone mic registers >= -24 dB (well above speaker volume).
+          if (this.status === 'speaking') {
+            const isUserBargeIn = metering >= -24;
+            if (isUserBargeIn) {
+              consecutiveSpeechFrames++;
+              if (consecutiveSpeechFrames >= 2) {
+                console.log('[VoiceClient] Barge-in detected during AI speech! Interrupting...');
+                consecutiveSpeechFrames = 0;
+                this.interrupt();
+                return;
+              }
+            } else {
+              consecutiveSpeechFrames = 0;
             }
           }
 
           // Active Turn Silence Detection
           if (this.status === 'listening' && !this.isMuted) {
+            const isSpeechFrame = metering >= -40;
             if (isSpeechFrame) {
               consecutiveSpeechFrames++;
               // 2 consecutive frames (~160ms) confirms user is speaking (filters sudden mic bumps/clicks)
@@ -1062,6 +1092,11 @@ export class VoiceClientService {
     this.status = 'connected';
     this.notify();
 
+    // Immediately start listening so the microphone is HOT from the very beginning of the call!
+    if (this.hasAudioPermission) {
+      this.startListening();
+    }
+
     if (this.timer) clearInterval(this.timer);
     this.timer = setInterval(() => {
       this.durationSeconds++;
@@ -1165,19 +1200,10 @@ export class VoiceClientService {
   }
 
   public endSession(): void {
-    if (this.currentPlayer) {
-      try {
-        this.currentPlayer.pause();
-        this.currentPlayer.remove();
-      } catch {}
-      this.currentPlayer = null;
-    }
-    if (this.currentWebAudio) {
-      try {
-        this.currentWebAudio.pause();
-      } catch {}
-      this.currentWebAudio = null;
-    }
+    this.isProcessingTurn = false;
+    this.status = 'disconnected';
+
+    // 1. Stop native recorder interval & recorder instance
     if (this.nativeInterval) {
       clearInterval(this.nativeInterval);
       this.nativeInterval = null;
@@ -1191,16 +1217,62 @@ export class VoiceClientService {
       this.nativeRecorder = null;
     }
 
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+    // 2. Stop audio player
+    if (this.currentPlayer) {
+      try {
+        this.currentPlayer.pause();
+        this.currentPlayer.remove();
+      } catch {}
+      this.currentPlayer = null;
     }
+
+    // 3. Stop native Speech synthesis
     try {
       Speech.stop();
     } catch {
       // Ignored
     }
-    this.stopListening();
 
+    // 4. Stop web audio and speech synthesis
+    if (this.currentWebAudio) {
+      try {
+        this.currentWebAudio.pause();
+      } catch {}
+      this.currentWebAudio = null;
+    }
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+
+    // 5. CRITICAL: Stop and release browser microphone tracks!
+    if (this.mediaStream) {
+      try {
+        this.mediaStream.getTracks().forEach((track: any) => track.stop());
+      } catch {}
+      this.mediaStream = null;
+    }
+
+    // 6. CRITICAL: Stop Web SpeechRecognition completely without auto-restarting!
+    if (this.recognition) {
+      try {
+        this.recognition.onend = null;
+        this.recognition.abort();
+      } catch {}
+      this.recognition = null;
+      this.isRecognitionActive = false;
+    }
+
+    // 7. CRITICAL: Turn OFF native microphone recording session in mobile OS!
+    if (Platform.OS !== 'web') {
+      setAudioModeAsync({
+        allowsRecording: false, // Releases the OS microphone hardware cleanly
+        playsInSilentMode: false,
+        interruptionMode: 'mixWithOthers',
+        shouldRouteThroughEarpiece: false,
+      }).catch(() => {});
+    }
+
+    // 8. Clear timers and visual frames
     if (this.animFrameId) {
       cancelAnimationFrame(this.animFrameId);
       this.animFrameId = null;
@@ -1215,7 +1287,9 @@ export class VoiceClientService {
       clearInterval(this.timer);
       this.timer = null;
     }
-    this.status = 'disconnected';
+
+    this.currentSpeechText = '';
+    this.audioLevel = 0;
     this.notify();
   }
 }
