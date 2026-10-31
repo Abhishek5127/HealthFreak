@@ -461,11 +461,13 @@ voiceRouter.post('/audio-turn', async (req: Request, res: Response) => {
 
     const instruction = `${systemPrompt}
 Listen carefully to the attached user voice recording.
-1. Transcribe what the user said verbatim in English, Hindi, or Hinglish. Listen carefully even if the speech is soft, fast, or has minor background noise.
-2. If the user spoke, respond warmly and concisely in 1 concise, actionable coaching sentence (under 25 words) as Disha.
-   - If user spoke in Hindi/Hinglish, reply in natural, everyday conversational Hinglish with warm Hindi pronunciation.
-   - If user spoke in English, reply in natural, friendly Indian English.
-3. Only if there is zero speech (only pure ambient silence), set userTranscript to "(Silence or brief pause)" and set coachReply to "Namaste Alex! Main sun rahi hoon. Aapka mic connect ho gaya—please go ahead, I am listening!"
+1. Transcribe what the user said verbatim in English, Hindi, or conversational Hinglish. Be sensitive to soft speech, quick words (e.g. "haan", "nahi", "theek hai", "yes", "hello", "knee pain"), and casual Indian phrasing.
+2. If the user spoke, respond warmly, empathetically, and concisely in 1 coaching sentence (under 20 words) as Disha.
+   - If user spoke in Hindi or Hinglish, reply in natural conversational Hinglish with warm Hindi expressions.
+   - If user spoke in English, reply in friendly, natural Indian English.
+3. If and only if there is absolutely no vocal sound at all (pure ambient silence):
+   - userTranscript: "(Silence or brief pause)"
+   - coachReply: "Main sun rahi hoon Alex, please go ahead!"
 Return strictly a valid JSON object in this format:
 {
   "userTranscript": "<exact words user spoke>",

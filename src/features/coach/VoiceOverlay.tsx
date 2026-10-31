@@ -204,9 +204,11 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
 
       <Text style={styles.tapInstruction}>
         {sessionState.status === 'speaking'
-          ? 'Disha is speaking (Tap sphere to interrupt)'
+          ? 'Disha is speaking (Tap sphere or speak to interrupt)'
           : sessionState.status === 'listening'
-          ? '🎙️ Hands-free live conversation — Speak naturally or tap sphere'
+          ? sessionState.audioLevel > 15
+            ? '🎙️ Voice detected... (Pause to send, or tap sphere)'
+            : '🎙️ Listening... (Speak naturally, hands-free)'
           : sessionState.status === 'connecting'
           ? 'Disha is thinking...'
           : 'Ready — Speak naturally to Disha'}

@@ -6,10 +6,11 @@ import {
   requestRecordingPermissionsAsync,
   getRecordingPermissionsAsync,
   createAudioPlayer,
+  RecordingPresets,
   type AudioRecorder,
   type AudioPlayer,
 } from 'expo-audio';
-import { File, Paths } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { askDishaAI, transcribeAndReplyAudio, getBackendBaseUrl } from './aiChatService';
 
 export type VoiceConnectionStatus =
@@ -233,14 +234,17 @@ export class VoiceClientService {
       }
 
       await setAudioModeAsync({
-        allowsRecording: false,
+        allowsRecording: true, // Keep full-duplex active for instant barge-in
         playsInSilentMode: true,
+        interruptionMode: 'duckOthers',
       });
 
-      const speechFile = new File(Paths.cache, `disha_speech_${Date.now()}.wav`);
-      await speechFile.write(audioBase64, { encoding: 'base64' });
+      const speechPath = `${FileSystem.cacheDirectory || ''}disha_speech_${Date.now()}.wav`;
+      await FileSystem.writeAsStringAsync(speechPath, audioBase64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
-      const player = createAudioPlayer(speechFile.uri);
+      const player = createAudioPlayer(speechPath);
       this.currentPlayer = player;
 
       player.addListener('playbackStatusUpdate', (status: any) => {
@@ -348,8 +352,9 @@ export class VoiceClientService {
     try {
       if (Platform.OS !== 'web') {
         setAudioModeAsync({
-          allowsRecording: false,
+          allowsRecording: true, // Keep recording enabled for continuous full-duplex voice
           playsInSilentMode: true,
+          interruptionMode: 'duckOthers',
         }).catch(() => {});
       }
       const chosenVoice = isHindiText
@@ -388,6 +393,7 @@ export class VoiceClientService {
           await setAudioModeAsync({
             allowsRecording: true,
             playsInSilentMode: true,
+            interruptionMode: 'duckOthers',
           });
         }
         this.notify();
@@ -424,6 +430,7 @@ export class VoiceClientService {
           await setAudioModeAsync({
             allowsRecording: true,
             playsInSilentMode: true,
+            interruptionMode: 'duckOthers',
           });
         } else {
           console.warn('[VoiceClient] Mobile microphone permission was denied by user.');
@@ -711,35 +718,75 @@ export class VoiceClientService {
         }
 
         await setAudioModeAsync({
-          allowsRecording: true,
+          allowsRecording: true, // Keep full-duplex active
           playsInSilentMode: true,
+          interruptionMode: 'duckOthers',
         });
 
-        const platformOptions = {
-          extension: '.m4a',
-          sampleRate: 16000,
-          numberOfChannels: 1,
-          bitRate: 32000,
-          isMeteringEnabled: true,
-          outputFormat: 'mpeg4',
-          audioEncoder: 'aac',
-        };
+        const isAndroid = Platform.OS === 'android';
+        const isIOS = Platform.OS === 'ios';
+
+        const platformOptions = isAndroid
+          ? {
+              extension: '.m4a',
+              sampleRate: 44100,
+              numberOfChannels: 1,
+              bitRate: 64000,
+              isMeteringEnabled: true,
+              outputFormat: 'mpeg4',
+              audioEncoder: 'aac',
+              audioSource: 'voice_communication', // Enables native hardware Echo Cancellation (AEC) & AGC
+            }
+          : isIOS
+          ? {
+              extension: '.m4a',
+              sampleRate: 44100,
+              numberOfChannels: 1,
+              bitRate: 64000,
+              isMeteringEnabled: true,
+              outputFormat: 'aac ',
+              audioQuality: 127,
+              linearPCMBitDepth: 16,
+              linearPCMIsBigEndian: false,
+              linearPCMIsFloat: false,
+            }
+          : {
+              extension: '.webm',
+              sampleRate: 44100,
+              numberOfChannels: 1,
+              bitRate: 64000,
+              isMeteringEnabled: true,
+            };
 
         const AudioRecorderConstructor = (AudioModule as any).AudioRecorder;
         const recorder: AudioRecorder = new AudioRecorderConstructor(platformOptions);
 
-        await recorder.prepareToRecordAsync();
+        await recorder.prepareToRecordAsync({
+          ...RecordingPresets.HIGH_QUALITY,
+          sampleRate: 44100,
+          numberOfChannels: 1,
+          bitRate: 64000,
+          isMeteringEnabled: true,
+          android: {
+            outputFormat: 'mpeg4',
+            audioEncoder: 'aac',
+            audioSource: 'voice_communication' as any,
+          },
+          ios: {
+            outputFormat: 'aac ',
+            audioQuality: 127,
+          },
+        });
         recorder.record();
         this.nativeRecorder = recorder;
         this.hasAudioPermission = true;
         this.notify();
 
         let speechDetected = false;
-        let speechStartTime = 0;
-        let silenceStartTime = 0;
+        let speechDurationMs = 0;
+        let silenceDurationMs = 0;
         let peakVoiceDb = -100;
-        let lastVoicePeakTime = 0;
-        let ambientFloorDb = -50;
+        let consecutiveSpeechFrames = 0;
         const turnStartTime = Date.now();
 
         this.nativeInterval = setInterval(() => {
@@ -748,76 +795,90 @@ export class VoiceClientService {
           const status = this.nativeRecorder.getStatus();
           if (!status.isRecording) return;
 
-          const metering = status.metering ?? -100;
-          // Normalized level: 0 to 100 based on realistic speech range (-60 dB to -10 dB)
+          // Metering on Android/iOS: range -160 dB to 0 dB
+          const metering = typeof status.metering === 'number' && !isNaN(status.metering)
+            ? status.metering
+            : -100;
+
+          // Normalized 0 to 100 level for fluid visual pulsing
           const level = Math.min(100, Math.max(0, Math.round(((metering + 60) / 50) * 100)));
           this.audioLevel = level;
           this.notify();
 
           const now = Date.now();
+          const totalElapsed = now - turnStartTime;
 
-          // 1. Initial 250ms ambient noise floor calibration
-          if (now - turnStartTime < 250) {
-            ambientFloorDb = Math.max(ambientFloorDb, metering);
-            return;
+          // Real human vocal energy typically registers above -42 dB on mobile devices
+          const isSpeechFrame = metering >= -42;
+
+          // Barge-in: If Disha is speaking and user begins talking, yield the floor instantly!
+          if (isSpeechFrame && this.status === 'speaking') {
+            consecutiveSpeechFrames++;
+            if (consecutiveSpeechFrames >= 2) {
+              console.log('[VoiceClient] Barge-in detected during AI speech! Interrupting...');
+              this.interrupt();
+              return;
+            }
           }
 
-          // 2. Dynamic thresholds:
-          // Active speech must be significantly above ambient noise and at least -34 dB
-          const speechThreshold = Math.max(-34, ambientFloorDb + 8);
-          // Silence drops below -38 dB or 9 dB below the user's voice peak
-          const silenceThreshold = Math.min(-38, peakVoiceDb > -30 ? peakVoiceDb - 9 : -37);
+          // Active Turn Silence Detection
+          if (this.status === 'listening' && !this.isMuted) {
+            if (isSpeechFrame) {
+              consecutiveSpeechFrames++;
+              // 2 consecutive frames (~160ms) confirms user is speaking (filters sudden mic bumps/clicks)
+              if (consecutiveSpeechFrames >= 2) {
+                if (!speechDetected) {
+                  speechDetected = true;
+                  speechDurationMs = 0;
+                }
+                if (metering > peakVoiceDb) {
+                  peakVoiceDb = metering;
+                }
+                speechDurationMs += 80;
+                silenceDurationMs = 0; // Reset silence counter while user continues speaking
+              }
+            } else {
+              consecutiveSpeechFrames = 0;
+              if (speechDetected) {
+                // User spoke, and volume has now dropped below the voice peak or below quiet threshold
+                const silenceThreshold = Math.min(-42, peakVoiceDb - 8);
+                const isQuietNow = metering <= silenceThreshold;
 
-          const isVoiceNow = metering >= speechThreshold;
-          const isQuietNow = metering < silenceThreshold;
+                if (isQuietNow) {
+                  silenceDurationMs += 80;
 
-          // Barge-in: User speaks while Disha is speaking
-          if (isVoiceNow && this.status === 'speaking') {
-            this.interrupt();
-            return;
-          }
+                  // Rapid turn completion:
+                  // 650ms of silence after a phrase -> trigger instant send!
+                  // 800ms for short quick answers ("Haan", "Nahi", "Good", "Yes")
+                  const requiredSilenceMs = speechDurationMs >= 300 ? 650 : 800;
 
-          if (isVoiceNow) {
-            if (!speechDetected) {
-              speechDetected = true;
-              speechStartTime = now;
-            }
-            if (metering > peakVoiceDb) {
-              peakVoiceDb = metering;
-            }
-            lastVoicePeakTime = now;
-            silenceStartTime = 0;
-          } else if (speechDetected) {
-            const speakingDuration = now - speechStartTime;
-            if (speakingDuration >= 500) {
-              if (isQuietNow) {
-                if (silenceStartTime === 0) {
-                  silenceStartTime = now;
-                } else if (now - silenceStartTime >= 750) {
-                  // 750ms of quietness detected: hands-free turn complete!
-                  speechDetected = false;
-                  silenceStartTime = 0;
-                  this.stopListening();
-                  return;
+                  if (silenceDurationMs >= requiredSilenceMs) {
+                    console.log(`[VoiceClient] End of user speech detected (${speechDurationMs}ms speech, ${silenceDurationMs}ms silence). Submitting turn...`);
+                    speechDetected = false;
+                    silenceDurationMs = 0;
+                    this.stopListening();
+                    return;
+                  }
                 }
               }
+            }
 
-              // Vocal Inactivity Guard: If 1.1s elapsed without any speech peaks, finish turn!
-              if (lastVoicePeakTime > 0 && now - lastVoicePeakTime >= 1100) {
-                speechDetected = false;
-                silenceStartTime = 0;
-                this.stopListening();
-                return;
-              }
+            // Safety Guard 1: Max 10 seconds of speech per utterance
+            if (speechDetected && totalElapsed > 10000) {
+              console.log('[VoiceClient] Max utterance time reached (10s), finishing turn');
+              speechDetected = false;
+              this.stopListening();
+              return;
+            }
+
+            // Safety Guard 2: Inactivity timeout if user never spoke after 8 seconds of listening
+            if (!speechDetected && totalElapsed > 8000) {
+              console.log('[VoiceClient] Inactivity timeout (8s of quiet), resetting turn');
+              this.stopListening();
+              return;
             }
           }
-
-          // Safety guard: max 12 seconds per turn
-          if (now - turnStartTime > 12000 && speechDetected) {
-            speechDetected = false;
-            this.stopListening();
-          }
-        }, 100);
+        }, 80);
       } catch (err) {
         console.warn('[VoiceClient] Native recording start error:', err);
       }
@@ -854,7 +915,7 @@ export class VoiceClientService {
       this.silenceTimer = null;
     }
 
-    // A. Native Mobile (iOS / Android) Stop & Send via expo-audio
+    // A. Native Mobile (iOS / Android) Stop & Send via expo-audio & expo-file-system
     if (Platform.OS !== 'web' && this.nativeRecorder) {
       try {
         if (this.nativeInterval) {
@@ -870,9 +931,11 @@ export class VoiceClientService {
         if (uri) {
           let base64Data = '';
           try {
-            const file = new File(uri);
-            base64Data = await file.base64();
-          } catch {
+            base64Data = await FileSystem.readAsStringAsync(uri, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+          } catch (err: any) {
+            console.warn('[VoiceClient] FileSystem.readAsStringAsync error:', err?.message || err);
             try {
               const response = await fetch(uri);
               const blob = await response.blob();
@@ -885,8 +948,8 @@ export class VoiceClientService {
                 reader.onerror = reject;
                 reader.readAsDataURL(blob);
               });
-            } catch (err) {
-              console.warn('[VoiceClient] Failed to read audio as base64:', err);
+            } catch (blobErr) {
+              console.warn('[VoiceClient] Fallback blob read error:', blobErr);
             }
           }
 
