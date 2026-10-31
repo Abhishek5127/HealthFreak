@@ -208,14 +208,10 @@ export class VoiceClientService {
       if (finished) return;
       finished = true;
       if (this.status === 'speaking') {
-        // Acoustic cooldown: 450ms allows speaker vibrations & room echo to fully decay
-        setTimeout(() => {
-          if (this.status === 'speaking') {
-            this.status = 'listening';
-            this.notify();
-            this.startListening();
-          }
-        }, 450);
+        // Zero-delay handoff: Instant transition back to hot mic listening
+        this.status = 'listening';
+        this.notify();
+        this.startListening();
       }
     };
 
@@ -349,14 +345,10 @@ export class VoiceClientService {
 
       finished = true;
       if (this.status === 'speaking') {
-        // Acoustic cooldown: 450ms allows room reflections and phone chassis vibration to completely fade out
-        setTimeout(() => {
-          if (this.status === 'speaking') {
-            this.status = 'listening';
-            this.notify();
-            this.startListening();
-          }
-        }, 450);
+        // Zero-delay handoff: Instant transition back to hot mic listening
+        this.status = 'listening';
+        this.notify();
+        this.startListening();
       }
       if (onEnd) onEnd();
     };
@@ -734,7 +726,6 @@ export class VoiceClientService {
     if (this.isProcessingTurn) return;
     this.isProcessingTurn = true;
     this.status = 'connecting';
-    this.coachTranscript = 'Disha is thinking...';
     this.notify();
 
     const turnStartTime = Date.now();
@@ -837,7 +828,7 @@ export class VoiceClientService {
               isMeteringEnabled: true,
               outputFormat: 'mpeg4',
               audioEncoder: 'aac',
-              audioSource: 'mic', // Normal mic mode keeps Android on speaker without switching to earpiece
+              audioSource: 'voice_communication', // Enables hardware DSP Acoustic Echo Cancellation (AEC)
             }
           : isIOS
           ? {
@@ -872,7 +863,7 @@ export class VoiceClientService {
           android: {
             outputFormat: 'mpeg4',
             audioEncoder: 'aac',
-            audioSource: 'mic' as any,
+            audioSource: 'voice_communication' as any, // Hardware DSP AEC on Android
           },
           ios: {
             outputFormat: 'aac ',
@@ -942,10 +933,10 @@ export class VoiceClientService {
                 if (isQuietNow) {
                   silenceDurationMs += 80;
 
-                  // Rapid turn completion:
-                  // 650ms of silence after a phrase -> trigger instant send!
-                  // 800ms for short quick answers ("Haan", "Nahi", "Good", "Yes")
-                  const requiredSilenceMs = speechDurationMs >= 300 ? 650 : 800;
+                  // Rapid real-time conversational turn completion:
+                  // 450ms of silence after a phrase -> trigger instant send!
+                  // 600ms for short quick answers ("Haan", "Nahi", "Good", "Yes")
+                  const requiredSilenceMs = speechDurationMs >= 300 ? 450 : 600;
 
                   if (silenceDurationMs >= requiredSilenceMs) {
                     console.log(`[VoiceClient] End of user speech detected (${speechDurationMs}ms speech, ${silenceDurationMs}ms silence). Submitting turn...`);
@@ -1098,7 +1089,6 @@ export class VoiceClientService {
     this.isProcessingTurn = true;
     this.userTranscript = text;
     this.status = 'connecting';
-    this.coachTranscript = 'Disha is thinking...';
     this.notify();
 
     try {
