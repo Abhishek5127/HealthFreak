@@ -469,11 +469,72 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
   }
 });
 
+export function isSelfEcho(userText: string, coachText: string): boolean {
+  if (!userText || !coachText) return false;
+
+  const cleanUser = userText
+    .toLowerCase()
+    .replace(/[^\w\s\u0900-\u097F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const cleanCoach = coachText
+    .toLowerCase()
+    .replace(/[^\w\s\u0900-\u097F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleanUser || !cleanCoach) return false;
+
+  if (cleanUser.includes('(speaker echo') || cleanUser.includes('speaker feedback')) {
+    return true;
+  }
+
+  const coachIdentityPhrases = [
+    'main disha bol rahi hoon',
+    'main disha bol rahi',
+    'main disha hoon',
+    'disha bol rahi hoon',
+    'disha here',
+    'aapki ai health coach',
+    'aapki health coach',
+    'disha health coach',
+    'ai health coach from disha',
+    'taking a quick wellness check in',
+    'time for a peaceful wind down',
+  ];
+
+  for (const phrase of coachIdentityPhrases) {
+    if (cleanUser.includes(phrase)) {
+      return true;
+    }
+  }
+
+  if (cleanUser.length >= 10 && cleanCoach.includes(cleanUser)) {
+    return true;
+  }
+
+  const userWords = cleanUser.split(' ').filter((w) => w.length > 2);
+  if (userWords.length >= 3) {
+    const matchingWords = userWords.filter((w) => cleanCoach.includes(w));
+    const ratio = matchingWords.length / userWords.length;
+    if (ratio >= 0.65) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // 12. Audio Stream Multimodal Transcription & Response
 voiceRouter.post('/audio-turn', async (req: Request, res: Response) => {
   const start = Date.now();
   try {
-    const { audioBase64, mimeType = 'audio/webm', userId = 'usr_synthetic_alex' } = req.body;
+    const {
+      audioBase64,
+      mimeType = 'audio/webm',
+      userId = 'usr_synthetic_alex',
+      lastCoachReply = '',
+    } = req.body;
     if (!audioBase64) {
       res.status(400).json({ error: 'audioBase64 is required' });
       return;
@@ -487,12 +548,28 @@ voiceRouter.post('/audio-turn', async (req: Request, res: Response) => {
     console.log('🎙️  [LIVE AUDIO STREAM RECEIVED FOR TRANSCRIPTION]');
     console.log(`👤  User: ${user?.name || 'Alex'} (${userId})`);
     console.log(`📦  Audio Size: ${sizeKb} KB | MIME Type: ${mimeType}`);
+    if (lastCoachReply) {
+      console.log(`🛡️  Last Coach Reply Tracked: "${lastCoachReply.slice(0, 45)}..."`);
+    }
     console.log('⏳  Transcribing & analyzing with Gemini Multimodal Audio...');
 
     const systemPrompt = user ? buildCoachSystemPrompt(user, memory) : 'You are Disha, an AI health coach.';
 
+    const antiEchoPrompt = lastCoachReply
+      ? `CRITICAL ANTI-ECHO GUARD:
+The AI coach (Disha) just finished speaking this exact phrase aloud through the phone loudspeaker:
+"${lastCoachReply}"
+If the attached audio recording is just the microphone picking up the coach's own voice or speaker echo repeating back:
+- Set userTranscript: "(Speaker echo)"
+- Set coachReply: ""
+DO NOT reply to your own voice or previous words under any circumstance! Never create a self-conversation echo loop!
+
+Otherwise, if a real human user is speaking:`
+      : '';
+
     const instruction = `${systemPrompt}
 Listen carefully to the attached user voice recording.
+${antiEchoPrompt}
 1. Transcribe what the user said verbatim in English, Hindi, or conversational Hinglish. Be sensitive to soft speech, quick words (e.g. "haan", "nahi", "theek hai", "yes", "hello", "knee pain"), and casual Indian phrasing.
 2. If the user spoke, respond warmly, empathetically, and concisely in 1 coaching sentence (under 20 words) as Disha.
    - If user spoke in Hindi or Hinglish, reply in natural conversational Hinglish with warm Hindi expressions.
@@ -502,8 +579,8 @@ Listen carefully to the attached user voice recording.
    - coachReply: "Main sun rahi hoon Alex, please go ahead!"
 Return strictly a valid JSON object in this format:
 {
-  "userTranscript": "<exact words user spoke>",
-  "coachReply": "<Disha's response>"
+  "userTranscript": "<exact words user spoke or (Speaker echo)>",
+  "coachReply": "<Disha's response or empty string if echo>"
 }`;
 
     let cleanMime = (mimeType || 'audio/webm').split(';')[0].trim().toLowerCase();
@@ -590,6 +667,22 @@ Return strictly a valid JSON object in this format:
       if (parsed.coachReply) coachReply = parsed.coachReply;
     } catch {
       if (rawText.trim()) coachReply = rawText.trim();
+    }
+
+    // Anti-Echo Check: Suppress if user audio is just loudspeaker feedback of previous coach response
+    if (
+      userTranscript === '(Speaker echo)' ||
+      !coachReply.trim() ||
+      (lastCoachReply && isSelfEcho(userTranscript, lastCoachReply))
+    ) {
+      console.log(`🔇  [ANTI-ECHO FILTER ACTIVATED]: Detected speaker feedback of "${lastCoachReply.slice(0, 45)}...". Suppressing echo loop.`);
+      res.json({
+        userTranscript: '(Speaker feedback suppressed)',
+        coachReply: '',
+        isEcho: true,
+        latencyMs: elapsed,
+      });
+      return;
     }
 
     console.log(`📝  TRANSCRIPTION: "${userTranscript}"`);

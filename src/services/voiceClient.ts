@@ -11,7 +11,7 @@ import {
   type AudioPlayer,
 } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
-import { askDishaAI, transcribeAndReplyAudio, getBackendBaseUrl } from './aiChatService';
+import { askDishaAI, transcribeAndReplyAudio, getBackendBaseUrl, isSelfEcho } from './aiChatService';
 
 export type VoiceConnectionStatus =
   | 'idle'
@@ -77,6 +77,7 @@ export class VoiceClientService {
   private currentPlayer: AudioPlayer | null = null;
   private currentWebAudio: any = null;
   private cachedIndianVoices: { hindi?: string; indianEnglish?: string } = {};
+  private lastCoachReply: string = '';
 
   constructor() {
     this.initAvailableVoices();
@@ -197,6 +198,9 @@ export class VoiceClientService {
     fallbackText = ''
   ): Promise<void> {
     this.status = 'speaking';
+    if (fallbackText) {
+      this.lastCoachReply = fallbackText;
+    }
     this.notify();
 
     let finished = false;
@@ -204,9 +208,14 @@ export class VoiceClientService {
       if (finished) return;
       finished = true;
       if (this.status === 'speaking') {
-        this.status = 'listening';
-        this.notify();
-        this.startListening();
+        // Acoustic cooldown: 450ms allows speaker vibrations & room echo to fully decay
+        setTimeout(() => {
+          if (this.status === 'speaking') {
+            this.status = 'listening';
+            this.notify();
+            this.startListening();
+          }
+        }, 450);
       }
     };
 
@@ -317,23 +326,44 @@ export class VoiceClientService {
    */
   public speakAloud(text: string, onEnd?: () => void) {
     this.status = 'speaking';
+    if (text) {
+      this.lastCoachReply = text;
+    }
     this.notify();
 
     let finished = false;
-    const finishSpeaking = () => {
+    const finishSpeaking = async () => {
       if (finished) return;
+
+      // On native Android/iOS: Ensure the physical speaker has finished playing before enabling mic
+      if (Platform.OS !== 'web') {
+        try {
+          const isSpeaking = await Speech.isSpeakingAsync();
+          if (isSpeaking) {
+            // Native engine is still speaking - recheck in 200ms
+            setTimeout(finishSpeaking, 200);
+            return;
+          }
+        } catch {}
+      }
+
       finished = true;
       if (this.status === 'speaking') {
-        this.status = 'listening';
-        this.notify();
-        this.startListening();
+        // Acoustic cooldown: 450ms allows room reflections and phone chassis vibration to completely fade out
+        setTimeout(() => {
+          if (this.status === 'speaking') {
+            this.status = 'listening';
+            this.notify();
+            this.startListening();
+          }
+        }, 450);
       }
       if (onEnd) onEnd();
     };
 
-    // Watchdog safety timer: Guarantees transition to 'listening' within estimated speech duration
+    // Watchdog safety timer: Guarantees transition to 'listening' if onDone event is dropped
     const wordCount = text.split(/\s+/).length;
-    const estimatedDurationMs = Math.max(3000, wordCount * 350 + 1000);
+    const estimatedDurationMs = Math.max(4000, wordCount * 500 + 2500);
     const watchdogTimer = setTimeout(finishSpeaking, estimatedDurationMs);
 
     // Detect Indian English vs Hindi for accurate pronunciation
@@ -709,8 +739,30 @@ export class VoiceClientService {
 
     const turnStartTime = Date.now();
     try {
-      const result = await transcribeAndReplyAudio(base64Data, mimeType, 'Alex', ['patellofemoral_knee_pain']);
+      const result = await transcribeAndReplyAudio(
+        base64Data,
+        mimeType,
+        'Alex',
+        ['patellofemoral_knee_pain'],
+        this.lastCoachReply
+      );
       console.log(`[VoiceClient] Turn response received from backend in ${Date.now() - turnStartTime}ms`);
+
+      // Anti-Echo Guard: If result is an echo of Disha's previous utterance, suppress it!
+      if (
+        result.isEcho ||
+        !result.coachReply?.trim() ||
+        isSelfEcho(result.userTranscript, this.lastCoachReply)
+      ) {
+        console.log(`[VoiceClient] 🔇 Speaker echo suppressed ("${result.userTranscript}"). Waiting for user.`);
+        this.isProcessingTurn = false;
+        this.status = 'listening';
+        this.notify();
+        this.startListening();
+        return;
+      }
+
+      this.lastCoachReply = result.coachReply;
       this.userTranscript = result.userTranscript;
       this.coachTranscript = result.coachReply;
       this.status = 'speaking';
@@ -1033,8 +1085,17 @@ export class VoiceClientService {
    */
   public async handleUserSpokenInput(text: string) {
     if (this.isProcessingTurn) return;
-    this.isProcessingTurn = true;
 
+    // Anti-Echo Check: If spoken text matches Disha's own reply, suppress it!
+    if (this.lastCoachReply && isSelfEcho(text, this.lastCoachReply)) {
+      console.log(`[VoiceClient] 🔇 Suppressed echo in user input: "${text}"`);
+      this.status = 'listening';
+      this.notify();
+      this.startListening();
+      return;
+    }
+
+    this.isProcessingTurn = true;
     this.userTranscript = text;
     this.status = 'connecting';
     this.coachTranscript = 'Disha is thinking...';
@@ -1044,6 +1105,7 @@ export class VoiceClientService {
       const aiResponse = await askDishaAI(text, 'Alex', ['patellofemoral_knee_pain']);
       const replyText = aiResponse.text;
 
+      this.lastCoachReply = replyText;
       this.coachTranscript = replyText;
       this.status = 'speaking';
       this.isProcessingTurn = false;
