@@ -364,40 +364,72 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
     console.log('🎙️  [LIVE INPUT RECEIVED - CHAT/VOICE TURN]');
     console.log(`👤  User: ${user?.name || 'Alex'} (${userId})`);
     console.log(`📝  TRANSCRIPTION / MESSAGE: "${message}"`);
-    console.log('⏳  Sending to Gemini 3.5 Flash Lite...');
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.gemini.model}:generateContent?key=${config.gemini.apiKey}`;
+    console.log(`⏳  Querying Gemini AI Coach (${config.gemini.model} with auto-failover)...`);
 
     const promptText = `${systemPrompt}\n\nUser says: "${message}"\nRespond directly as Disha in 1 concise, warm, actionable coaching sentence (max 25 words).`;
 
-    const geminiRes = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: promptText }],
-          },
-        ],
-        generationConfig: {
-          maxOutputTokens: 90,
-          temperature: 0.6,
-        },
-      }),
-    });
+    const candidateModels = Array.from(
+      new Set([
+        config.gemini.model,
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash',
+      ])
+    ).filter(Boolean);
 
-    const data = await geminiRes.json();
+    let data: any = null;
+    let selectedModel = config.gemini.model;
+
+    for (const modelCandidate of candidateModels) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelCandidate}:generateContent?key=${config.gemini.apiKey}`;
+        const geminiRes = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: promptText }],
+              },
+            ],
+            generationConfig: {
+              maxOutputTokens: 90,
+              temperature: 0.6,
+            },
+          }),
+        });
+
+        const resJson = await geminiRes.json();
+        if (resJson.error) {
+          console.warn(`⚠️  [GEMINI ${modelCandidate} BUSY/SPIKE]: ${resJson.error.message}. Switching to next model...`);
+          continue;
+        }
+
+        if (resJson.candidates?.[0]?.content?.parts?.[0]?.text) {
+          data = resJson;
+          selectedModel = modelCandidate;
+          break;
+        }
+      } catch (err: any) {
+        console.warn(`⚠️  [GEMINI ${modelCandidate} FETCH ERROR]:`, err?.message || err);
+      }
+    }
+
     const elapsed = Date.now() - start;
 
-    if (data.error) {
-      console.error('❌  [GEMINI ERROR]:', data.error.message);
-      throw new Error(data.error.message || 'Gemini error');
+    if (!data) {
+      console.warn('⚠️  All Gemini models experiencing high demand. Returning graceful coaching fallback.');
+      res.json({
+        text: 'Namaste Alex! Main sun rahi hoon. Cloud network par brief traffic spike hai—aaj aap kaisa feel kar rahe hain?',
+        suggestions: ['Check my active plan', 'How is my hydration today?', 'Adjust my workout intensity'],
+      });
+      return;
     }
 
     const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'I am here with you. How can I support your routine today?';
 
-    console.log(`🤖  DISHA AI RESPONSE: "${replyText.trim()}"`);
+    console.log(`🤖  DISHA AI RESPONSE (${selectedModel}): "${replyText.trim()}"`);
     console.log(`⚡  Latency: ${elapsed}ms`);
     console.log('============================================================\n');
 
@@ -474,44 +506,77 @@ Return strictly a valid JSON object in this format:
   "coachReply": "<Disha's response>"
 }`;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.gemini.model}:generateContent?key=${config.gemini.apiKey}`;
-
     let cleanMime = (mimeType || 'audio/webm').split(';')[0].trim().toLowerCase();
     if (cleanMime === 'audio/m4a' || cleanMime === 'audio/x-m4a' || cleanMime.endsWith('m4a')) {
       cleanMime = 'audio/mp4';
     }
 
-    const geminiRes = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: instruction },
+    const candidateModels = Array.from(
+      new Set([
+        config.gemini.model,
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash',
+      ])
+    ).filter(Boolean);
+
+    let data: any = null;
+    let selectedModel = config.gemini.model;
+
+    for (const modelCandidate of candidateModels) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelCandidate}:generateContent?key=${config.gemini.apiKey}`;
+        const geminiRes = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
               {
-                inlineData: {
-                  mimeType: cleanMime,
-                  data: audioBase64,
-                },
+                role: 'user',
+                parts: [
+                  { text: instruction },
+                  {
+                    inlineData: {
+                      mimeType: cleanMime,
+                      data: audioBase64,
+                    },
+                  },
+                ],
               },
             ],
-          },
-        ],
-        generationConfig: {
-          maxOutputTokens: 90,
-          temperature: 0.6,
-        },
-      }),
-    });
+            generationConfig: {
+              maxOutputTokens: 90,
+              temperature: 0.6,
+            },
+          }),
+        });
 
-    const data = await geminiRes.json();
+        const resJson = await geminiRes.json();
+        if (resJson.error) {
+          console.warn(`⚠️  [GEMINI AUDIO ${modelCandidate} HIGH DEMAND / BUSY]: ${resJson.error.message}. Trying next fallback model...`);
+          continue;
+        }
+
+        if (resJson.candidates?.[0]?.content?.parts?.[0]?.text) {
+          data = resJson;
+          selectedModel = modelCandidate;
+          break;
+        }
+      } catch (err: any) {
+        console.warn(`⚠️  [GEMINI AUDIO ${modelCandidate} FETCH ERROR]:`, err?.message || err);
+      }
+    }
+
     const elapsed = Date.now() - start;
 
-    if (data.error) {
-      console.error('❌  [GEMINI AUDIO ERROR]:', data.error.message);
-      throw new Error(data.error.message);
+    if (!data) {
+      console.warn('⚠️  All Gemini models experiencing high demand spikes. Returning friendly coaching fallback.');
+      res.json({
+        userTranscript: 'Voice query received',
+        coachReply: 'Namaste Alex! Main sun rahi hoon. Cloud audio network par temporary demand spike hai—aap kaisa feel kar rahe hain?',
+        latencyMs: elapsed,
+      });
+      return;
     }
 
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -528,7 +593,7 @@ Return strictly a valid JSON object in this format:
     }
 
     console.log(`📝  TRANSCRIPTION: "${userTranscript}"`);
-    console.log(`🤖  DISHA AI RESPONSE: "${coachReply}"`);
+    console.log(`🤖  DISHA AI RESPONSE (${selectedModel}): "${coachReply}"`);
     console.log(`⚡  Live Turn Latency: ${elapsed}ms`);
     console.log('============================================================\n');
 

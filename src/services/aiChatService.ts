@@ -72,40 +72,60 @@ Rules:
 4. Never prescribe medication or give clinical medical diagnosis.
 5. Provide actionable wellness, nutrition, or movement guidance.`;
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${DIRECT_GEMINI_KEY}`;
+      const candidateModels = Array.from(
+        new Set([
+          GEMINI_MODEL,
+          'gemini-2.5-flash',
+          'gemini-2.0-flash',
+          'gemini-1.5-flash',
+        ])
+      ).filter(Boolean);
 
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [
+      for (const modelCandidate of candidateModels) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelCandidate}:generateContent?key=${DIRECT_GEMINI_KEY}`;
+
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [
                 {
-                  text: `${systemPrompt}\n\nUser: "${message}"\nDisha:`,
+                  role: 'user',
+                  parts: [
+                    {
+                      text: `${systemPrompt}\n\nUser: "${message}"\nDisha:`,
+                    },
+                  ],
                 },
               ],
-            },
-          ],
-          generationConfig: {
-            maxOutputTokens: 100,
-            temperature: 0.6,
-          },
-        }),
-      });
+              generationConfig: {
+                maxOutputTokens: 100,
+                temperature: 0.6,
+              },
+            }),
+          });
 
-      const data = await res.json();
-      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (reply) {
-        return {
-          text: reply.trim(),
-          suggestions: [
-            'Help me plan my day',
-            'Suggest a balanced dinner',
-            'Check my active plan',
-          ],
-        };
+          const data = await res.json();
+          if (data.error) {
+            console.warn(`[Disha AI Direct ${modelCandidate} Busy]: ${data.error.message}`);
+            continue;
+          }
+
+          const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (reply) {
+            return {
+              text: reply.trim(),
+              suggestions: [
+                'Help me plan my day',
+                'Suggest a balanced dinner',
+                'Check my active plan',
+              ],
+            };
+          }
+        } catch (mErr) {
+          console.warn(`[Disha AI Direct ${modelCandidate} Failed]:`, mErr);
+        }
       }
     } catch (err) {
       console.error('[Disha AI] Gemini error:', err);
@@ -180,52 +200,71 @@ Listen carefully to the audio.
   "coachReply": "<your 1-2 sentence response as Disha>"
 }`;
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${DIRECT_GEMINI_KEY}`;
+      const candidateModels = Array.from(
+        new Set([
+          GEMINI_MODEL,
+          'gemini-2.5-flash',
+          'gemini-2.0-flash',
+          'gemini-1.5-flash',
+        ])
+      ).filter(Boolean);
 
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: instruction },
+      for (const modelCandidate of candidateModels) {
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelCandidate}:generateContent?key=${DIRECT_GEMINI_KEY}`;
+
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [
                 {
-                  inlineData: {
-                    mimeType: cleanMime,
-                    data: base64Audio,
-                  },
+                  role: 'user',
+                  parts: [
+                    { text: instruction },
+                    {
+                      inlineData: {
+                        mimeType: cleanMime,
+                        data: base64Audio,
+                      },
+                    },
+                  ],
                 },
               ],
-            },
-          ],
-          generationConfig: {
-            maxOutputTokens: 100,
-            temperature: 0.6,
-          },
-        }),
-      });
+              generationConfig: {
+                maxOutputTokens: 100,
+                temperature: 0.6,
+              },
+            }),
+          });
 
-      if (res.ok) {
-        const data = await res.json();
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (rawText) {
-          const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-          try {
-            const parsed = JSON.parse(cleaned);
-            if (parsed.coachReply) {
-              return {
-                userTranscript: parsed.userTranscript || 'Voice note recorded',
-                coachReply: parsed.coachReply,
-              };
+          if (res.ok) {
+            const data = await res.json();
+            if (data.error) {
+              console.warn(`[Disha Audio Direct ${modelCandidate} Busy]: ${data.error.message}`);
+              continue;
             }
-          } catch {
-            return {
-              userTranscript: 'Voice query received',
-              coachReply: rawText.trim(),
-            };
+            const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (rawText) {
+              const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+              try {
+                const parsed = JSON.parse(cleaned);
+                if (parsed.coachReply) {
+                  return {
+                    userTranscript: parsed.userTranscript || 'Voice note recorded',
+                    coachReply: parsed.coachReply,
+                  };
+                }
+              } catch {
+                return {
+                  userTranscript: 'Voice query received',
+                  coachReply: rawText.trim(),
+                };
+              }
+            }
           }
+        } catch (mErr) {
+          console.warn(`[Disha Audio Direct ${modelCandidate} Failed]:`, mErr);
         }
       }
     } catch (err) {
