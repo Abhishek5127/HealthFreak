@@ -7,6 +7,7 @@ import { nutritionRouter } from './routes/nutritionRoutes.js';
 import { healthMemoryRouter } from './routes/healthMemoryRoutes.js';
 import { planRouter } from './routes/planRoutes.js';
 import { followupRouter } from './routes/followupRoutes.js';
+import { authRouter } from './routes/authRoutes.js';
 import { ScheduledCallQueue } from './queue/scheduledCallQueue.js';
 
 process.on('uncaughtException', (err) => {
@@ -52,6 +53,9 @@ app.use('/api/plans', planRouter);
 
 // Follow-up Scheduling Routes
 app.use('/api/followups', followupRouter);
+
+// Supabase Google OAuth & Authentication Routes
+app.use('/api/auth', authRouter);
 
 async function startServer() {
   // Initialize BullMQ Queue / Redis

@@ -1,18 +1,24 @@
+
 {
   "expo": {
     "name": "HealthFreak",
     "slug": "HealthFreak",
+    "scheme": "healthfreak",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+
     "ios": {
+      "bundleIdentifier": "com.healthfreak.app",
       "supportsTablet": true,
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Disha Health needs microphone access to speak with your AI wellness coach."
+        "NSMicrophoneUsageDescription": "HealthFreak needs microphone access to speak with your AI wellness coach."
       }
     },
+
     "android": {
+      "package": "com.healthfreak.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -25,16 +31,24 @@
         "MODIFY_AUDIO_SETTINGS"
       ]
     },
+
     "web": {
       "favicon": "./assets/favicon.png"
     },
+
     "plugins": [
       "expo-image",
       "expo-font",
       [
         "expo-audio",
         {
-          "microphonePermission": "Allow Disha Health to access your microphone for live voice coaching."
+          "microphonePermission": "Allow HealthFreak to access your microphone for live voice coaching."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow HealthFreak to access your camera to scan meals."
         }
       ]
     ]

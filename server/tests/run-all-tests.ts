@@ -12,6 +12,7 @@ import { COACH_TOOL_DEFINITIONS } from '../src/agent/coachTools.js';
 import { config } from '../src/config/index.js';
 import { runMealScannerTests } from './meal-scanner.test.js';
 import { runMasterHealthMemorySuite } from './master-health-memory.test.js';
+import { runGoogleAuthTests } from './google-auth.test.js';
 
 interface TestResult {
   name: string;
@@ -496,6 +497,25 @@ async function runTestSuite() {
       'Master Health Memory, 30-Day Food Diary & Adaptive Plan Engine (44 Scenarios)',
       false,
       err?.message || 'Master health memory test suite failed'
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // TEST 11: Google OAuth 2.0 & Supabase Authentication Suite (11 Scenarios)
+  // --------------------------------------------------------------------------
+  try {
+    const authSuitePassed = await runGoogleAuthTests();
+    recordTest(
+      'Google OAuth 2.0, Supabase Identity Provider & Secure Sessions (11 Scenarios)',
+      authSuitePassed,
+      'PKCE redirect parsing, idempotent profile provisioning, credential security, and session isolation verified.',
+      'Google Auth & Security: 100% VERIFIED'
+    );
+  } catch (err: any) {
+    recordTest(
+      'Google OAuth 2.0, Supabase Identity Provider & Secure Sessions (11 Scenarios)',
+      false,
+      err?.message || 'Google OAuth test suite failed'
     );
   }
 

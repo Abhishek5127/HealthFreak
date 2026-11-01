@@ -31,6 +31,10 @@ export type LanguageCode = 'en' | 'hi' | 'hinglish';
 export interface UserProfileEntity {
   id: string; // User ID
   name: string;
+  email?: string;
+  avatarUrl?: string;
+  onboardingCompleted?: boolean;
+  authProvider?: string;
   dateOfBirth?: string; // YYYY-MM-DD
   age?: number;
   heightCm: number;

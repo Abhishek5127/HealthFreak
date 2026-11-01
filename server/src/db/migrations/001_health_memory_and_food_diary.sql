@@ -7,6 +7,10 @@
 CREATE TABLE IF NOT EXISTS profiles (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
+  email TEXT,
+  avatar_url TEXT,
+  onboarding_completed BOOLEAN DEFAULT FALSE,
+  auth_provider TEXT DEFAULT 'google',
   date_of_birth DATE,
   age INTEGER,
   height_cm NUMERIC(5, 2) NOT NULL,

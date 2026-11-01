@@ -7,6 +7,19 @@ import {
   FoodItem,
   MealType,
 } from '../types/meal';
+import { getSupabaseAccessToken } from './supabaseClient';
+
+export const getAuthHeaders = async (): Promise<Record<string, string>> => {
+  const token = await getSupabaseAccessToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
 
 // Dynamic Backend URL resolver for LAN, emulator, and web
 export const getBackendBaseUrl = (): string => {
@@ -286,12 +299,10 @@ export class MealScannerService {
   public static async saveMeal(meal: MealAnalysisResult): Promise<{ meal: MealAnalysisResult; dailySummary?: DailyNutritionSummary }> {
     const backendBase = getBackendBaseUrl();
     try {
+      const headers = await getAuthHeaders();
       const response = await fetch(`${backendBase}/api/meals`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
+        headers,
         body: JSON.stringify(meal),
       });
 
@@ -312,8 +323,9 @@ export class MealScannerService {
   public static async fetchDailySummary(userId: string = 'usr_synthetic_alex'): Promise<DailyNutritionSummary | null> {
     const backendBase = getBackendBaseUrl();
     try {
+      const headers = await getAuthHeaders();
       const response = await fetch(`${backendBase}/api/meals/daily-summary?userId=${userId}`, {
-        headers: { Accept: 'application/json' },
+        headers,
       });
       if (response.ok) {
         const data = await response.json();
@@ -331,8 +343,10 @@ export class MealScannerService {
   public static async deleteMeal(mealId: string, userId: string = 'usr_synthetic_alex'): Promise<boolean> {
     const backendBase = getBackendBaseUrl();
     try {
+      const headers = await getAuthHeaders();
       const response = await fetch(`${backendBase}/api/meals/${mealId}?userId=${userId}`, {
         method: 'DELETE',
+        headers,
       });
       return response.ok;
     } catch {

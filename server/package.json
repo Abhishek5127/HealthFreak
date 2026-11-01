@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.32.0",
+    "@supabase/supabase-js": "^2.118.0",
     "@types/multer": "^2.3.0",
     "bullmq": "^5.41.0",
     "cors": "^2.8.5",

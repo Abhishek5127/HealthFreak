@@ -26,7 +26,9 @@ export type CheckInMood = 'lowEnergy' | 'tense' | 'calm' | 'balanced' | 'energiz
 export interface UserProfile {
   id?: string;
   name: string;
+  email?: string;
   avatarUrl?: string;
+  authProvider?: string;
   streakDays: number;
   selectedGoal: WellnessGoal;
   goalLabel: string;

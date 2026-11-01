@@ -12,8 +12,12 @@ import {
   ShieldCheck,
   RotateCcw,
   Sparkles,
+  LogOut,
+  Shield,
+  CheckCircle,
 } from 'lucide-react-native';
 import { useApp } from '../../state/AppContext';
+import { useAuth } from '../../state/AuthContext';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
@@ -29,6 +33,18 @@ export const ProfileScreen: React.FC = () => {
     resetAll,
     triggerHaptic,
   } = useApp();
+  const { signOut, profile: authProfile, user } = useAuth();
+
+  const displayName = authProfile?.name || userProfile.name;
+  const displayEmail = authProfile?.email || user?.email || 'alex.sharma@healthfreak.com';
+  const avatarSource = authProfile?.avatarUrl
+    ? { uri: authProfile.avatarUrl }
+    : require('../../../assets/images/user_avatar.jpg');
+
+  const handleSignOut = async () => {
+    triggerHaptic('impact');
+    await signOut();
+  };
 
   const goals: { id: WellnessGoal; label: string }[] = [
     { id: 'metabolic_fitness', label: 'Metabolic Fitness & Energy' },
@@ -55,13 +71,20 @@ export const ProfileScreen: React.FC = () => {
       {/* Profile Header */}
       <View style={styles.profileHeader}>
         <Image
-          source={require('../../../assets/images/user_avatar.jpg')}
+          source={avatarSource}
           style={styles.avatarImage}
         />
-        <Text style={styles.profileName}>{userProfile.name}</Text>
-        <Text style={styles.profileSubtext}>
-          Disha Wellness Member • 21-Day Active Streak
-        </Text>
+        <Text style={styles.profileName}>{displayName}</Text>
+        <Text style={styles.profileEmailText}>{displayEmail}</Text>
+        <View style={styles.badgeRow}>
+          <View style={styles.activePill}>
+            <View style={styles.activeDot} />
+            <Text style={styles.activePillText}>Google Verified</Text>
+          </View>
+          <Text style={styles.profileSubtext}>
+            • 21-Day Active Streak
+          </Text>
+        </View>
       </View>
 
       {/* Primary Goal Selector */}
@@ -156,6 +179,41 @@ export const ProfileScreen: React.FC = () => {
           <Text style={styles.menuSub}>{"Update today's mental and physical status"}</Text>
         </View>
         <ChevronRight size={18} color={Colors.textSecondary} />
+      </Pressable>
+
+      {/* Account & Authentication Security */}
+      <SectionHeader title="Account & Identity Security" />
+      <View style={styles.authInfoCard}>
+        <View style={styles.authRow}>
+          <Text style={styles.authLabel}>Auth Provider</Text>
+          <View style={styles.authValueRow}>
+            <Shield size={14} color={Colors.forestGreenLight} style={{ marginRight: 6 }} />
+            <Text style={styles.authValue}>Google OAuth 2.0</Text>
+          </View>
+        </View>
+
+        <View style={styles.authDivider} />
+
+        <View style={styles.authRow}>
+          <Text style={styles.authLabel}>Identity Authority</Text>
+          <Text style={styles.authValue}>Supabase Cloud Auth</Text>
+        </View>
+
+        <View style={styles.authDivider} />
+
+        <View style={styles.authRow}>
+          <Text style={styles.authLabel}>Account Status</Text>
+          <View style={styles.authValueRow}>
+            <CheckCircle size={14} color={Colors.success} style={{ marginRight: 6 }} />
+            <Text style={[styles.authValue, { color: Colors.success }]}>Verified & Active</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Logout Action */}
+      <Pressable style={styles.logoutButton} onPress={handleSignOut}>
+        <LogOut size={16} color="#FF6B6B" style={{ marginRight: 8 }} />
+        <Text style={styles.logoutButtonText}>Sign Out from Google</Text>
       </Pressable>
 
       {/* Privacy & Reset Section */}
@@ -336,6 +394,89 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSizes.xs - 1,
     fontFamily: Typography.fontFamilies.sansRegular,
     lineHeight: 16,
+  },
+  profileEmailText: {
+    color: Colors.textSecondary,
+    fontSize: Typography.fontSizes.xs + 1,
+    fontFamily: Typography.fontFamilies.sansMedium,
+    marginTop: 2,
+    marginBottom: 6,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  activePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(74, 184, 122, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(74, 184, 122, 0.3)',
+  },
+  activeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.success,
+    marginRight: 5,
+  },
+  activePillText: {
+    color: Colors.success,
+    fontSize: 10,
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
+  authInfoCard: {
+    backgroundColor: '#1C201D',
+    borderRadius: Spacing.borderRadius.lg,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#262D28',
+    marginBottom: 14,
+  },
+  authRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  authValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  authLabel: {
+    color: Colors.textSecondary,
+    fontSize: Typography.fontSizes.xs + 1,
+    fontFamily: Typography.fontFamilies.sansMedium,
+  },
+  authValue: {
+    color: Colors.textPrimary,
+    fontSize: Typography.fontSizes.xs + 1,
+    fontFamily: Typography.fontFamilies.sansSemiBold,
+  },
+  authDivider: {
+    height: 1,
+    backgroundColor: '#262D28',
+    marginVertical: 4,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 107, 107, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.25)',
+    borderRadius: Spacing.borderRadius.lg,
+    paddingVertical: 14,
+    marginBottom: 10,
+  },
+  logoutButtonText: {
+    color: '#FF8585',
+    fontSize: Typography.fontSizes.sm,
+    fontFamily: Typography.fontFamilies.sansBold,
   },
   resetButton: {
     flexDirection: 'row',

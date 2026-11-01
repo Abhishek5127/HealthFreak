@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useMemo } from 'react';
 import * as Haptics from 'expo-haptics';
 import {
   TabType,
@@ -21,6 +21,7 @@ import { askDishaAI } from '../services/aiChatService';
 import { voiceClient } from '../services/voiceClient';
 import { MealAnalysisResult } from '../types/meal';
 import { MealScannerService } from '../services/mealScannerService';
+import { useAuth } from './AuthContext';
 
 export interface DailyNutritionState {
   caloriesTotal: number;
@@ -84,9 +85,28 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { profile: authProfile } = useAuth();
   const [activeTab, setActiveTabState] = useState<TabType>('home');
   const [activeModal, setActiveModalState] = useState<ModalType>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile>(initialUserProfile);
+  const [userProfileState, setUserProfileState] = useState<UserProfile>(initialUserProfile);
+
+  // Synchronize authenticated profile from Supabase Google OAuth without cascading re-renders
+  const userProfile: UserProfile = useMemo(() => ({
+    ...userProfileState,
+    ...(authProfile
+      ? {
+          id: authProfile.id || userProfileState.id,
+          name: authProfile.name || userProfileState.name,
+          email: authProfile.email || userProfileState.email,
+          avatarUrl: authProfile.avatarUrl || userProfileState.avatarUrl,
+          onboardingCompleted:
+            typeof authProfile.onboardingCompleted === 'boolean'
+              ? authProfile.onboardingCompleted
+              : userProfileState.onboardingCompleted,
+          authProvider: authProfile.authProvider || 'google',
+        }
+      : {}),
+  }), [userProfileState, authProfile]);
   const [activities, setActivities] = useState<DailyActivityItem[]>(mockDailyActivities);
   const [metrics, setMetrics] = useState<ProgressMetric[]>(mockProgressMetrics);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(initialCoachMessages);
@@ -346,12 +366,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateUserProfile = (updates: Partial<UserProfile>) => {
-    setUserProfile((prev) => ({ ...prev, ...updates }));
+    setUserProfileState((prev) => ({ ...prev, ...updates }));
   };
 
   const setUserMood = (mood: CheckInMood) => {
     triggerHaptic('success');
-    setUserProfile((prev) => ({
+    setUserProfileState((prev) => ({
       ...prev,
       currentMood: mood,
       lastCheckInTime: 'Just now',
@@ -453,7 +473,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       voiceClient.endSession();
       setIsVoiceActiveState(false);
     }
-    setUserProfile(initialUserProfile);
+    setUserProfileState(initialUserProfile);
     setActivities(mockDailyActivities);
     setMetrics(mockProgressMetrics);
     setChatMessages(initialCoachMessages);

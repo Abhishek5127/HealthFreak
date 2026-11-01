@@ -16,10 +16,12 @@ import {
 } from '@expo-google-fonts/manrope';
 
 import { AppProvider, useApp } from './src/state/AppContext';
+import { AuthProvider, useAuth } from './src/state/AuthContext';
 import { Colors } from './src/theme/colors';
 import { BottomTabBar } from './src/components/navigation/BottomTabBar';
 
 import { SplashScreen } from './src/features/splash/SplashScreen';
+import { LoginScreen } from './src/features/auth/LoginScreen';
 import { DashboardScreen } from './src/features/dashboard/DashboardScreen';
 import { PlanScreen } from './src/features/plan/PlanScreen';
 import { CoachChatScreen } from './src/features/coach/CoachChatScreen';
@@ -35,11 +37,6 @@ import { NutritionResultScreen } from './src/features/scanner/NutritionResultScr
 
 const MainAppContent: React.FC = () => {
   const { activeTab, setActiveTab, activeModal } = useApp();
-  const [showSplash, setShowSplash] = useState<boolean>(true);
-
-  if (showSplash) {
-    return <SplashScreen onFinish={() => setShowSplash(false)} />;
-  }
 
   const renderActiveScreen = () => {
     switch (activeTab) {
@@ -113,6 +110,33 @@ const MainAppContent: React.FC = () => {
   );
 };
 
+const NavigationRoot: React.FC = () => {
+  const { authState, session, profile } = useAuth();
+  const { setActiveModal } = useApp();
+  const [showSplash, setShowSplash] = useState<boolean>(true);
+  const [hasPromptedOnboarding, setHasPromptedOnboarding] = useState<boolean>(false);
+
+  // Trigger Onboarding modal if user is new
+  React.useEffect(() => {
+    if (session && profile && !profile.onboardingCompleted && !hasPromptedOnboarding) {
+      setHasPromptedOnboarding(true);
+      setActiveModal('onboarding');
+    }
+  }, [session, profile, hasPromptedOnboarding, setActiveModal]);
+
+  // Show splash screen while initializing or during splash duration
+  if (showSplash || authState === 'initializing') {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
+
+  // Route Protection: Unauthenticated -> LoginScreen
+  if (authState === 'logged_out' || (!session && (authState === 'authenticating' || authState === 'error'))) {
+    return <LoginScreen />;
+  }
+
+  return <MainAppContent />;
+};
+
 export default function App() {
   const [fontsLoaded] = useFonts({
     DMSerifDisplay_400Regular,
@@ -126,9 +150,11 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
-        <AppProvider>
-          <MainAppContent />
-        </AppProvider>
+        <AuthProvider>
+          <AppProvider>
+            <NavigationRoot />
+          </AppProvider>
+        </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
