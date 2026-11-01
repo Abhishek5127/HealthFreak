@@ -33,7 +33,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.43.250:3001';
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.43.249:3001';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [authState, setAuthState] = useState<AuthState>('initializing');
@@ -51,6 +51,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const syncProfileWithBackend = useCallback(async (currentSession: Session): Promise<UserProfile | null> => {
     try {
       const token = currentSession.access_token;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+
       const response = await fetch(`${BACKEND_URL}/api/auth/sync-profile`, {
         method: 'POST',
         headers: {
@@ -62,7 +65,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: currentSession.user?.email,
           avatarUrl: currentSession.user?.user_metadata?.avatar_url || currentSession.user?.user_metadata?.picture,
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         const json = await response.json();
@@ -85,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     } catch (err: any) {
-      console.warn('[AuthContext] Backend profile sync failed, falling back to session metadata:', err.message);
+      console.warn('[AuthContext] Backend profile sync failed or timed out, falling back to session metadata:', err.message);
     }
 
     // Local fallback profile based on Google OAuth metadata
@@ -112,7 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   /**
-   * Central session handler
+   * Central session handler — unlocks UI immediately, syncs profile concurrently
    */
   const handleSessionEstablished = useCallback(
     async (newSession: Session) => {
@@ -120,9 +125,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(newSession.user);
       setError(null);
 
-      const appProfile = await syncProfileWithBackend(newSession);
-      setProfile(appProfile);
+      // Instant optimistic profile from Google OAuth metadata so user enters app without delay
+      const initialProfile: UserProfile = {
+        id: newSession.user.id,
+        name:
+          newSession.user.user_metadata?.full_name ||
+          newSession.user.email?.split('@')[0] ||
+          'Disha Member',
+        email: newSession.user.email,
+        avatarUrl:
+          newSession.user.user_metadata?.avatar_url ||
+          newSession.user.user_metadata?.picture,
+        streakDays: 21,
+        selectedGoal: 'metabolic_fitness',
+        goalLabel: 'Metabolic Fitness & Energy',
+        language: 'Hinglish',
+        onboardingCompleted: false,
+        currentMood: 'balanced',
+        healthConditions: [],
+        authProvider: 'google',
+      };
+
+      setProfile(initialProfile);
       setAuthState('authenticated');
+
+      // Sync with database profile in the background
+      syncProfileWithBackend(newSession)
+        .then((synced) => {
+          if (synced) {
+            setProfile(synced);
+          }
+        })
+        .catch(() => {});
     },
     [syncProfileWithBackend]
   );

@@ -30,7 +30,7 @@ export const getBackendBaseUrl = (): string => {
     const host = window.location.hostname || 'localhost';
     return `http://${host}:3001`;
   }
-  // Metro host IP e.g. "192.168.43.250:8081" -> "http://192.168.43.250:3001"
+  // Metro host IP e.g. "192.168.43.249:8081" -> "http://192.168.43.249:3001"
   const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest?.debuggerHost || (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
   if (hostUri) {
     const ip = hostUri.split(':')[0];
@@ -38,7 +38,7 @@ export const getBackendBaseUrl = (): string => {
       return `http://${ip}:3001`;
     }
   }
-  return 'http://192.168.43.250:3001';
+  return 'http://192.168.43.249:3001';
 };
 
 const DIRECT_GEMINI_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';

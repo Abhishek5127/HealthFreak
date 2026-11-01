@@ -14,7 +14,7 @@ export function getBackendBaseUrl(): string {
     const ip = hostUri.split(':')[0];
     return `http://${ip}:3001`;
   }
-  return 'http://192.168.43.250:3001';
+  return 'http://192.168.43.249:3001';
 }
 
 export async function askDishaAI(
