@@ -60,3 +60,4 @@ nutritionRouter.get('/trends', (req: Request, res: Response): void => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+

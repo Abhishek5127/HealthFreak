@@ -51,6 +51,7 @@ import {
   DataSource,
 } from '../types/healthMemory.js';
 import { MealNutritionService } from '../services/nutritionDatabase.js';
+import { SupabaseDb } from './supabaseClient.js';
 
 export class HealthMemoryStore {
   private static instance: HealthMemoryStore;
@@ -993,6 +994,11 @@ export class HealthMemoryStore {
     // 4. Recalculate Daily Summary dynamically
     this.recalculateDailySummary(sanitizedMeal.userId, sanitizedMeal.consumptionDate);
 
+    // 5. Asynchronous dual-write to remote Supabase DB (if configured)
+    SupabaseDb.syncMeal(sanitizedMeal).catch((err) => {
+      console.warn('[HealthMemoryStore] Supabase syncMeal error:', err.message);
+    });
+
     return sanitizedMeal;
   }
 
@@ -1286,6 +1292,11 @@ export class HealthMemoryStore {
     // Recalculate daily summary
     this.recalculateDailySummary(userId, existing.consumptionDate);
 
+    // Asynchronous dual-write update to remote Supabase DB
+    SupabaseDb.syncMeal(updatedMeal).catch((err) => {
+      console.warn('[HealthMemoryStore] Supabase syncMeal error on correction:', err.message);
+    });
+
     return { success: true, updatedMeal, correctionEvents };
   }
 
@@ -1568,3 +1579,4 @@ export class HealthMemoryStore {
 }
 
 export const healthMemoryStore = HealthMemoryStore.getInstance();
+

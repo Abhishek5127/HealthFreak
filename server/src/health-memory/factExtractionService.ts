@@ -92,3 +92,4 @@ export class FactExtractionService {
     return { newFacts, contradictedFacts };
   }
 }
+
