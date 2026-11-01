@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, Mic, MicOff, Sparkles, Volume2, Send, Utensils } from 'lucide-react-native';
+import { X, Mic, MicOff, Sparkles, Volume2, Send, Utensils, RotateCcw } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -216,24 +216,67 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
 
       <Text style={styles.tapInstruction}>
         {sessionState.status === 'speaking'
-          ? 'Disha is speaking (Tap sphere or speak to interrupt)'
+          ? 'Disha is speaking aloud (Tap sphere or speak to interrupt)'
           : sessionState.status === 'listening'
-          ? sessionState.audioLevel > 15
+          ? sessionState.audioLevel > 12
             ? '🎙️ Voice detected... (Pause to send, or tap sphere)'
-            : '🎙️ Listening... (Speak naturally, hands-free)'
+            : '🎙️ Live — Listening... (Speak naturally or tap below)'
           : sessionState.status === 'connecting'
-          ? 'Disha is thinking...'
+          ? '⏳ Disha is generating reply...'
           : 'Ready — Speak naturally to Disha'}
       </Text>
 
+      {/* Manual Turn Control Button */}
+      <View style={styles.actionBtnRow}>
+        {sessionState.status === 'listening' ? (
+          <Pressable
+            style={styles.manualActionBtn}
+            onPress={() => {
+              voiceClient.unlockAudio();
+              voiceClient.stopListening();
+            }}
+          >
+            <Mic size={15} color="#FFFFFF" />
+            <Text style={styles.manualActionBtnText}>
+              {sessionState.audioLevel > 12 ? 'Done Speaking (Tap to Send)' : 'Tap Sphere or Speak'}
+            </Text>
+          </Pressable>
+        ) : sessionState.status === 'speaking' ? (
+          <Pressable
+            style={[styles.manualActionBtn, { backgroundColor: '#2D1F1C', borderColor: Colors.coralCTA }]}
+            onPress={() => {
+              voiceClient.unlockAudio();
+              voiceClient.interrupt();
+            }}
+          >
+            <MicOff size={15} color={Colors.coralCTA} />
+            <Text style={[styles.manualActionBtnText, { color: Colors.coralCTA }]}>Interrupt & Speak</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
       {/* Live Status and Interactive Transcript Box */}
       <View style={styles.transcriptBox}>
-        <Text style={styles.statusIndicatorText}>{getStatusLabel()}</Text>
+        <View style={styles.transcriptHeaderRow}>
+          <Text style={styles.statusIndicatorText}>{getStatusLabel()}</Text>
+          {sessionState.coachTranscript && sessionState.status !== 'connecting' ? (
+            <Pressable
+              style={styles.replayChip}
+              onPress={() => voiceClient.replayLastReply()}
+              hitSlop={8}
+            >
+              <RotateCcw size={13} color={Colors.coralCTA} />
+              <Text style={styles.replayChipText}>Replay Voice</Text>
+            </Pressable>
+          ) : null}
+        </View>
         {sessionState.userTranscript ? (
           <Text style={styles.userSpeechText}>You: {`"${sessionState.userTranscript}"`}</Text>
         ) : null}
         <Text style={styles.speechText}>
-          {sessionState.coachTranscript || 'Listening for your voice... Speak now.'}
+          {sessionState.status === 'connecting'
+            ? '⏳ Disha is analyzing and speaking...'
+            : sessionState.coachTranscript || 'Listening for your voice... Speak now.'}
         </Text>
       </View>
 
@@ -508,6 +551,28 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     textAlign: 'center',
   },
+  actionBtnRow: {
+    marginVertical: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 34,
+  },
+  manualActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E2C22',
+    borderWidth: 1,
+    borderColor: Colors.lightSage,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    gap: 7,
+  },
+  manualActionBtnText: {
+    color: '#FFFFFF',
+    fontSize: Typography.fontSizes.xs,
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
   transcriptBox: {
     backgroundColor: '#181C19',
     borderRadius: 18,
@@ -516,9 +581,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#262D28',
     width: '100%',
-    alignItems: 'center',
     minHeight: 88,
     justifyContent: 'center',
+  },
+  transcriptHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 6,
   },
   statusIndicatorText: {
     color: Colors.coralCTA,
@@ -526,7 +597,22 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamilies.sansBold,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginBottom: 6,
+  },
+  replayChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 113, 95, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 113, 95, 0.3)',
+  },
+  replayChipText: {
+    color: Colors.coralCTA,
+    fontSize: 11,
+    fontFamily: Typography.fontFamilies.sansBold,
   },
   userSpeechText: {
     color: Colors.softYellow,

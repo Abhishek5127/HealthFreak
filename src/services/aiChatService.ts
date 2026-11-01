@@ -21,7 +21,7 @@ export async function askDishaAI(
   message: string,
   userName = 'there',
   conditions: string[] = []
-): Promise<{ text: string; suggestions: string[]; audioBase64?: string; audioMime?: string }> {
+): Promise<{ text: string; suggestions: string[]; audioBase64?: string; audioMime?: string; audioUrl?: string }> {
   // 1. First try local backend server
   try {
     const backendUrl = getBackendBaseUrl();
@@ -31,7 +31,7 @@ export async function askDishaAI(
     const res = await fetch(`${backendUrl}/api/voice/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, userId: 'usr_synthetic_alex' }),
+      body: JSON.stringify({ message, userId: 'usr_synthetic_alex', generateCloudAudio: true }),
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -48,6 +48,7 @@ export async function askDishaAI(
           ],
           audioBase64: data.audioBase64,
           audioMime: data.audioMime,
+          audioUrl: data.audioUrl,
         };
       }
     }
@@ -75,9 +76,9 @@ Rules:
       const candidateModels = Array.from(
         new Set([
           GEMINI_MODEL,
-          'gemini-2.5-flash',
-          'gemini-2.0-flash',
-          'gemini-1.5-flash',
+          'gemini-3.8-flash',
+          'gemini-3.5-flash',
+          'gemini-3.1-flash-lite',
         ])
       ).filter(Boolean);
 
@@ -201,7 +202,7 @@ export async function transcribeAndReplyAudio(
   userName = 'Alex',
   conditions: string[] = [],
   lastCoachReply = ''
-): Promise<{ userTranscript: string; coachReply: string; audioBase64?: string; audioMime?: string; isEcho?: boolean }> {
+): Promise<{ userTranscript: string; coachReply: string; audioBase64?: string; audioMime?: string; audioUrl?: string; isEcho?: boolean }> {
   // 1. First attempt backend server (logs to server terminal in real-time)
   try {
     const backendUrl = getBackendBaseUrl();
@@ -216,6 +217,7 @@ export async function transcribeAndReplyAudio(
         mimeType,
         userId: 'usr_synthetic_alex',
         lastCoachReply,
+        generateCloudAudio: true,
       }),
       signal: controller.signal,
     });
@@ -236,6 +238,7 @@ export async function transcribeAndReplyAudio(
           coachReply: data.coachReply,
           audioBase64: data.audioBase64,
           audioMime: data.audioMime,
+          audioUrl: data.audioUrl,
           isEcho: false,
         };
       }
@@ -283,9 +286,9 @@ Listen carefully to the audio.
       const candidateModels = Array.from(
         new Set([
           GEMINI_MODEL,
-          'gemini-2.5-flash',
-          'gemini-2.0-flash',
-          'gemini-1.5-flash',
+          'gemini-3.8-flash',
+          'gemini-3.5-flash',
+          'gemini-3.1-flash-lite',
         ])
       ).filter(Boolean);
 

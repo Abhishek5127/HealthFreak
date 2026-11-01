@@ -242,25 +242,55 @@ function pcmToWav(pcmBuffer: Buffer, sampleRate = 24000, numChannels = 1, bitDep
   return Buffer.concat([header, pcmBuffer]);
 }
 
+const audioCache = new Map<string, { buffer: Buffer; mime: string; createdAt: number }>();
+
+// Periodically clean up clips older than 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of audioCache.entries()) {
+    if (now - value.createdAt > 600000) {
+      audioCache.delete(key);
+    }
+  }
+}, 60000);
+
+// Endpoint to stream generated neural speech directly to client AudioPlayer
+voiceRouter.get('/audio/:id.wav', (req: Request, res: Response) => {
+  const id = req.params.id;
+  const item = audioCache.get(id);
+  if (!item) {
+    res.status(404).send('Audio clip not found or expired');
+    return;
+  }
+  res.set({
+    'Content-Type': item.mime || 'audio/wav',
+    'Content-Length': item.buffer.length.toString(),
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': 'public, max-age=3600',
+  });
+  res.send(item.buffer);
+});
+
 /**
  * Synthesizes natural human speech with authentic Indian accent and cadence
  * using a high-quota multi-model TTS chain with Aoede voice.
  */
 export async function synthesizeSpeechWithGemini(
   text: string
-): Promise<{ audioBase64: string; audioMime: string } | null> {
+): Promise<{ audioBase64: string; audioMime: string; audioUrl: string } | null> {
   if (!config.gemini.apiKey) return null;
 
   const ttsModels = [
+    'gemini-3.8-flash-tts',
+    'gemini-3.8-flash-lite-tts',
     'gemini-3.1-flash-tts-preview',
     'gemini-2.5-flash-preview-tts',
-    'gemini-3.8-flash-lite-tts',
   ];
 
   for (const model of ttsModels) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8500);
+      const timeout = setTimeout(() => controller.abort(), 9500);
 
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.gemini.apiKey}`,
@@ -302,9 +332,17 @@ export async function synthesizeSpeechWithGemini(
             audioBuffer = pcmToWav(audioBuffer, 24000, 1, 16) as Buffer;
           }
 
+          const clipId = `clip_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+          audioCache.set(clipId, {
+            buffer: audioBuffer,
+            mime: 'audio/wav',
+            createdAt: Date.now(),
+          });
+
           return {
             audioBase64: audioBuffer.toString('base64'),
             audioMime: 'audio/wav',
+            audioUrl: `/api/voice/audio/${clipId}.wav`,
           };
         }
       }
@@ -340,6 +378,7 @@ voiceRouter.post('/greeting', async (req: Request, res: Response) => {
       greeting,
       audioBase64: speech?.audioBase64,
       audioMime: speech?.audioMime || 'audio/wav',
+      audioUrl: speech?.audioUrl,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -371,9 +410,9 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
     const candidateModels = Array.from(
       new Set([
         config.gemini.model,
-        'gemini-2.5-flash',
-        'gemini-2.0-flash',
-        'gemini-1.5-flash',
+        'gemini-3.8-flash',
+        'gemini-3.5-flash',
+        'gemini-3.1-flash-lite',
       ])
     ).filter(Boolean);
 
@@ -446,14 +485,16 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
 
     let audioBase64Out: string | undefined = undefined;
     let audioMimeOut: string | undefined = undefined;
+    let audioUrlOut: string | undefined = undefined;
 
-    const { generateCloudAudio } = req.body;
-    if (generateCloudAudio) {
+    const shouldSynthesizeVoice = req.body.generateCloudAudio !== false;
+    if (shouldSynthesizeVoice && replyText.trim()) {
       const speechResult = await synthesizeSpeechWithGemini(replyText.trim());
       if (speechResult) {
         audioBase64Out = speechResult.audioBase64;
         audioMimeOut = speechResult.audioMime;
-        console.log(`🔊  [CHAT NEURAL AUDIO READY]: ${audioMimeOut}`);
+        audioUrlOut = speechResult.audioUrl;
+        console.log(`🔊  [CHAT NEURAL AUDIO READY]: ${audioMimeOut} (${audioUrlOut})`);
       }
     }
 
@@ -461,6 +502,7 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
       text: replyText.trim(),
       audioBase64: audioBase64Out,
       audioMime: audioMimeOut,
+      audioUrl: audioUrlOut,
       suggestions: ['Check my active plan', 'How is my hydration today?', 'Adjust my workout intensity'],
     });
   } catch (err: any) {
@@ -591,9 +633,9 @@ Return strictly a valid JSON object in this format:
     const candidateModels = Array.from(
       new Set([
         config.gemini.model,
-        'gemini-2.5-flash',
-        'gemini-2.0-flash',
-        'gemini-1.5-flash',
+        'gemini-3.8-flash',
+        'gemini-3.5-flash',
+        'gemini-3.1-flash-lite',
       ])
     ).filter(Boolean);
 
@@ -701,17 +743,19 @@ Return strictly a valid JSON object in this format:
       }
     }
 
-    // Optional cloud audio if explicitly requested by client; default responds immediately for sub-second latency
-    const { generateCloudAudio } = req.body;
+    // Synthesize neural cloud audio by default for immediate loud voice reply
+    const shouldSynthesizeAudio = req.body.generateCloudAudio !== false;
     let audioBase64Out: string | undefined = undefined;
     let audioMimeOut: string | undefined = undefined;
+    let audioUrlOut: string | undefined = undefined;
 
-    if (generateCloudAudio) {
+    if (shouldSynthesizeAudio && coachReply.trim()) {
       const speechResult = await synthesizeSpeechWithGemini(coachReply);
       if (speechResult) {
         audioBase64Out = speechResult.audioBase64;
         audioMimeOut = speechResult.audioMime;
-        console.log(`🔊  [GEMINI NEURAL AUDIO READY]: ${audioMimeOut} (${((audioBase64Out.length * 0.75) / 1024).toFixed(1)} KB)`);
+        audioUrlOut = speechResult.audioUrl;
+        console.log(`🔊  [GEMINI NEURAL AUDIO READY]: ${audioMimeOut} (${audioUrlOut})`);
       }
     }
 
@@ -720,6 +764,7 @@ Return strictly a valid JSON object in this format:
       coachReply,
       audioBase64: audioBase64Out,
       audioMime: audioMimeOut,
+      audioUrl: audioUrlOut,
       latencyMs: elapsed,
     });
   } catch (err: any) {

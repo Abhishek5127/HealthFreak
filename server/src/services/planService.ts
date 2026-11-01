@@ -121,9 +121,10 @@ export class PlanService {
     // 1. Zod Schema Validation
     const parseResult = PlanGenerationDraftSchema.safeParse(unvalidatedPayload);
     if (!parseResult.success) {
+      const issues = parseResult.error.issues || (parseResult.error as any).errors || [];
       return {
         success: false,
-        errors: parseResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
+        errors: issues.map((e: any) => `${e.path?.join('.') || 'root'}: ${e.message}`),
       };
     }
 

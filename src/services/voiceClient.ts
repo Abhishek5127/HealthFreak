@@ -193,9 +193,10 @@ export class VoiceClientService {
    * with authentic Indian accent and natural intonation.
    */
   public async playGeneratedAudio(
-    audioBase64: string,
+    audioBase64?: string,
     audioMime = 'audio/wav',
-    fallbackText = ''
+    fallbackText = '',
+    audioUrl?: string
   ): Promise<void> {
     this.status = 'speaking';
     if (fallbackText) {
@@ -208,7 +209,7 @@ export class VoiceClientService {
       if (finished) return;
       finished = true;
       if (this.status === 'speaking') {
-        // Zero-delay handoff: Instant transition back to hot mic listening
+        // Instant transition back to hot mic listening
         this.status = 'listening';
         this.notify();
         this.startListening();
@@ -225,33 +226,42 @@ export class VoiceClientService {
           this.currentWebAudio = null;
         }
 
-        const audio = new Audio(`data:${audioMime};base64,${audioBase64}`);
-        this.currentWebAudio = audio;
+        let webSrc = '';
+        if (audioUrl) {
+          webSrc = audioUrl.startsWith('http') ? audioUrl : `${getBackendBaseUrl()}${audioUrl}`;
+        } else if (audioBase64) {
+          webSrc = `data:${audioMime};base64,${audioBase64}`;
+        }
 
-        const wordCount = (fallbackText || '').split(/\s+/).length;
-        const watchdogMs = Math.max(4000, wordCount * 500 + 2000);
-        const watchdog = setTimeout(() => {
-          if (this.currentWebAudio === audio) {
+        if (webSrc) {
+          const audio = new Audio(webSrc);
+          this.currentWebAudio = audio;
+
+          const wordCount = (fallbackText || '').split(/\s+/).length;
+          const watchdogMs = Math.max(5000, wordCount * 550 + 2500);
+          const watchdog = setTimeout(() => {
+            if (this.currentWebAudio === audio) {
+              this.currentWebAudio = null;
+              finishSpeaking();
+            }
+          }, watchdogMs);
+
+          audio.onended = () => {
+            clearTimeout(watchdog);
             this.currentWebAudio = null;
             finishSpeaking();
-          }
-        }, watchdogMs);
+          };
 
-        audio.onended = () => {
-          clearTimeout(watchdog);
-          this.currentWebAudio = null;
-          finishSpeaking();
-        };
+          audio.onerror = (e) => {
+            clearTimeout(watchdog);
+            console.warn('[VoiceClient] Web audio error, using speech fallback:', e);
+            this.currentWebAudio = null;
+            this.speakAloud(fallbackText);
+          };
 
-        audio.onerror = (e) => {
-          clearTimeout(watchdog);
-          console.warn('[VoiceClient] Web audio error, using speech fallback:', e);
-          this.currentWebAudio = null;
-          this.speakAloud(fallbackText);
-        };
-
-        await audio.play();
-        return;
+          await audio.play();
+          return;
+        }
       } catch (err) {
         console.warn('[VoiceClient] Web audio play error:', err);
       }
@@ -262,53 +272,69 @@ export class VoiceClientService {
       if (this.currentPlayer) {
         try {
           this.currentPlayer.pause();
-          this.currentPlayer.remove();
+          this.currentPlayer.release?.();
+          this.currentPlayer.remove?.();
         } catch {}
         this.currentPlayer = null;
       }
 
+      // CRITICAL: Disengage recording mode so Android routes audio through
+      // the device loudspeaker with full volume and fidelity!
       await setAudioModeAsync({
-        allowsRecording: true,
+        allowsRecording: false,
         playsInSilentMode: true,
+        shouldPlayInBackground: false,
         interruptionMode: 'duckOthers',
-        shouldRouteThroughEarpiece: false, // Stay loud and clear on speakerphone!
       });
 
-      const speechPath = `${FileSystem.cacheDirectory || ''}disha_speech_${Date.now()}.wav`;
-      await FileSystem.writeAsStringAsync(speechPath, audioBase64, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
+      let playerSource: any = null;
 
-      const player = createAudioPlayer(speechPath);
-      this.currentPlayer = player;
+      // Prefer HTTP audio stream directly if available
+      if (audioUrl) {
+        const fullUrl = audioUrl.startsWith('http') ? audioUrl : `${getBackendBaseUrl()}${audioUrl}`;
+        playerSource = fullUrl;
+      } else if (audioBase64) {
+        const speechPath = `${FileSystem.cacheDirectory || ''}disha_speech_${Date.now()}.wav`;
+        await FileSystem.writeAsStringAsync(speechPath, audioBase64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        playerSource = speechPath;
+      }
 
-      const wordCount = (fallbackText || '').split(/\s+/).length;
-      const watchdogMs = Math.max(4000, wordCount * 500 + 2000);
-      const watchdog = setTimeout(() => {
-        if (this.currentPlayer === player) {
-          this.currentPlayer = null;
-          try {
-            player.remove();
-          } catch {}
-          finishSpeaking();
-        }
-      }, watchdogMs);
+      if (playerSource) {
+        const player = createAudioPlayer(playerSource);
+        this.currentPlayer = player;
 
-      player.addListener('playbackStatusUpdate', (status: any) => {
-        if (status.didJustFinish) {
-          clearTimeout(watchdog);
+        const wordCount = (fallbackText || '').split(/\s+/).length;
+        const watchdogMs = Math.max(5000, wordCount * 550 + 2500);
+        const watchdog = setTimeout(() => {
           if (this.currentPlayer === player) {
             this.currentPlayer = null;
             try {
-              player.remove();
+              player.release?.();
+              player.remove?.();
             } catch {}
             finishSpeaking();
           }
-        }
-      });
+        }, watchdogMs);
 
-      player.play();
-      return;
+        player.addListener('playbackStatusUpdate', (status: any) => {
+          if (status.didJustFinish) {
+            clearTimeout(watchdog);
+            if (this.currentPlayer === player) {
+              this.currentPlayer = null;
+              try {
+                player.release?.();
+                player.remove?.();
+              } catch {}
+              finishSpeaking();
+            }
+          }
+        });
+
+        player.play();
+        return;
+      }
     } catch (err) {
       console.warn('[VoiceClient] Native player error, falling back to TTS:', err);
     }
@@ -320,23 +346,24 @@ export class VoiceClientService {
   /**
    * Speaks text aloud through device speakers with safety watchdog timer to prevent UI hanging.
    */
-  public speakAloud(text: string, onEnd?: () => void) {
-    this.status = 'speaking';
-    if (text) {
-      this.lastCoachReply = text;
+  public async speakAloud(text: string, onEnd?: () => void) {
+    if (!text || !text.trim()) {
+      if (onEnd) onEnd();
+      return;
     }
+
+    this.status = 'speaking';
+    this.lastCoachReply = text;
     this.notify();
 
     let finished = false;
     const finishSpeaking = async () => {
       if (finished) return;
 
-      // On native Android/iOS: Ensure the physical speaker has finished playing before enabling mic
       if (Platform.OS !== 'web') {
         try {
           const isSpeaking = await Speech.isSpeakingAsync();
           if (isSpeaking) {
-            // Native engine is still speaking - recheck in 200ms
             setTimeout(finishSpeaking, 200);
             return;
           }
@@ -345,7 +372,6 @@ export class VoiceClientService {
 
       finished = true;
       if (this.status === 'speaking') {
-        // Zero-delay handoff: Instant transition back to hot mic listening
         this.status = 'listening';
         this.notify();
         this.startListening();
@@ -353,18 +379,17 @@ export class VoiceClientService {
       if (onEnd) onEnd();
     };
 
-    // Watchdog safety timer: Guarantees transition to 'listening' if onDone event is dropped
     const wordCount = text.split(/\s+/).length;
-    const estimatedDurationMs = Math.max(4000, wordCount * 500 + 2500);
+    const estimatedDurationMs = Math.max(4500, wordCount * 550 + 2500);
     const watchdogTimer = setTimeout(finishSpeaking, estimatedDurationMs);
 
-    // Detect Indian English vs Hindi for accurate pronunciation
-    const isHindiText =
-      /[\u0900-\u097F]/.test(text) ||
-      /\b(namaste|aap|kaisa|kaise|karti|karta|hoon|hai|karein|theek|accha|shukriya|shuru|bol)\b/i.test(text);
-    const speechLang = isHindiText ? 'hi-IN' : 'en-IN';
+    // If text has actual Devanagari Unicode characters, use 'hi-IN'.
+    // If text is Hinglish / English written in Latin alphabet, use 'en-IN' (Indian English accent),
+    // which cleanly pronounces Hinglish words without crashing or muting on Android TTS!
+    const hasDevanagari = /[\u0900-\u097F]/.test(text);
+    const speechLang = hasDevanagari ? 'hi-IN' : 'en-IN';
 
-    // 1. Web Speech Synthesis (Reliable across Chrome, Edge, Safari, Firefox)
+    // 1. Web Speech Synthesis
     if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
         window.speechSynthesis.cancel();
@@ -377,12 +402,11 @@ export class VoiceClientService {
         const voices = window.speechSynthesis.getVoices();
         if (voices && voices.length > 0) {
           const matchedVoice =
-            voices.find((v) => v.lang === speechLang || v.lang.startsWith(isHindiText ? 'hi' : 'en-IN')) ||
+            voices.find((v) => v.lang === speechLang || v.lang.startsWith(hasDevanagari ? 'hi' : 'en-IN')) ||
             voices.find(
               (v) =>
                 v.name.toLowerCase().includes('india') ||
                 v.name.toLowerCase().includes('zira') ||
-                v.name.toLowerCase().includes('natural') ||
                 v.name.toLowerCase().includes('google')
             ) ||
             voices[0];
@@ -403,7 +427,7 @@ export class VoiceClientService {
         };
 
         utterance.onerror = (e) => {
-          console.log('[VoiceClient] Speech synthesis event:', e);
+          console.log('[VoiceClient] Web Speech synthesis event:', e);
           clearTimeout(watchdogTimer);
           finishSpeaking();
         };
@@ -415,36 +439,49 @@ export class VoiceClientService {
       }
     }
 
-    // 2. Native mobile playback via expo-speech with dedicated Indian voices (iOS / Android)
+    // 2. Native mobile playback via expo-speech
     try {
       if (Platform.OS !== 'web') {
-        setAudioModeAsync({
-          allowsRecording: true,
+        // Disengage microphone during TTS so physical loudspeaker plays at full loudness
+        await setAudioModeAsync({
+          allowsRecording: false,
           playsInSilentMode: true,
+          shouldPlayInBackground: false,
           interruptionMode: 'duckOthers',
-          shouldRouteThroughEarpiece: false, // Stay on loud speaker!
         }).catch(() => {});
       }
-      const chosenVoice = isHindiText
-        ? this.cachedIndianVoices.hindi
-        : this.cachedIndianVoices.indianEnglish;
 
       Speech.stop();
       Speech.speak(text, {
         language: speechLang,
-        voice: chosenVoice,
-        pitch: 1.05,
-        rate: 0.98,
+        pitch: 1.02,
+        rate: 0.96,
         onStart: () => {
-          console.log(`[VoiceClient] Speech playback started (voice: ${chosenVoice || 'default'})`);
+          console.log(`[VoiceClient] Native Speech playback started (lang: ${speechLang})`);
         },
         onDone: () => {
           clearTimeout(watchdogTimer);
           finishSpeaking();
         },
-        onError: () => {
-          clearTimeout(watchdogTimer);
-          finishSpeaking();
+        onError: (err) => {
+          console.warn('[VoiceClient] Speech.speak primary error:', err);
+          // Fallback: Retry without language restriction
+          try {
+            Speech.speak(text, {
+              rate: 0.96,
+              onDone: () => {
+                clearTimeout(watchdogTimer);
+                finishSpeaking();
+              },
+              onError: () => {
+                clearTimeout(watchdogTimer);
+                finishSpeaking();
+              },
+            });
+          } catch {
+            clearTimeout(watchdogTimer);
+            finishSpeaking();
+          }
         },
       });
     } catch {
@@ -760,8 +797,8 @@ export class VoiceClientService {
       this.isProcessingTurn = false;
       this.notify();
 
-      if (result.audioBase64) {
-        await this.playGeneratedAudio(result.audioBase64, result.audioMime || 'audio/wav', result.coachReply);
+      if (result.audioUrl || result.audioBase64) {
+        await this.playGeneratedAudio(result.audioBase64, result.audioMime || 'audio/wav', result.coachReply, result.audioUrl);
       } else {
         this.speakAloud(result.coachReply);
       }
@@ -908,7 +945,8 @@ export class VoiceClientService {
 
           // Active Turn Silence Detection
           if (this.status === 'listening' && !this.isMuted) {
-            const isSpeechFrame = metering >= -38;
+            // Highly sensitive threshold for natural speaking distance (-52 dB vs old -38 dB)
+            const isSpeechFrame = metering >= -52;
             if (isSpeechFrame) {
               consecutiveSpeechFrames++;
               // 2 consecutive frames (~160ms) confirms user is speaking (filters sudden mic bumps/clicks)
@@ -927,16 +965,15 @@ export class VoiceClientService {
               consecutiveSpeechFrames = 0;
               if (speechDetected) {
                 // User spoke, and volume has now dropped below the voice peak or below quiet threshold
-                const silenceThreshold = Math.max(-38, peakVoiceDb - 10);
+                const silenceThreshold = Math.max(-54, peakVoiceDb - 12);
                 const isQuietNow = metering <= silenceThreshold;
 
                 if (isQuietNow) {
                   silenceDurationMs += 80;
 
                   // Rapid real-time conversational turn completion:
-                  // 450ms of silence after a phrase -> trigger instant send!
-                  // 600ms for short quick answers ("Haan", "Nahi", "Good", "Yes")
-                  const requiredSilenceMs = speechDurationMs >= 300 ? 450 : 600;
+                  // 500ms of quiet after speaking confirms turn completion
+                  const requiredSilenceMs = speechDurationMs >= 350 ? 500 : 700;
 
                   if (silenceDurationMs >= requiredSilenceMs) {
                     console.log(`[VoiceClient] End of user speech detected (${speechDurationMs}ms speech, ${silenceDurationMs}ms silence). Submitting turn...`);
@@ -949,17 +986,17 @@ export class VoiceClientService {
               }
             }
 
-            // Safety Guard 1: Max 10 seconds of speech per utterance
-            if (speechDetected && totalElapsed > 10000) {
-              console.log('[VoiceClient] Max utterance time reached (10s), finishing turn');
+            // Safety Guard 1: Max 12 seconds of speech per utterance
+            if (speechDetected && totalElapsed > 12000) {
+              console.log('[VoiceClient] Max utterance time reached, finishing turn');
               speechDetected = false;
               this.stopListening();
               return;
             }
 
-            // Safety Guard 2: Inactivity timeout if user never spoke after 10 seconds of listening - roll over buffer
-            if (!speechDetected && totalElapsed > 10000) {
-              console.log('[VoiceClient] Inactivity timeout (10s quiet), refreshing audio buffer');
+            // Safety Guard 2: Inactivity timeout if quiet for 15s without speaking - roll over buffer
+            if (!speechDetected && totalElapsed > 15000) {
+              console.log('[VoiceClient] Inactivity timeout, refreshing audio buffer');
               this.startListening();
               return;
             }
@@ -1101,8 +1138,8 @@ export class VoiceClientService {
       this.isProcessingTurn = false;
       this.notify();
 
-      if (aiResponse.audioBase64) {
-        await this.playGeneratedAudio(aiResponse.audioBase64, aiResponse.audioMime || 'audio/wav', replyText);
+      if (aiResponse.audioUrl || aiResponse.audioBase64) {
+        await this.playGeneratedAudio(aiResponse.audioBase64, aiResponse.audioMime || 'audio/wav', replyText, aiResponse.audioUrl);
       } else {
         this.speakAloud(replyText);
       }
@@ -1194,10 +1231,10 @@ export class VoiceClientService {
         if (greetData.greeting) {
           greeting = greetData.greeting;
           this.coachTranscript = greeting;
-          if (greetData.audioBase64) {
+          if (greetData.audioUrl || greetData.audioBase64) {
             this.status = 'speaking';
             this.notify();
-            await this.playGeneratedAudio(greetData.audioBase64, greetData.audioMime || 'audio/wav', greeting);
+            await this.playGeneratedAudio(greetData.audioBase64, greetData.audioMime || 'audio/wav', greeting, greetData.audioUrl);
             return;
           }
         }
@@ -1227,7 +1264,8 @@ export class VoiceClientService {
     if (this.currentPlayer) {
       try {
         this.currentPlayer.pause();
-        this.currentPlayer.remove();
+        this.currentPlayer.release?.();
+        this.currentPlayer.remove?.();
       } catch {}
       this.currentPlayer = null;
     }
@@ -1246,12 +1284,19 @@ export class VoiceClientService {
       // Ignored
     }
     this.status = 'interrupted';
-    this.coachTranscript = '(Listening to you...)';
     this.notify();
 
     setTimeout(() => {
       this.startListening();
     }, 150);
+  }
+
+  public async replayLastReply(): Promise<void> {
+    if (!this.lastCoachReply) return;
+    this.unlockAudio();
+    this.status = 'speaking';
+    this.notify();
+    await this.speakAloud(this.lastCoachReply);
   }
 
   public simulateUserUtterance(text: string): void {

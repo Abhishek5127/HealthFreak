@@ -50,7 +50,8 @@
         {
           "cameraPermission": "Allow HealthFreak to access your camera to scan meals."
         }
-      ]
+      ],
+      "expo-asset"
     ]
   }
 }
