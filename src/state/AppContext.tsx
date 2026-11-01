@@ -270,26 +270,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveModalState('meal_result');
   };
 
+  // Dynamic Nutrition Recalculation Engine
+  const recalculateDailyNutrition = (meals: MealAnalysisResult[]) => {
+    const sumCalories = meals.reduce((acc, m) => acc + (m.totalNutrition?.calories || 0), 0);
+    const sumProtein = meals.reduce((acc, m) => acc + (m.totalNutrition?.proteinGrams || 0), 0);
+    const sumCarbs = meals.reduce((acc, m) => acc + (m.totalNutrition?.carbsGrams || 0), 0);
+    const sumFat = meals.reduce((acc, m) => acc + (m.totalNutrition?.fatGrams || 0), 0);
+    const sumFiber = meals.reduce((acc, m) => acc + (m.totalNutrition?.fiberGrams || 0), 0);
+
+    return {
+      caloriesTotal: Math.round(sumCalories),
+      proteinTotal: Math.round(sumProtein),
+      carbsTotal: Math.round(sumCarbs),
+      fatTotal: Math.round(sumFat),
+      fiberTotal: Math.round(sumFiber),
+      mealsCount: meals.length,
+    };
+  };
+
   const saveMealToDiary = async (meal: MealAnalysisResult) => {
     triggerHaptic('success');
     const updatedMeal: MealAnalysisResult = { ...meal, status: 'saved' };
 
-    // Update local recent meals
     setRecentMeals((prev) => {
       const filtered = prev.filter((m) => m.id !== updatedMeal.id);
-      return [updatedMeal, ...filtered];
-    });
+      const nextMeals = [updatedMeal, ...filtered];
+      const totals = recalculateDailyNutrition(nextMeals);
 
-    // Update today's totals
-    setTodaysNutrition((prev) => ({
-      ...prev,
-      caloriesTotal: prev.caloriesTotal + updatedMeal.totalNutrition.calories,
-      proteinTotal: Math.round(prev.proteinTotal + updatedMeal.totalNutrition.proteinGrams),
-      carbsTotal: Math.round(prev.carbsTotal + updatedMeal.totalNutrition.carbsGrams),
-      fatTotal: Math.round(prev.fatTotal + updatedMeal.totalNutrition.fatGrams),
-      fiberTotal: Math.round(prev.fiberTotal + updatedMeal.totalNutrition.fiberGrams),
-      mealsCount: prev.mealsCount + 1,
-    }));
+      setTodaysNutrition((n) => {
+        const nextNutrition = {
+          ...n,
+          ...totals,
+        };
+        // Update calories progress metric
+        setMetrics((mList) =>
+          mList.map((m) =>
+            m.id === 'calories'
+              ? {
+                  ...m,
+                  percentage: Math.min(1, totals.caloriesTotal / (nextNutrition.caloriesTarget || 2000)),
+                }
+              : m
+          )
+        );
+        return nextNutrition;
+      });
+
+      expoSecureStoreAdapter.setItem('HEALTHFREAK_TODAYS_MEALS', JSON.stringify(nextMeals)).catch(() => {});
+      return nextMeals;
+    });
 
     // Save to backend asynchronously
     await MealScannerService.saveMeal(updatedMeal);
@@ -297,20 +326,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteMealFromDiary = async (mealId: string) => {
     triggerHaptic('impact');
-    const mealToDelete = recentMeals.find((m) => m.id === mealId);
-    if (!mealToDelete) return;
+    setRecentMeals((prev) => {
+      const nextMeals = prev.filter((m) => m.id !== mealId);
+      const totals = recalculateDailyNutrition(nextMeals);
 
-    setRecentMeals((prev) => prev.filter((m) => m.id !== mealId));
+      setTodaysNutrition((n) => {
+        const nextNutrition = {
+          ...n,
+          ...totals,
+        };
+        setMetrics((mList) =>
+          mList.map((m) =>
+            m.id === 'calories'
+              ? {
+                  ...m,
+                  percentage: Math.min(1, totals.caloriesTotal / (nextNutrition.caloriesTarget || 2000)),
+                }
+              : m
+          )
+        );
+        return nextNutrition;
+      });
 
-    setTodaysNutrition((prev) => ({
-      ...prev,
-      caloriesTotal: Math.max(0, prev.caloriesTotal - mealToDelete.totalNutrition.calories),
-      proteinTotal: Math.max(0, Math.round(prev.proteinTotal - mealToDelete.totalNutrition.proteinGrams)),
-      carbsTotal: Math.max(0, Math.round(prev.carbsTotal - mealToDelete.totalNutrition.carbsGrams)),
-      fatTotal: Math.max(0, Math.round(prev.fatTotal - mealToDelete.totalNutrition.fatGrams)),
-      fiberTotal: Math.max(0, Math.round(prev.fiberTotal - mealToDelete.totalNutrition.fiberGrams)),
-      mealsCount: Math.max(0, prev.mealsCount - 1),
-    }));
+      expoSecureStoreAdapter.setItem('HEALTHFREAK_TODAYS_MEALS', JSON.stringify(nextMeals)).catch(() => {});
+      return nextMeals;
+    });
 
     await MealScannerService.deleteMeal(mealId);
   };
@@ -407,33 +447,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     }
 
-    setTodaysNutrition((prev) => ({
-      ...prev,
+    // Reset logged meals & consumed nutrition to 0 for the newly configured goal
+    setRecentMeals([]);
+    setWaterLoggedMl(0);
+
+    setTodaysNutrition({
+      caloriesTotal: 0,
       caloriesTarget: plan.dailyCalories,
+      proteinTotal: 0,
       proteinTarget: plan.proteinGrams,
+      carbsTotal: 0,
       carbsTarget: plan.carbsGrams,
+      fatTotal: 0,
       fatTarget: plan.fatGrams,
+      fiberTotal: 0,
       fiberTarget: plan.fiberGrams,
-    }));
+      mealsCount: 0,
+    });
+
+    // Clear stored meals in local secure store so diary starts fresh
+    try {
+      await expoSecureStoreAdapter.removeItem('HEALTHFREAK_TODAYS_MEALS');
+      await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED', '0');
+    } catch {}
 
     // Update daily activities according to the new goal
     const goalActivities = getActivitiesForGoal(assessment.goal);
     setActivities(goalActivities);
 
-    // Update calories progress metric target
+    // Reset calories progress metric percentage
     setMetrics((prev) =>
       prev.map((m) =>
         m.id === 'calories'
           ? {
               ...m,
               target: `${plan.dailyCalories}`,
-              percentage: Math.min(1, 273 / plan.dailyCalories),
+              percentage: 0,
             }
           : m
       )
     );
 
-    // Persist to secure storage
+    // Persist assessment to secure storage
     try {
       await expoSecureStoreAdapter.setItem(
         'HEALTHFREAK_SURVEY_ASSESSMENT',
@@ -459,14 +514,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               onboardingCompleted: true,
               surveyAssessment: parsed,
             }));
-            setTodaysNutrition((prev) => ({
-              ...prev,
+
+            // Restore saved meals if any exist
+            let restoredMeals: MealAnalysisResult[] = [];
+            try {
+              const savedMealsRaw = await expoSecureStoreAdapter.getItem('HEALTHFREAK_TODAYS_MEALS');
+              if (savedMealsRaw) {
+                restoredMeals = JSON.parse(savedMealsRaw);
+              }
+            } catch {}
+
+            setRecentMeals(restoredMeals);
+            const totals = recalculateDailyNutrition(restoredMeals);
+
+            setTodaysNutrition({
+              ...totals,
               caloriesTarget: parsed.calculatedPlan.dailyCalories,
               proteinTarget: parsed.calculatedPlan.proteinGrams,
               carbsTarget: parsed.calculatedPlan.carbsGrams,
               fatTarget: parsed.calculatedPlan.fatGrams,
               fiberTarget: parsed.calculatedPlan.fiberGrams,
-            }));
+            });
+
             setActivities(getActivitiesForGoal(parsed.goal));
             setMetrics((prev) =>
               prev.map((m) =>
@@ -474,7 +543,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   ? {
                       ...m,
                       target: `${parsed.calculatedPlan.dailyCalories}`,
-                      percentage: Math.min(1, 273 / parsed.calculatedPlan.dailyCalories),
+                      percentage: Math.min(1, totals.caloriesTotal / parsed.calculatedPlan.dailyCalories),
                     }
                   : m
               )

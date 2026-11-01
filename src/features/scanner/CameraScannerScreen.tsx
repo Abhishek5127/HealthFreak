@@ -9,6 +9,7 @@ import {
   Animated,
   ActivityIndicator,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -36,6 +37,7 @@ import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
 import { MealScannerService } from '../../services/mealScannerService';
+import { SAMPLE_MEAL_TEMPLATES } from '../../mock-data/sampleMealTemplates';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const VIEWFINDER_SIZE = Math.min(SCREEN_WIDTH - 64, 320);
@@ -203,6 +205,42 @@ export const CameraScannerScreen: React.FC = () => {
             <ImageIcon color={Colors.lightSage} size={18} style={{ marginRight: 8 }} />
             <Text style={styles.secondaryBtnText}>Choose from Gallery Instead</Text>
           </TouchableOpacity>
+
+          <View style={{ marginTop: 24, width: '100%', borderTopWidth: 1, borderTopColor: '#283229', paddingTop: 16 }}>
+            <Text style={{ color: Colors.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 12, textAlign: 'center' }}>
+              OR TEST SCAN WITH HEALTHY PLATES:
+            </Text>
+            {SAMPLE_MEAL_TEMPLATES.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#1E2520',
+                  padding: 12,
+                  borderRadius: 14,
+                  marginBottom: 8,
+                  borderWidth: 1,
+                  borderColor: '#2F3C32',
+                }}
+                onPress={() => {
+                  triggerHaptic('success');
+                  openMealResult(item);
+                }}
+              >
+                <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(75,119,97,0.3)', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                  <Utensils size={16} color={Colors.lightSage} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: '700' }}>{item.mealName}</Text>
+                  <Text style={{ color: Colors.textSecondary, fontSize: 11 }}>
+                    {item.totalNutrition.calories} kcal • {item.totalNutrition.proteinGrams}g Protein • {item.totalNutrition.carbsGrams}g C
+                  </Text>
+                </View>
+                <Sparkles size={14} color={Colors.forestGreenLight} />
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       </View>
     );
@@ -278,6 +316,36 @@ export const CameraScannerScreen: React.FC = () => {
                   ]}
                 />
               </View>
+            </View>
+
+            {/* Quick Plates Carousel */}
+            <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                {SAMPLE_MEAL_TEMPLATES.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={{
+                      backgroundColor: 'rgba(20,26,22,0.92)',
+                      paddingHorizontal: 14,
+                      paddingVertical: 8,
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor: 'rgba(75,119,97,0.4)',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}
+                    onPress={() => {
+                      triggerHaptic('success');
+                      openMealResult(item);
+                    }}
+                  >
+                    <Utensils size={13} color={Colors.lightSage} style={{ marginRight: 6 }} />
+                    <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>
+                      {item.mealName.split('&')[0]} ({item.totalNutrition.calories} kcal)
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
 
             {/* Bottom Bar Shutter & Controls */}

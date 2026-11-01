@@ -27,6 +27,7 @@ import {
   Check,
   Sun,
   Activity,
+  Trash2,
 } from 'lucide-react-native';
 import { useApp } from '../../state/AppContext';
 import { Colors } from '../../theme/colors';
@@ -39,6 +40,7 @@ import { CategoryTile } from '../../components/cards/CategoryTile';
 import { ProgressMetricCard } from '../../components/cards/ProgressMetricCard';
 import { PlanActivityCard } from '../../components/cards/PlanActivityCard';
 import { CheckInCharacterView } from '../../components/illustrations/CheckInCharacters';
+import { SAMPLE_MEAL_TEMPLATES } from '../../mock-data/sampleMealTemplates';
 
 export const DashboardScreen: React.FC = () => {
   const {
@@ -50,6 +52,7 @@ export const DashboardScreen: React.FC = () => {
     setActiveTab,
     openMealScanner,
     openMealResult,
+    deleteMealFromDiary,
     todaysNutrition,
     recentMeals,
     waterLoggedMl,
@@ -385,7 +388,12 @@ export const DashboardScreen: React.FC = () => {
         {/* Logged Meals Carousel / Items */}
         {recentMeals.length > 0 ? (
           <View style={styles.loggedMealsContainer}>
-            <Text style={styles.loggedMealsTitle}>Logged Today ({recentMeals.length}):</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={styles.loggedMealsTitle}>Logged Today ({recentMeals.length}):</Text>
+              <Pressable onPress={openMealScanner}>
+                <Text style={{ fontSize: 12, color: Colors.forestGreenLight, fontWeight: '700' }}>+ Scan Another</Text>
+              </Pressable>
+            </View>
             {recentMeals.map((meal) => (
               <Pressable
                 key={meal.id}
@@ -398,19 +406,34 @@ export const DashboardScreen: React.FC = () => {
                 <View style={styles.loggedMealInfo}>
                   <Text style={styles.loggedMealName} numberOfLines={1}>{meal.mealName}</Text>
                   <Text style={styles.loggedMealSub}>
-                    {meal.totalNutrition.calories} kcal • {meal.foods.length} items • {meal.totalNutrition.proteinGrams}g Protein
+                    {meal.totalNutrition.calories} kcal • {meal.totalNutrition.proteinGrams}g P • {meal.totalNutrition.carbsGrams}g C • {meal.totalNutrition.fatGrams}g F
                   </Text>
                 </View>
-                <ChevronRight size={16} color={Colors.textSecondary} />
+                <Pressable
+                  style={{ padding: 6, marginLeft: 8 }}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    deleteMealFromDiary(meal.id);
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Trash2 size={16} color={Colors.coralCTA} />
+                </Pressable>
               </Pressable>
             ))}
           </View>
         ) : (
           <Pressable style={styles.emptyNutritionPrompt} onPress={openMealScanner}>
-            <Camera size={20} color={Colors.lightSage} style={{ marginRight: 10 }} />
-            <Text style={styles.emptyNutritionText}>
-              Point camera at your meal to calculate calories and macros automatically
-            </Text>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(75,119,97,0.2)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+              <Camera size={20} color={Colors.forestGreenLight} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary, marginBottom: 2 }}>0 kcal logged today</Text>
+              <Text style={styles.emptyNutritionText}>
+                Tap here to scan food and hit your {todaysNutrition.proteinTarget}g protein target!
+              </Text>
+            </View>
+            <ChevronRight size={18} color={Colors.textSecondary} />
           </Pressable>
         )}
 
@@ -425,10 +448,10 @@ export const DashboardScreen: React.FC = () => {
                 <History size={13} color={Colors.lightSage} style={{ marginRight: 4 }} />
                 <Text style={styles.thirtyDayBadgeText}>30-DAY FOOD DIARY</Text>
                 <View style={styles.coveragePill}>
-                  <Text style={styles.coverageText}>93% Logged</Text>
+                  <Text style={styles.coverageText}>{recentMeals.length > 0 ? 'Active' : 'Ready'}</Text>
                 </View>
               </View>
-              <Text style={styles.thirtyDayHeadline}>28 Days Logged • {todaysNutrition.proteinTarget}g Target</Text>
+              <Text style={styles.thirtyDayHeadline}>{recentMeals.length} Meals Logged • {todaysNutrition.proteinTarget}g Target</Text>
               <Text style={styles.thirtyDaySub}>
                 Roti, Dal Tadka, Poha & Paneer tracked at item level
               </Text>
@@ -457,14 +480,26 @@ export const DashboardScreen: React.FC = () => {
           </View>
 
           <View style={styles.massFoodsRow}>
-            <View style={styles.massFoodChip}>
-              <Text style={styles.massFoodChipTitle}>Banana Sattu Shake</Text>
-              <Text style={styles.massFoodChipSub}>480 kcal • 24g Protein</Text>
-            </View>
-            <View style={styles.massFoodChip}>
-              <Text style={styles.massFoodChipTitle}>Paneer Bhurji & 3 Roti</Text>
-              <Text style={styles.massFoodChipSub}>380 kcal • 28g Protein</Text>
-            </View>
+            <Pressable
+              style={styles.massFoodChip}
+              onPress={() => {
+                const s = SAMPLE_MEAL_TEMPLATES.find((t) => t.id === 'sample_meal_sattu_shake') || SAMPLE_MEAL_TEMPLATES[0];
+                openMealResult(s);
+              }}
+            >
+              <Text style={styles.massFoodChipTitle}>Banana Sattu Shake 👆</Text>
+              <Text style={styles.massFoodChipSub}>430 kcal • 24g Protein • Quick Log</Text>
+            </Pressable>
+            <Pressable
+              style={styles.massFoodChip}
+              onPress={() => {
+                const s = SAMPLE_MEAL_TEMPLATES.find((t) => t.id === 'sample_meal_paneer_roti') || SAMPLE_MEAL_TEMPLATES[0];
+                openMealResult(s);
+              }}
+            >
+              <Text style={styles.massFoodChipTitle}>Paneer Bhurji & 3 Roti 👆</Text>
+              <Text style={styles.massFoodChipSub}>540 kcal • 28g Protein • Quick Log</Text>
+            </Pressable>
           </View>
         </View>
       )}
@@ -487,14 +522,26 @@ export const DashboardScreen: React.FC = () => {
           </View>
 
           <View style={styles.massFoodsRow}>
-            <View style={styles.massFoodChip}>
-              <Text style={styles.massFoodChipTitle}>Sprouted Moong Chaat</Text>
-              <Text style={styles.massFoodChipSub}>190 kcal • 16g Protein • High Fiber</Text>
-            </View>
-            <View style={styles.massFoodChip}>
-              <Text style={styles.massFoodChipTitle}>Lauki Yellow Dal Soup</Text>
-              <Text style={styles.massFoodChipSub}>180 kcal • 14g Protein • Low GI</Text>
-            </View>
+            <Pressable
+              style={styles.massFoodChip}
+              onPress={() => {
+                const s = SAMPLE_MEAL_TEMPLATES.find((t) => t.id === 'sample_meal_poha') || SAMPLE_MEAL_TEMPLATES[0];
+                openMealResult(s);
+              }}
+            >
+              <Text style={styles.massFoodChipTitle}>Sprouted Moong Chaat 👆</Text>
+              <Text style={styles.massFoodChipSub}>190 kcal • 16g Protein • Quick Log</Text>
+            </Pressable>
+            <Pressable
+              style={styles.massFoodChip}
+              onPress={() => {
+                const s = SAMPLE_MEAL_TEMPLATES.find((t) => t.id === 'sample_meal_chicken_rice') || SAMPLE_MEAL_TEMPLATES[0];
+                openMealResult(s);
+              }}
+            >
+              <Text style={styles.massFoodChipTitle}>Tawa Chicken & Rice 👆</Text>
+              <Text style={styles.massFoodChipSub}>510 kcal • 50g Protein • Quick Log</Text>
+            </Pressable>
           </View>
         </View>
       )}
