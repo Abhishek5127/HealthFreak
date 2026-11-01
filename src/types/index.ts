@@ -12,16 +12,63 @@ export type ModalType =
   | 'meal_result';
 
 export type WellnessGoal =
-  | 'weight_management'
-  | 'pcos_pcod'
-  | 'thyroid_health'
-  | 'metabolic_fitness'
+  | 'weight_gain'
+  | 'weight_loss'
+  | 'acne_control'
+  | 'skincare_glow'
   | 'hair_health'
+  | 'pcos_pcod'
+  | 'metabolic_fitness'
+  | 'weight_management'
+  | 'thyroid_health'
   | 'energy_vitality';
 
 export type LanguagePreference = 'English' | 'Hindi' | 'Hinglish';
 
 export type CheckInMood = 'lowEnergy' | 'tense' | 'calm' | 'balanced' | 'energized';
+
+export type GenderType = 'male' | 'female' | 'other';
+export type ActivityLevel = 'sedentary' | 'lightly_active' | 'moderately_active' | 'very_active';
+export type DietaryPreference = 'vegetarian' | 'non_vegetarian' | 'eggetarian' | 'vegan';
+export type SkinType = 'oily' | 'dry' | 'combination' | 'sensitive' | 'normal';
+
+export interface CalculatedNutritionPlan {
+  dailyCalories: number;
+  proteinGrams: number;
+  carbsGrams: number;
+  fatGrams: number;
+  fiberGrams: number;
+  waterLiters: number;
+  bmi: number;
+  tdee: number;
+  calorieAdjustment: number;
+  projectedWeeks?: number;
+  headline: string;
+  subheadline: string;
+  keyBenefits: string[];
+  recommendedFoods: { name: string; tag: string; protein: string; cal: string }[];
+}
+
+export interface UserSurveyAssessment {
+  goal: WellnessGoal;
+  currentWeightKg: number;
+  targetWeightKg: number;
+  heightCm: number;
+  age: number;
+  gender: GenderType;
+  activityLevel: ActivityLevel;
+  dietaryPreference: DietaryPreference;
+  weightPace?: 'steady' | 'moderate' | 'rapid';
+  skinType?: SkinType;
+  skinConcerns?: string[];
+  waterIntakeLiters?: number;
+  sleepHours?: number;
+  sunscreenHabit?: 'daily' | 'sometimes' | 'never';
+  hairConcerns?: string[];
+  hormonalConcerns?: string[];
+  calculatedPlan: CalculatedNutritionPlan;
+  completedAt: string;
+}
 
 export interface UserProfile {
   id?: string;
@@ -37,6 +84,8 @@ export interface UserProfile {
   currentMood: CheckInMood;
   lastCheckInTime?: string;
   healthConditions: string[];
+  surveyAssessment?: UserSurveyAssessment;
+  waterLoggedMl?: number;
 }
 
 export interface DailyActivityItem {

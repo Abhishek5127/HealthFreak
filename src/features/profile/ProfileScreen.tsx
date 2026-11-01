@@ -47,11 +47,13 @@ export const ProfileScreen: React.FC = () => {
   };
 
   const goals: { id: WellnessGoal; label: string }[] = [
-    { id: 'metabolic_fitness', label: 'Metabolic Fitness & Energy' },
-    { id: 'weight_management', label: 'Sustainable Weight Management' },
+    { id: 'weight_gain', label: 'Weight Gain & Muscle Building (+450 kcal Surplus)' },
+    { id: 'weight_loss', label: 'Weight Loss & Fat Reduction (-500 kcal Deficit)' },
+    { id: 'acne_control', label: 'Clear Skin & Acne Control (Sebum Balance)' },
+    { id: 'skincare_glow', label: 'Skincare Routine & Radiant Glow' },
+    { id: 'hair_health', label: 'Hair Growth & Anti-Hair Fall' },
     { id: 'pcos_pcod', label: 'PCOS / PCOD Hormonal Balance' },
-    { id: 'thyroid_health', label: 'Thyroid Optimization' },
-    { id: 'hair_health', label: 'Hair & Cellular Nutrition' },
+    { id: 'metabolic_fitness', label: 'Metabolic Fitness & Energy' },
   ];
 
   const languages: LanguagePreference[] = ['English', 'Hindi', 'Hinglish'];
@@ -86,6 +88,26 @@ export const ProfileScreen: React.FC = () => {
           </Text>
         </View>
       </View>
+
+      {/* Retake Health Questionnaire / Survey Card */}
+      <Pressable
+        style={styles.retakeSurveyCard}
+        onPress={() => {
+          triggerHaptic('impact');
+          setActiveModal('onboarding');
+        }}
+      >
+        <View style={styles.retakeIconCircle}>
+          <Sparkles size={20} color={Colors.coralCTA} />
+        </View>
+        <View style={styles.retakeTextCol}>
+          <Text style={styles.retakeTitle}>Retake Health & Nutrition Survey</Text>
+          <Text style={styles.retakeSub}>
+            Recalibrate your weight goals, acne/skincare concerns, and recalculate your daily protein, carbs & energy budget.
+          </Text>
+        </View>
+        <ChevronRight size={18} color={Colors.textSecondary} />
+      </Pressable>
 
       {/* Primary Goal Selector */}
       <SectionHeader title="Your Primary Health Goal" />
@@ -490,6 +512,41 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: Typography.fontSizes.xs + 1,
     fontFamily: Typography.fontFamilies.sansMedium,
+  },
+  retakeSurveyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E2320',
+    borderRadius: Spacing.borderRadius.xl,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 113, 95, 0.35)',
+  },
+  retakeIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 113, 95, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  retakeTextCol: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  retakeTitle: {
+    fontFamily: Typography.fontFamilies.sansBold,
+    fontSize: Typography.fontSizes.sm,
+    color: Colors.textPrimary,
+  },
+  retakeSub: {
+    fontFamily: Typography.fontFamilies.sansRegular,
+    fontSize: Typography.fontSizes.xs - 1,
+    color: Colors.textSecondary,
+    marginTop: 3,
+    lineHeight: 16,
   },
 });
 

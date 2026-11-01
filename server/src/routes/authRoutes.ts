@@ -152,3 +152,97 @@ authRouter.get(
   }
 );
 
+/**
+ * POST /api/auth/survey
+ * Persists the user's completed survey and nutritional targets
+ */
+authRouter.post(
+  '/survey',
+  authenticateSupabaseToken,
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.userId;
+      if (!userId) {
+        res.status(401).json({ success: false, error: 'Unauthorized' });
+        return;
+      }
+
+      const { assessment } = req.body;
+      const pool = SupabaseDb.getPool();
+
+      // Update in-memory profile
+      let profile = healthMemoryStore.profiles.get(userId);
+      if (profile) {
+        profile.onboardingCompleted = true;
+        if (assessment?.heightCm) profile.heightCm = assessment.heightCm;
+        if (assessment?.age) profile.age = assessment.age;
+        if (assessment?.gender) profile.biologicalSex = assessment.gender;
+        profile.updatedAt = new Date().toISOString();
+        healthMemoryStore.profiles.set(userId, profile);
+      }
+
+      // Store memory facts
+      if (assessment) {
+        healthMemoryStore.setProfileFact({
+          userId,
+          category: 'health_goal',
+          key: 'primary_wellness_focus',
+          value: assessment.goal,
+          confidence: 1.0,
+          verificationStatus: 'user_reported',
+        });
+
+        if (assessment.currentWeightKg) {
+          healthMemoryStore.setProfileFact({
+            userId,
+            category: 'measurements',
+            key: 'current_body_weight_kg',
+            value: assessment.currentWeightKg,
+            confidence: 1.0,
+            verificationStatus: 'user_reported',
+          });
+        }
+
+        if (assessment.targetWeightKg) {
+          healthMemoryStore.setProfileFact({
+            userId,
+            category: 'health_goal',
+            key: 'target_body_weight_kg',
+            value: assessment.targetWeightKg,
+            confidence: 1.0,
+            verificationStatus: 'user_reported',
+          });
+        }
+
+        if (assessment.calculatedPlan) {
+          healthMemoryStore.setProfileFact({
+            userId,
+            category: 'routine',
+            key: 'daily_nutrition_targets',
+            value: assessment.calculatedPlan,
+            confidence: 1.0,
+            verificationStatus: 'user_reported',
+          });
+        }
+      }
+
+      // Update in database if pool is connected
+      if (pool) {
+        try {
+          await pool.query(
+            `UPDATE profiles SET onboarding_completed = TRUE, updated_at = NOW() WHERE id = $1;`,
+            [userId]
+          );
+        } catch (dbErr: any) {
+          console.warn('[AuthRouter] DB survey update warning:', dbErr.message);
+        }
+      }
+
+      res.json({ success: true, profile });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  }
+);
+
+

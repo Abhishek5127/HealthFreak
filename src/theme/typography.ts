@@ -9,6 +9,14 @@ export const Typography = {
     sansSemiBold: 'Manrope_600SemiBold',
     sansBold: 'Manrope_700Bold',
   },
+  fonts: {
+    serifRegular: 'DMSerifDisplay_400Regular',
+    serifItalic: 'DMSerifDisplay_400Regular_Italic',
+    sansRegular: 'Manrope_400Regular',
+    sansMedium: 'Manrope_500Medium',
+    sansSemiBold: 'Manrope_600SemiBold',
+    sansBold: 'Manrope_700Bold',
+  },
   fallbackSerif: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' }),
   fallbackSans: Platform.select({ ios: 'System', android: 'sans-serif', default: 'sans-serif' }),
 
@@ -23,6 +31,14 @@ export const Typography = {
     '3xl': 34,
     '4xl': 40,
     display: 48,
+  },
+  sizes: {
+    caption: 11,
+    body: 13,
+    base: 15,
+    h3: 17,
+    h2: 20,
+    h1: 24,
   },
 
   lineHeights: {

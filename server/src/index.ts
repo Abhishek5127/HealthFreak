@@ -41,7 +41,8 @@ let latestOAuthPayload: { access_token?: string; refresh_token?: string; code?: 
 
 // OAuth Redirect Bridge for Mobile & Web Clients
 const renderOAuthBridgeHtml = (req: express.Request, res: express.Response) => {
-  const host = (req.headers.host || '192.168.43.249:3001').split(':')[0];
+  const rawHost = req.headers.host ? req.headers.host.split(':')[0] : (req.hostname || 'localhost');
+  const host = rawHost === '192.168.43.249' || rawHost === '192.168.43.250' ? 'localhost' : rawHost;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -143,17 +144,35 @@ const renderOAuthBridgeHtml = (req: express.Request, res: express.Response) => {
       }).catch(function() {});
     }
 
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     const standaloneUri = "healthfreak://auth/callback" + params;
-    const expoGoUri = "exp://${host}:8081/--/auth/callback" + params;
+    const expoGoUri = "exp://" + host + ":8081/--/auth/callback" + params;
+    const webUri = "http://" + host + ":8081/" + params;
 
     const goBtn = document.getElementById('goBtn');
     const appBtn = document.getElementById('appBtn');
-    if (goBtn) goBtn.href = expoGoUri;
-    if (appBtn) appBtn.href = standaloneUri;
+    if (goBtn) {
+      if (isMobile) {
+        goBtn.href = expoGoUri;
+        goBtn.innerText = "Open in Expo Go";
+      } else {
+        goBtn.href = webUri;
+        goBtn.innerText = "Continue to HealthFreak";
+      }
+    }
+    if (appBtn) {
+      appBtn.href = standaloneUri;
+    }
 
-    // 3. Attempt automatic deep-link redirection
+    // 3. Attempt automatic redirection
     try {
-      window.location.href = expoGoUri;
+      if (isMobile) {
+        window.location.href = expoGoUri;
+      } else {
+        setTimeout(function() {
+          window.location.href = webUri;
+        }, 500);
+      }
     } catch(e) {}
   </script>
 </body>
@@ -204,6 +223,98 @@ app.use('/api/followups', followupRouter);
 
 // Supabase Google OAuth & Authentication Routes
 app.use('/api/auth', authRouter);
+
+// OAuth Callback Bridge for Supabase Redirects
+app.get('/auth/callback', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>HealthFreak - Authenticating...</title>
+        <style>
+          body {
+            background-color: #111311;
+            color: #F4F2EC;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
+          }
+          .card {
+            background: #191C1A;
+            border: 1px solid #2A302B;
+            border-radius: 20px;
+            padding: 36px 24px;
+            max-width: 440px;
+            width: 100%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+          }
+          .spinner {
+            width: 44px;
+            height: 44px;
+            border: 4px solid rgba(75, 119, 97, 0.2);
+            border-top-color: #4B7761;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px auto;
+          }
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+          h2 { margin: 0 0 10px 0; color: #F4F2EC; font-size: 20px; }
+          p { color: #A3A69F; line-height: 1.5; font-size: 14px; margin-bottom: 24px; }
+          .btn {
+            display: inline-block;
+            padding: 12px 28px;
+            background: #FF715F;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 14px;
+          }
+        </style>
+        <script>
+          function redirectBack() {
+            var hash = window.location.hash || '';
+            var search = window.location.search || '';
+            var payload = hash || search;
+
+            // Target web application (port 8081)
+            var hostname = window.location.hostname || 'localhost';
+            var targetWebUrl = 'http://' + hostname + ':8081/' + payload;
+
+            var link = document.getElementById('forward-link');
+            if (link) {
+              link.href = targetWebUrl;
+            }
+
+            // Automatic redirect
+            setTimeout(function() {
+              window.location.replace(targetWebUrl);
+            }, 600);
+          }
+          window.onload = redirectBack;
+        </script>
+      </head>
+      <body>
+        <div class="card">
+          <div class="spinner"></div>
+          <h2>Google Sign-In Successful!</h2>
+          <p>Establishing secure session and redirecting you back to HealthFreak...</p>
+          <a id="forward-link" class="btn" href="#">Open HealthFreak</a>
+        </div>
+      </body>
+    </html>
+  `);
+});
 
 async function startServer() {
   // Initialize BullMQ Queue / Redis

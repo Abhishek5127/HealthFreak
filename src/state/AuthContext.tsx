@@ -33,7 +33,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://192.168.43.249:3001';
+const getBackendUrl = (): string => {
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const host = window.location.hostname || 'localhost';
+    return `http://${host}:3001`;
+  }
+  return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [authState, setAuthState] = useState<AuthState>('initializing');
@@ -54,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-      const response = await fetch(`${BACKEND_URL}/api/auth/sync-profile`, {
+      const response = await fetch(`${getBackendUrl()}/api/auth/sync-profile`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -236,11 +242,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 3. Deep Link Handlers (Cold Start & In-App Link Redirects)
     const handleDeepLink = async (event: { url: string }) => {
-      if (event.url.includes('auth/callback') || event.url.includes('#access_token') || event.url.includes('code=')) {
+      if (
+        event.url.includes('auth/callback') ||
+        event.url.includes('#access_token') ||
+        event.url.includes('access_token=') ||
+        event.url.includes('code=')
+      ) {
         setAuthState('authenticating');
         const res = await processOAuthCallbackUrl(event.url);
         if (res.success && res.session) {
           await handleSessionEstablished(res.session);
+          if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
         } else if (res.error) {
           setError(res.error);
           setAuthState('error');
@@ -251,8 +265,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const linkSubscription = Linking.addEventListener('url', handleDeepLink);
 
     Linking.getInitialURL().then((initialUrl) => {
-      if (initialUrl && (initialUrl.includes('auth/callback') || initialUrl.includes('code='))) {
-        handleDeepLink({ url: initialUrl });
+      const urlToCheck = initialUrl || (typeof window !== 'undefined' ? window.location.href : null);
+      if (
+        urlToCheck &&
+        (urlToCheck.includes('auth/callback') ||
+          urlToCheck.includes('access_token=') ||
+          urlToCheck.includes('code='))
+      ) {
+        handleDeepLink({ url: urlToCheck });
       }
     });
 

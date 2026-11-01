@@ -118,7 +118,9 @@ const NavigationRoot: React.FC = () => {
 
   // Trigger Onboarding modal if user is new
   React.useEffect(() => {
-    if (session && profile && !profile.onboardingCompleted && !hasPromptedOnboarding) {
+    if (!session) {
+      setHasPromptedOnboarding(false);
+    } else if (profile && !profile.onboardingCompleted && !hasPromptedOnboarding) {
       setHasPromptedOnboarding(true);
       setActiveModal('onboarding');
     }

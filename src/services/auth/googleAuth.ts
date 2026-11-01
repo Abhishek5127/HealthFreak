@@ -6,6 +6,8 @@ import { User, Session } from '@supabase/supabase-js';
 import { parseOAuthUrlParams } from './oauthUrlUtils';
 import { getBackendBaseUrl } from '../aiChatService';
 
+import { Platform } from 'react-native';
+
 export { parseOAuthUrlParams };
 
 // Required for web browser redirect completion (no-op on native)
@@ -20,12 +22,40 @@ export interface GoogleAuthResult {
 }
 
 /**
- * Initiates the native Google OAuth flow using Supabase Auth and Expo WebBrowser.
- * Uses PKCE authorization code exchange with fallback to implicit tokens.
+ * Initiates the Google OAuth flow using Supabase Auth.
+ * On Web: redirects current window with origin redirect.
+ * On Native (iOS/Android): uses Expo WebBrowser & deep link 'healthfreak://auth/callback'.
  */
 export async function signInWithGoogle(): Promise<GoogleAuthResult> {
   try {
-    // 1. Determine the appropriate redirect URI
+    // Web Flow: Direct browser redirection
+    if (Platform.OS === 'web') {
+      const webRedirectUri = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8081';
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: webRedirectUri,
+          queryParams: {
+            prompt: 'select_account',
+            access_type: 'offline',
+          },
+        },
+      });
+
+      if (oauthError) {
+        return {
+          success: false,
+          error: oauthError.message || 'Failed to initialize Google Sign-In with Supabase.',
+        };
+      }
+
+      if (data?.url && typeof window !== 'undefined') {
+        window.location.href = data.url;
+        return { success: true };
+      }
+    }
+
+    // 1. Determine the appropriate redirect URI for Native
     const isExpoGo =
       Constants.executionEnvironment === ExecutionEnvironment.StoreClient ||
       (Constants as any).appOwnership === 'expo';
@@ -48,7 +78,7 @@ export async function signInWithGoogle(): Promise<GoogleAuthResult> {
       provider: 'google',
       options: {
         redirectTo,
-        skipBrowserRedirect: true, // Native flow: return the URL to open in WebBrowser
+        skipBrowserRedirect: true,
         queryParams: {
           prompt: 'select_account',
           access_type: 'offline',

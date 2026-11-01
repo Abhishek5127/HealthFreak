@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo } from 'react';
+import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import * as Haptics from 'expo-haptics';
 import {
   TabType,
@@ -9,6 +9,7 @@ import {
   ChatMessage,
   CheckInMood,
   ActivitySession,
+  UserSurveyAssessment,
 } from '../types';
 import {
   initialUserProfile,
@@ -16,11 +17,13 @@ import {
   mockProgressMetrics,
   mockFeaturedWorkout,
 } from '../mock-data/healthData';
+import { getActivitiesForGoal } from '../mock-data/goalActivities';
 import { initialCoachMessages } from '../mock-data/coachChat';
 import { askDishaAI } from '../services/aiChatService';
 import { voiceClient } from '../services/voiceClient';
 import { MealAnalysisResult } from '../types/meal';
 import { MealScannerService } from '../services/mealScannerService';
+import { expoSecureStoreAdapter } from '../services/auth/secureStorageAdapter';
 import { useAuth } from './AuthContext';
 
 export interface DailyNutritionState {
@@ -80,15 +83,21 @@ interface AppContextType {
   // Utilities
   triggerHaptic: (type?: 'selection' | 'success' | 'impact') => void;
   resetAll: () => void;
+
+  // Survey & Personalized Targets
+  applySurveyAssessment: (assessment: UserSurveyAssessment) => Promise<void>;
+  waterLoggedMl: number;
+  logWater: (amountMl?: number) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { profile: authProfile } = useAuth();
+  const { profile: authProfile, updateProfileState } = useAuth();
   const [activeTab, setActiveTabState] = useState<TabType>('home');
   const [activeModal, setActiveModalState] = useState<ModalType>(null);
   const [userProfileState, setUserProfileState] = useState<UserProfile>(initialUserProfile);
+  const [waterLoggedMl, setWaterLoggedMl] = useState<number>(1250);
 
   // Synchronize authenticated profile from Supabase Google OAuth without cascading re-renders
   const userProfile: UserProfile = useMemo(() => ({
@@ -367,7 +376,117 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateUserProfile = (updates: Partial<UserProfile>) => {
     setUserProfileState((prev) => ({ ...prev, ...updates }));
+    if (updateProfileState) {
+      updateProfileState(updates);
+    }
   };
+
+  const logWater = (amountMl: number = 250) => {
+    triggerHaptic('success');
+    setWaterLoggedMl((prev) => Math.min(6000, prev + amountMl));
+  };
+
+  const applySurveyAssessment = async (assessment: UserSurveyAssessment) => {
+    triggerHaptic('success');
+    const plan = assessment.calculatedPlan;
+
+    setUserProfileState((prev) => ({
+      ...prev,
+      selectedGoal: assessment.goal,
+      goalLabel: plan.headline,
+      onboardingCompleted: true,
+      surveyAssessment: assessment,
+    }));
+
+    if (updateProfileState) {
+      updateProfileState({
+        selectedGoal: assessment.goal,
+        goalLabel: plan.headline,
+        onboardingCompleted: true,
+        surveyAssessment: assessment,
+      });
+    }
+
+    setTodaysNutrition((prev) => ({
+      ...prev,
+      caloriesTarget: plan.dailyCalories,
+      proteinTarget: plan.proteinGrams,
+      carbsTarget: plan.carbsGrams,
+      fatTarget: plan.fatGrams,
+      fiberTarget: plan.fiberGrams,
+    }));
+
+    // Update daily activities according to the new goal
+    const goalActivities = getActivitiesForGoal(assessment.goal);
+    setActivities(goalActivities);
+
+    // Update calories progress metric target
+    setMetrics((prev) =>
+      prev.map((m) =>
+        m.id === 'calories'
+          ? {
+              ...m,
+              target: `${plan.dailyCalories}`,
+              percentage: Math.min(1, 273 / plan.dailyCalories),
+            }
+          : m
+      )
+    );
+
+    // Persist to secure storage
+    try {
+      await expoSecureStoreAdapter.setItem(
+        'HEALTHFREAK_SURVEY_ASSESSMENT',
+        JSON.stringify(assessment)
+      );
+    } catch (err: any) {
+      console.warn('[AppContext] Failed saving survey assessment locally:', err?.message);
+    }
+  };
+
+  // Restore saved survey assessment on startup
+  useEffect(() => {
+    async function loadSavedAssessment() {
+      try {
+        const raw = await expoSecureStoreAdapter.getItem('HEALTHFREAK_SURVEY_ASSESSMENT');
+        if (raw) {
+          const parsed: UserSurveyAssessment = JSON.parse(raw);
+          if (parsed && parsed.calculatedPlan) {
+            setUserProfileState((prev) => ({
+              ...prev,
+              selectedGoal: parsed.goal,
+              goalLabel: parsed.calculatedPlan.headline,
+              onboardingCompleted: true,
+              surveyAssessment: parsed,
+            }));
+            setTodaysNutrition((prev) => ({
+              ...prev,
+              caloriesTarget: parsed.calculatedPlan.dailyCalories,
+              proteinTarget: parsed.calculatedPlan.proteinGrams,
+              carbsTarget: parsed.calculatedPlan.carbsGrams,
+              fatTarget: parsed.calculatedPlan.fatGrams,
+              fiberTarget: parsed.calculatedPlan.fiberGrams,
+            }));
+            setActivities(getActivitiesForGoal(parsed.goal));
+            setMetrics((prev) =>
+              prev.map((m) =>
+                m.id === 'calories'
+                  ? {
+                      ...m,
+                      target: `${parsed.calculatedPlan.dailyCalories}`,
+                      percentage: Math.min(1, 273 / parsed.calculatedPlan.dailyCalories),
+                    }
+                  : m
+              )
+            );
+          }
+        }
+      } catch (err: any) {
+        console.warn('[AppContext] Could not restore saved survey:', err?.message);
+      }
+    }
+    loadSavedAssessment();
+  }, []);
 
   const setUserMood = (mood: CheckInMood) => {
     triggerHaptic('success');
@@ -511,6 +630,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsVoiceActive,
         triggerHaptic,
         resetAll,
+        applySurveyAssessment,
+        waterLoggedMl,
+        logWater,
       }}
     >
       {children}
