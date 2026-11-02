@@ -109,63 +109,63 @@ export const OnboardingFlow: React.FC = () => {
     icon: React.ReactNode;
     color: string;
   }[] = [
-    {
-      id: 'weight_gain',
-      title: 'Weight Gain & Muscle Building',
-      subtitle: 'Lean caloric surplus, progressive overload, and hypertrophy protein targets.',
-      badge: 'Surplus & Mass',
-      icon: <Dumbbell size={22} color={Colors.forestGreenLight} />,
-      color: Colors.forestGreenLight,
-    },
-    {
-      id: 'weight_loss',
-      title: 'Weight Loss & Fat Reduction',
-      subtitle: 'Sustainable caloric deficit, hunger-blunting satiety, and lean muscle preservation.',
-      badge: 'Deficit & Burn',
-      icon: <Flame size={22} color={Colors.coralCTA} />,
-      color: Colors.coralCTA,
-    },
-    {
-      id: 'acne_control',
-      title: 'Clear Skin & Acne Control',
-      subtitle: 'Tackle active pimples, cystic hormonal acne, sebum overload, and post-acne dark marks.',
-      badge: 'Dermal Clarity',
-      icon: <Sparkles size={22} color="#45D09E" />,
-      color: '#45D09E',
-    },
-    {
-      id: 'skincare_glow',
-      title: 'Skincare Routine & Skin Glow',
-      subtitle: 'Cellular hydration, collagen repair, texture smoothing, and anti-aging radiance.',
-      badge: 'Skin Longevity',
-      icon: <Heart size={22} color="#F38BA8" />,
-      color: '#F38BA8',
-    },
-    {
-      id: 'hair_health',
-      title: 'Hair Growth & Anti-Hair Fall',
-      subtitle: 'Keratin synthesis amino acids, scalp stimulation, and ferritin micro-nutrition.',
-      badge: 'Follicle Health',
-      icon: <Droplet size={22} color={Colors.lightSage} />,
-      color: Colors.lightSage,
-    },
-    {
-      id: 'pcos_pcod',
-      title: 'Hormonal Balance & PCOS Harmony',
-      subtitle: 'Steady glucose levels, cycle synchronization, cortisol blunting, and metabolic rhythm.',
-      badge: 'Hormone Sync',
-      icon: <Activity size={22} color="#D48BAA" />,
-      color: '#D48BAA',
-    },
-    {
-      id: 'metabolic_fitness',
-      title: 'Metabolic Fitness & All-Day Energy',
-      subtitle: 'Balanced macronutrients, athletic stamina, and beating the afternoon energy slump.',
-      badge: 'Vitality',
-      icon: <Sun size={22} color={Colors.softYellow} />,
-      color: Colors.softYellow,
-    },
-  ];
+      {
+        id: 'weight_gain',
+        title: 'Weight Gain & Muscle Building',
+        subtitle: 'Lean caloric surplus, progressive overload, and hypertrophy protein targets.',
+        badge: 'Surplus & Mass',
+        icon: <Dumbbell size={22} color={Colors.forestGreenLight} />,
+        color: Colors.forestGreenLight,
+      },
+      {
+        id: 'weight_loss',
+        title: 'Weight Loss & Fat Reduction',
+        subtitle: 'Sustainable caloric deficit, hunger-blunting satiety, and lean muscle preservation.',
+        badge: 'Deficit & Burn',
+        icon: <Flame size={22} color={Colors.coralCTA} />,
+        color: Colors.coralCTA,
+      },
+      {
+        id: 'acne_control',
+        title: 'Clear Skin & Acne Control',
+        subtitle: 'Tackle active pimples, cystic hormonal acne, sebum overload, and post-acne dark marks.',
+        badge: 'Dermal Clarity',
+        icon: <Sparkles size={22} color="#45D09E" />,
+        color: '#45D09E',
+      },
+      {
+        id: 'skincare_glow',
+        title: 'Skincare Routine & Skin Glow',
+        subtitle: 'Cellular hydration, collagen repair, texture smoothing, and anti-aging radiance.',
+        badge: 'Skin Longevity',
+        icon: <Heart size={22} color="#F38BA8" />,
+        color: '#F38BA8',
+      },
+      {
+        id: 'hair_health',
+        title: 'Hair Growth & Anti-Hair Fall',
+        subtitle: 'Keratin synthesis amino acids, scalp stimulation, and ferritin micro-nutrition.',
+        badge: 'Follicle Health',
+        icon: <Droplet size={22} color={Colors.lightSage} />,
+        color: Colors.lightSage,
+      },
+      {
+        id: 'pcos_pcod',
+        title: 'Hormonal Balance & PCOS Harmony',
+        subtitle: 'Steady glucose levels, cycle synchronization, cortisol blunting, and metabolic rhythm.',
+        badge: 'Hormone Sync',
+        icon: <Activity size={22} color="#D48BAA" />,
+        color: '#D48BAA',
+      },
+      {
+        id: 'metabolic_fitness',
+        title: 'Metabolic Fitness & All-Day Energy',
+        subtitle: 'Balanced macronutrients, athletic stamina, and beating the afternoon energy slump.',
+        badge: 'Vitality',
+        icon: <Sun size={22} color={Colors.softYellow} />,
+        color: Colors.softYellow,
+      },
+    ];
 
   const skinConcernsOptions = [
     { id: 'active_acne', label: 'Active Pimples / Breakouts' },
@@ -290,9 +290,7 @@ export const OnboardingFlow: React.FC = () => {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ============================================================== */}
-        {/* STEP 1: PRIMARY GOAL SELECTION                                 */}
-        {/* ============================================================== */}
+        {/* new comment*/}
         {currentStep === 1 && (
           <View>
             <View style={styles.questionHeader}>
@@ -300,9 +298,11 @@ export const OnboardingFlow: React.FC = () => {
                 What is your <Text style={styles.serifAccent}>primary focus</Text>?
               </Text>
               <Text style={styles.stepSubtitle}>
-                Select your core health goal. We’ll calibrate your exact daily calories, protein target, carbs, and habits accordingly.
+                Select your core health goals do you want to work on. We’ll calibrate your exact daily calories, protein target, carbs, and habits accordingly.
               </Text>
             </View>
+
+            {/*commment */}
 
             <View style={styles.goalsList}>
               {goalsList.map((g) => {
@@ -356,15 +356,17 @@ export const OnboardingFlow: React.FC = () => {
                 {isWeightGoal
                   ? 'Calibrate Your Body Metrics'
                   : isSkinGoal
-                  ? 'Your Skin Profile & Concerns'
-                  : 'Tailor Your Baseline Health'}
+                    ? 'Your Skin Profile & Concerns'
+                    : 'Tailor Your Baseline Health'}
               </Text>
+
+
               <Text style={styles.stepSubtitle}>
                 {isWeightGoal
                   ? 'These numbers determine your exact BMR, TDEE, and daily calorie surplus or deficit.'
                   : isSkinGoal
-                  ? 'Personalizing your anti-acne meal ratio, hydration flush, and barrier repair protocol.'
-                  : 'Fine-tuning your clinical nutrient breakdown and movement rhythm.'}
+                    ? 'Personalizing your anti-acne meal ratio, hydration flush, and barrier repair protocol.'
+                    : 'Fine-tuning your clinical nutrient breakdown and movement rhythm.'}
               </Text>
             </View>
 
@@ -1073,8 +1075,8 @@ export const OnboardingFlow: React.FC = () => {
                     {calculatedPlan.calorieAdjustment > 0
                       ? `+${calculatedPlan.calorieAdjustment} kcal Surplus`
                       : calculatedPlan.calorieAdjustment < 0
-                      ? `${calculatedPlan.calorieAdjustment} kcal Deficit`
-                      : 'Vitality Balance'}
+                        ? `${calculatedPlan.calorieAdjustment} kcal Deficit`
+                        : 'Vitality Balance'}
                   </Text>
                 </View>
               </View>
@@ -1757,3 +1759,6 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 });
+
+
+// test commnet
