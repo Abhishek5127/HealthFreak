@@ -196,6 +196,40 @@ export function isSelfEcho(userText: string, coachText: string): boolean {
   return false;
 }
 
+/**
+ * Strips any accidental JSON wrappers, userTranscript, or speaker labels
+ * so the AI coach ONLY speaks their own clinical answer to the user.
+ */
+export function cleanCoachReplyOnly(text: string): string {
+  if (!text) return '';
+  let cleaned = text.trim();
+
+  // If text starts with JSON or contains userTranscript, strip out only the coachReply
+  if (cleaned.includes('"coachReply"') || cleaned.includes('"userTranscript"')) {
+    const coachMatch =
+      cleaned.match(/"coachReply"\s*:\s*"([\s\S]*?)(?:""|",|"\s*}|"\s*$|$)/i) ||
+      cleaned.match(/"coachReply"\s*:\s*"([\s\S]*?)"/i);
+    if (coachMatch && coachMatch[1]) {
+      cleaned = coachMatch[1];
+    } else {
+      const idx = cleaned.indexOf('"coachReply"');
+      if (idx !== -1) {
+        cleaned = cleaned.slice(idx).replace(/^"coachReply"\s*:\s*"/i, '');
+      }
+    }
+  }
+
+  // Strip any accidental markdown formatting, JSON residue or userTranscript markers
+  cleaned = cleaned
+    .replace(/^\{[\s\S]*?"coachReply"\s*:\s*"/i, '')
+    .replace(/^[{\[\s"]+|["}\]\s]+$/g, '')
+    .replace(/"userTranscript"[\s\S]*$/gi, '')
+    .replace(/userTranscript\s*:[\s\S]*?coachReply\s*:/gi, '')
+    .trim();
+
+  return cleaned;
+}
+
 export async function transcribeAndReplyAudio(
   base64Audio: string,
   mimeType = 'audio/webm',
@@ -315,8 +349,9 @@ Listen carefully to the audio.
                 },
               ],
               generationConfig: {
-                maxOutputTokens: 100,
+                maxOutputTokens: 300,
                 temperature: 0.6,
+                responseMimeType: 'application/json',
               },
             }),
           });
@@ -330,32 +365,71 @@ Listen carefully to the audio.
             const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
             if (rawText) {
               const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+              let userTranscript = 'Voice message';
+              let coachReply = '';
+
               try {
                 const parsed = JSON.parse(cleaned);
-                if (
-                  parsed.userTranscript === '(Speaker echo)' ||
-                  !parsed.coachReply?.trim() ||
-                  (lastCoachReply && isSelfEcho(parsed.userTranscript, lastCoachReply))
-                ) {
-                  return {
-                    userTranscript: '(Speaker feedback suppressed)',
-                    coachReply: '',
-                    isEcho: true,
-                  };
-                }
-                if (parsed.coachReply) {
-                  return {
-                    userTranscript: parsed.userTranscript || 'Voice note recorded',
-                    coachReply: parsed.coachReply,
-                    isEcho: false,
-                  };
-                }
+                if (parsed.userTranscript) userTranscript = parsed.userTranscript.trim();
+                if (parsed.coachReply) coachReply = parsed.coachReply.trim();
               } catch {
+                const userMatch =
+                  cleaned.match(/"userTranscript"\s*:\s*"([\s\S]*?)(?:",|"\s*\n|"\s*})/i) ||
+                  cleaned.match(/"userTranscript"\s*:\s*"([\s\S]*?)"/i);
+                if (userMatch && userMatch[1]) {
+                  userTranscript = userMatch[1].trim();
+                }
+
+                const coachMatch =
+                  cleaned.match(/"coachReply"\s*:\s*"([\s\S]*?)(?:""|",|"\s*}|"\s*$|$)/i);
+                if (coachMatch && coachMatch[1]) {
+                  coachReply = coachMatch[1].trim();
+                } else {
+                  const idx = cleaned.indexOf('"coachReply"');
+                  if (idx !== -1) {
+                    const sub = cleaned.slice(idx);
+                    const m = sub.match(/:\s*"*([\s\S]*?)(?:""|"|}|\n|$)/);
+                    if (m && m[1]) coachReply = m[1].trim();
+                  }
+                }
+              }
+
+              // Safety Guard: Strip user query or JSON echo from coachReply
+              if (coachReply.includes('"userTranscript"') || coachReply.includes('userTranscript:')) {
+                const idx = coachReply.indexOf('"coachReply"');
+                if (idx !== -1) {
+                  coachReply = coachReply.slice(idx).replace(/^"coachReply"\s*:\s*"/i, '');
+                }
+              }
+
+              coachReply = coachReply
+                .replace(/^\{[\s\S]*?"coachReply"\s*:\s*"/i, '')
+                .replace(/^[{\[\s"]+|["}\]\s]+$/g, '')
+                .replace(/"userTranscript"[\s\S]*$/gi, '')
+                .replace(/userTranscript\s*:[\s\S]*?coachReply\s*:/gi, '')
+                .trim();
+
+              if (!coachReply || coachReply.includes('{') || coachReply.includes('}')) {
+                coachReply = 'Main sun rahi hoon Alex! Aapka routine bilkul sahi ja raha hai.';
+              }
+
+              if (
+                userTranscript === '(Speaker echo)' ||
+                !coachReply.trim() ||
+                (lastCoachReply && isSelfEcho(userTranscript, lastCoachReply))
+              ) {
                 return {
-                  userTranscript: 'Voice query received',
-                  coachReply: rawText.trim(),
+                  userTranscript: '(Speaker feedback suppressed)',
+                  coachReply: '',
+                  isEcho: true,
                 };
               }
+
+              return {
+                userTranscript: userTranscript || 'Voice note recorded',
+                coachReply,
+                isEcho: false,
+              };
             }
           }
         } catch (mErr) {

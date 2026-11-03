@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 import { Session, User, AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase } from '../services/supabaseClient';
 import {
@@ -34,7 +35,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const getBackendUrl = (): string => {
-  if (typeof window !== 'undefined' && window.location?.hostname) {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
     const host = window.location.hostname || 'localhost';
     return `http://${host}:3001`;
   }
@@ -252,7 +253,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const res = await processOAuthCallbackUrl(event.url);
         if (res.success && res.session) {
           await handleSessionEstablished(res.session);
-          if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+          if (Platform.OS === 'web' && typeof window !== 'undefined' && window.history?.replaceState && typeof document !== 'undefined') {
             window.history.replaceState({}, document.title, window.location.pathname);
           }
         } else if (res.error) {
@@ -265,7 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const linkSubscription = Linking.addEventListener('url', handleDeepLink);
 
     Linking.getInitialURL().then((initialUrl) => {
-      const urlToCheck = initialUrl || (typeof window !== 'undefined' ? window.location.href : null);
+      const urlToCheck = initialUrl || (Platform.OS === 'web' && typeof window !== 'undefined' && window.location ? window.location.href : null);
       if (
         urlToCheck &&
         (urlToCheck.includes('auth/callback') ||

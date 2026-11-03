@@ -619,10 +619,14 @@ ${antiEchoPrompt}
 3. If and only if there is absolutely no vocal sound at all (pure ambient silence):
    - userTranscript: "(Silence or brief pause)"
    - coachReply: "Main sun rahi hoon Alex, please go ahead!"
+
+CRITICAL REQUIREMENT:
+'coachReply' must strictly contain ONLY Disha's spoken answer to the user.
+NEVER repeat, quote, or echo the user's question inside coachReply.
 Return strictly a valid JSON object in this format:
 {
   "userTranscript": "<exact words user spoke or (Speaker echo)>",
-  "coachReply": "<Disha's response or empty string if echo>"
+  "coachReply": "<Disha's answer only, never repeating user question>"
 }`;
 
     let cleanMime = (mimeType || 'audio/webm').split(';')[0].trim().toLowerCase();
@@ -664,8 +668,9 @@ Return strictly a valid JSON object in this format:
               },
             ],
             generationConfig: {
-              maxOutputTokens: 90,
+              maxOutputTokens: 300,
               temperature: 0.6,
+              responseMimeType: 'application/json',
             },
           }),
         });
@@ -702,13 +707,51 @@ Return strictly a valid JSON object in this format:
     let userTranscript = 'Voice message';
     let coachReply = 'Namaste Alex! Main sun rahi hoon. Aaj aap kaisa feel kar rahe hain?';
 
+    const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
     try {
-      const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
       const parsed = JSON.parse(cleaned);
-      if (parsed.userTranscript) userTranscript = parsed.userTranscript;
-      if (parsed.coachReply) coachReply = parsed.coachReply;
+      if (parsed.userTranscript) userTranscript = parsed.userTranscript.trim();
+      if (parsed.coachReply) coachReply = parsed.coachReply.trim();
     } catch {
-      if (rawText.trim()) coachReply = rawText.trim();
+      // Resilient Regex extraction for malformed JSON or trailing syntax
+      const userMatch =
+        cleaned.match(/"userTranscript"\s*:\s*"([\s\S]*?)(?:",|"\s*\n|"\s*})/i) ||
+        cleaned.match(/"userTranscript"\s*:\s*"([\s\S]*?)"/i);
+      if (userMatch && userMatch[1]) {
+        userTranscript = userMatch[1].trim();
+      }
+
+      const coachMatch =
+        cleaned.match(/"coachReply"\s*:\s*"([\s\S]*?)(?:""|",|"\s*}|"\s*$|$)/i);
+      if (coachMatch && coachMatch[1]) {
+        coachReply = coachMatch[1].trim();
+      } else {
+        const idx = cleaned.indexOf('"coachReply"');
+        if (idx !== -1) {
+          const sub = cleaned.slice(idx);
+          const m = sub.match(/:\s*"*([\s\S]*?)(?:""|"|}|\n|$)/);
+          if (m && m[1]) coachReply = m[1].trim();
+        }
+      }
+    }
+
+    // CRITICAL SAFETY FILTER: Ensure coachReply NEVER contains userTranscript or JSON keys
+    if (coachReply.includes('"userTranscript"') || coachReply.includes('userTranscript:')) {
+      const idx = coachReply.indexOf('"coachReply"');
+      if (idx !== -1) {
+        coachReply = coachReply.slice(idx).replace(/^"coachReply"\s*:\s*"/i, '');
+      }
+    }
+
+    coachReply = coachReply
+      .replace(/^\{[\s\S]*?"coachReply"\s*:\s*"/i, '')
+      .replace(/^[{\[\s"]+|["}\]\s]+$/g, '')
+      .replace(/"userTranscript"[\s\S]*$/gi, '')
+      .replace(/userTranscript\s*:[\s\S]*?coachReply\s*:/gi, '')
+      .trim();
+
+    if (!coachReply || coachReply.includes('{') || coachReply.includes('}')) {
+      coachReply = 'Main sun rahi hoon Alex! Aap bilkul theek routine follow kar rahe hain, bas hydrate aur active rahein.';
     }
 
     // Anti-Echo Check: Suppress if user audio is just loudspeaker feedback of previous coach response

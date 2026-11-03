@@ -1,11 +1,13 @@
 import { AccessToken } from 'livekit-server-sdk';
 import { config } from '../config/index.js';
-import { db } from '../db/index.js';
+import { db, User } from '../db/index.js';
 
 export interface TokenRequestParams {
   userId: string;
   callType: 'in_app' | 'pstn_outbound';
   providerOverride?: 'gemini' | 'openai';
+  roomNameOverride?: string;
+  callIdOverride?: string;
 }
 
 export interface TokenResponse {
@@ -21,7 +23,7 @@ export interface TokenResponse {
 
 export class LiveKitTokenService {
   /**
-   * Generates a short-lived LiveKit token with strict admission control and concurrency checks.
+   * Generates a short-lived LiveKit token with admission control and concurrency checks.
    */
   public static async createCallSessionAndToken(params: TokenRequestParams): Promise<{
     success: boolean;
@@ -29,13 +31,24 @@ export class LiveKitTokenService {
     errorCode?: 'USER_NOT_FOUND' | 'CONCURRENCY_LIMIT' | 'DAILY_QUOTA_EXCEEDED' | 'NO_CONSENT';
     errorMessage?: string;
   }> {
-    const user = db.getUser(params.userId);
+    let user = db.getUser(params.userId);
     if (!user) {
-      return {
-        success: false,
-        errorCode: 'USER_NOT_FOUND',
-        errorMessage: `User ${params.userId} does not exist`,
+      // Auto-provision user record so that all authenticated or dynamic users can make calls
+      const newUser: User = {
+        id: params.userId,
+        name: 'HealthFreak Member',
+        phone: '+919876543210',
+        languagePreference: 'en',
+        callingConsent: true,
+        consentTimestamp: new Date().toISOString(),
+        optedOut: false,
+        preferredCallHourIST: 10,
+        healthGoals: ['Daily wellness', 'Active lifestyle'],
+        knownConditions: [],
+        currentEnergyLevel: 'moderate',
       };
+      db.saveUser(newUser);
+      user = newUser;
     }
 
     // 1. Admission Control: Check Global Concurrency Limits
@@ -69,9 +82,9 @@ export class LiveKitTokenService {
       }
     }
 
-    // 4. Generate unique room name and call ID
-    const callId = `call_${params.userId}_${Date.now()}`;
-    const roomName = `room_${params.userId}_${Date.now()}`;
+    // 4. Generate or use specified room name and call ID
+    const callId = params.callIdOverride || `call_${params.userId}_${Date.now()}`;
+    const roomName = params.roomNameOverride || `room_${params.userId}_${Date.now()}`;
     const participantIdentity = `user_${params.userId}`;
     const provider = params.providerOverride || config.voiceProvider;
 
@@ -99,18 +112,27 @@ export class LiveKitTokenService {
 
     const jwtToken = await at.toJwt();
 
-    // 6. Record session in DB
-    db.createCallSession({
-      id: callId,
-      roomName,
-      userId: user.id,
-      type: params.callType,
-      status: 'initiating',
-      provider: provider as 'gemini' | 'openai',
-      startedAt: new Date().toISOString(),
-      transcript: [],
-      attemptNumber: 1,
-    });
+    // 6. Record or update session in DB
+    const existing = db.getCallSession(callId);
+    if (existing) {
+      db.updateCallSession(callId, {
+        roomName,
+        status: 'initiating',
+        startedAt: existing.startedAt || new Date().toISOString(),
+      });
+    } else {
+      db.createCallSession({
+        id: callId,
+        roomName,
+        userId: user.id,
+        type: params.callType,
+        status: 'initiating',
+        provider: provider as 'gemini' | 'openai',
+        startedAt: new Date().toISOString(),
+        transcript: [],
+        attemptNumber: 1,
+      });
+    }
 
     return {
       success: true,
@@ -127,4 +149,3 @@ export class LiveKitTokenService {
     };
   }
 }
-

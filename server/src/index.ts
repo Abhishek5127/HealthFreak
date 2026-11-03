@@ -9,6 +9,8 @@ import { planRouter } from './routes/planRoutes.js';
 import { followupRouter } from './routes/followupRoutes.js';
 import { authRouter } from './routes/authRoutes.js';
 import { ScheduledCallQueue } from './queue/scheduledCallQueue.js';
+import { aiCallRouter } from './routes/aiCallRoutes.js';
+import { AICallScheduler } from './queue/aiCallScheduler.js';
 
 process.on('uncaughtException', (err) => {
   console.error('[Disha Server] Uncaught exception:', err.message);
@@ -205,6 +207,7 @@ app.get('/api/auth/latest-session', (_req, res) => {
 
 // Voice AI Routes
 app.use('/api/voice', voiceRouter);
+app.use('/api/ai-calls', aiCallRouter);
 
 // AI Meal Scanner & Food Diary Routes
 app.use('/api/meals', mealRouter);
@@ -319,6 +322,7 @@ app.get('/auth/callback', (req, res) => {
 async function startServer() {
   // Initialize BullMQ Queue / Redis
   await ScheduledCallQueue.initialize();
+  AICallScheduler.init();
 
   const server = app.listen(config.port, () => {
     console.log(`[Disha Voice Server] Running on http://localhost:${config.port}`);

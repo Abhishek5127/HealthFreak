@@ -34,9 +34,23 @@ import { LabReportsScreen } from './src/features/labreports/LabReportsScreen';
 import { OnboardingFlow } from './src/features/onboarding/OnboardingFlow';
 import { CameraScannerScreen } from './src/features/scanner/CameraScannerScreen';
 import { NutritionResultScreen } from './src/features/scanner/NutritionResultScreen';
+import { ScheduleCallModal } from './src/features/coach/ScheduleCallModal';
+import { IncomingCallModal } from './src/features/coach/IncomingCallModal';
+import { LiveKitVoiceCallScreen } from './src/features/coach/LiveKitVoiceCallScreen';
 
 const MainAppContent: React.FC = () => {
-  const { activeTab, setActiveTab, activeModal } = useApp();
+  const {
+    activeTab,
+    setActiveTab,
+    activeModal,
+    setActiveModal,
+    activeIncomingCall,
+    activeLiveKitCall,
+    triggerIncomingCallScreen,
+    acceptIncomingCall,
+    declineIncomingCall,
+    endActiveLiveKitCall,
+  } = useApp();
 
   const renderActiveScreen = () => {
     switch (activeTab) {
@@ -104,6 +118,54 @@ const MainAppContent: React.FC = () => {
       {activeModal === 'meal_result' && (
         <View style={styles.modalOverlay}>
           <NutritionResultScreen />
+        </View>
+      )}
+
+      {activeModal === 'schedule_call' && (
+        <View style={styles.modalOverlay}>
+          <ScheduleCallModal
+            onClose={() => setActiveModal(null)}
+            onCallTriggered={(call) => triggerIncomingCallScreen(call)}
+          />
+        </View>
+      )}
+
+      {activeModal === 'incoming_call' && (
+        <View style={styles.modalOverlay}>
+          <IncomingCallModal
+            call={
+              activeIncomingCall || {
+                id: 'call_incoming_default',
+                roomName: 'room_incoming_default',
+                userId: 'usr_synthetic_alex',
+                type: 'in_app',
+                status: 'ringing',
+                scheduledTime: new Date().toISOString(),
+              }
+            }
+            onAccept={(call) => acceptIncomingCall(call)}
+            onDecline={(callId) => declineIncomingCall(callId)}
+          />
+        </View>
+      )}
+
+      {activeModal === 'livekit_call' && (
+        <View style={styles.modalOverlay}>
+          <LiveKitVoiceCallScreen
+            call={
+              activeLiveKitCall?.call || {
+                id: 'call_livekit_default',
+                roomName: 'room_livekit_default',
+                userId: 'usr_synthetic_alex',
+                type: 'in_app',
+                status: 'connected',
+                scheduledTime: new Date().toISOString(),
+              }
+            }
+            livekitData={activeLiveKitCall?.livekit}
+            greeting={activeLiveKitCall?.greeting}
+            onCallEnded={endActiveLiveKitCall}
+          />
         </View>
       )}
     </View>

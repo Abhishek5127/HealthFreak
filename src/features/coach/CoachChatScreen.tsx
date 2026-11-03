@@ -16,6 +16,7 @@ import {
   Sparkles,
   Paperclip,
   ArrowUpRight,
+  Calendar,
 } from 'lucide-react-native';
 import { useApp } from '../../state/AppContext';
 import { Colors } from '../../theme/colors';
@@ -35,6 +36,7 @@ export const CoachChatScreen: React.FC = () => {
     setActiveModal,
     isVoiceActive,
     setIsVoiceActive,
+    openScheduleCallModal,
   } = useApp();
 
   const [inputText, setInputText] = useState<string>('');
@@ -87,6 +89,15 @@ export const CoachChatScreen: React.FC = () => {
           </View>
         </View>
 
+        <View style={styles.headerRightActions}>
+          <Pressable
+            style={styles.scheduleHeaderBtn}
+            onPress={openScheduleCallModal}
+            hitSlop={8}
+          >
+            <Calendar size={13} color="#4AB87A" />
+            <Text style={styles.scheduleHeaderBtnText}>Schedule</Text>
+          </Pressable>
         {/* Voice Mode Button */}
         <Pressable
           style={styles.voiceButton}
@@ -98,6 +109,7 @@ export const CoachChatScreen: React.FC = () => {
         >
           <Mic size={18} color={Colors.coralCTA} />
         </Pressable>
+        </View>
       </View>
 
       {/* 2. Messages List */}
@@ -297,6 +309,27 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: Typography.fontSizes.xs - 1,
     fontFamily: Typography.fontFamilies.sansMedium,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  scheduleHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(74, 184, 122, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: Spacing.borderRadius.round,
+    borderWidth: 1,
+    borderColor: 'rgba(74, 184, 122, 0.28)',
+  },
+  scheduleHeaderBtnText: {
+    color: '#4AB87A',
+    fontSize: Typography.fontSizes.xs,
+    fontFamily: Typography.fontFamilies.sansBold,
   },
   voiceButton: {
     width: 40,

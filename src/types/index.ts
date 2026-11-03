@@ -9,7 +9,10 @@ export type ModalType =
   | 'lab_report'
   | 'voice_overlay'
   | 'meal_scanner'
-  | 'meal_result';
+  | 'meal_result'
+  | 'schedule_call'
+  | 'incoming_call'
+  | 'livekit_call';
 
 export type WellnessGoal =
   | 'weight_gain'

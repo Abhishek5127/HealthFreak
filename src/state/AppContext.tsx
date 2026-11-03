@@ -25,6 +25,8 @@ import { MealAnalysisResult } from '../types/meal';
 import { MealScannerService } from '../services/mealScannerService';
 import { expoSecureStoreAdapter } from '../services/auth/secureStorageAdapter';
 import { useAuth } from './AuthContext';
+import { ScheduledAICall, LiveKitTokenData, AICallService } from '../services/aiCallService';
+import { NotificationService } from '../services/notificationService';
 
 export interface DailyNutritionState {
   caloriesTotal: number;
@@ -88,6 +90,15 @@ interface AppContextType {
   applySurveyAssessment: (assessment: UserSurveyAssessment) => Promise<void>;
   waterLoggedMl: number;
   logWater: (amountMl?: number) => void;
+
+  // Scheduled & Incoming LiveKit AI Calls
+  activeIncomingCall: ScheduledAICall | null;
+  activeLiveKitCall: { call: ScheduledAICall; livekit?: LiveKitTokenData; greeting?: string } | null;
+  openScheduleCallModal: () => void;
+  triggerIncomingCallScreen: (call: ScheduledAICall) => void;
+  acceptIncomingCall: (call: ScheduledAICall) => Promise<void>;
+  declineIncomingCall: (callId: string) => Promise<void>;
+  endActiveLiveKitCall: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -121,6 +132,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(initialCoachMessages);
   const [isCoachTyping, setIsCoachTyping] = useState<boolean>(false);
   const [isVoiceActive, setIsVoiceActiveState] = useState<boolean>(false);
+  const [activeIncomingCall, setActiveIncomingCall] = useState<ScheduledAICall | null>(null);
+  const [activeLiveKitCall, setActiveLiveKitCall] = useState<{ call: ScheduledAICall; livekit?: LiveKitTokenData; greeting?: string } | null>(null);
 
   // Meal Scanner & Nutrition Diary State
   const [todaysNutrition, setTodaysNutrition] = useState<DailyNutritionState>({
@@ -669,6 +682,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveModalState(null);
   };
 
+  // Scheduled AI Calls Handlers
+  const openScheduleCallModal = () => {
+    setActiveModalState('schedule_call');
+  };
+
+  const triggerIncomingCallScreen = (call: ScheduledAICall) => {
+    setActiveIncomingCall(call);
+    setActiveModalState('incoming_call');
+  };
+
+  const acceptIncomingCall = async (call: ScheduledAICall) => {
+    const res = await AICallService.acceptCall(call.id);
+    setActiveIncomingCall(null);
+    setActiveLiveKitCall({ call, livekit: res.livekit, greeting: res.greeting });
+    setActiveModalState('livekit_call');
+  };
+
+  const declineIncomingCall = async (callId: string) => {
+    await AICallService.declineCall(callId);
+    setActiveIncomingCall(null);
+    setActiveModalState(null);
+  };
+
+  const endActiveLiveKitCall = () => {
+    setActiveLiveKitCall(null);
+    setActiveModalState(null);
+  };
+
+  // Initialize push notification listener & periodic incoming call check
+  useEffect(() => {
+    const effectiveUserId = userProfile.id || 'usr_synthetic_alex';
+    NotificationService.init(effectiveUserId);
+
+    const unsubscribe = NotificationService.listenForIncomingCalls(async ({ callId, roomName }) => {
+      const incoming: ScheduledAICall = {
+        id: callId,
+        roomName,
+        userId: effectiveUserId,
+        type: 'in_app',
+        status: 'ringing',
+        scheduledTime: new Date().toISOString(),
+      };
+      triggerIncomingCallScreen(incoming);
+    });
+
+    const intervalId = setInterval(async () => {
+      if (!activeIncomingCall && !activeLiveKitCall) {
+        const res = await AICallService.checkActiveIncomingCall(effectiveUserId);
+        if (res.hasIncomingCall && res.call) {
+          triggerIncomingCallScreen(res.call);
+        }
+      }
+    }, 5000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(intervalId);
+    };
+  }, [userProfile.id, activeIncomingCall, activeLiveKitCall]);
+
   return (
     <AppContext.Provider
       value={{
@@ -702,6 +775,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         applySurveyAssessment,
         waterLoggedMl,
         logWater,
+        activeIncomingCall,
+        activeLiveKitCall,
+        openScheduleCallModal,
+        triggerIncomingCallScreen,
+        acceptIncomingCall,
+        declineIncomingCall,
+        endActiveLiveKitCall,
       }}
     >
       {children}

@@ -11,7 +11,7 @@ import {
   type AudioPlayer,
 } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
-import { askDishaAI, transcribeAndReplyAudio, getBackendBaseUrl, isSelfEcho } from './aiChatService';
+import { askDishaAI, transcribeAndReplyAudio, getBackendBaseUrl, isSelfEcho, cleanCoachReplyOnly } from './aiChatService';
 
 export type VoiceConnectionStatus =
   | 'idle'
@@ -790,17 +790,18 @@ export class VoiceClientService {
         return;
       }
 
-      this.lastCoachReply = result.coachReply;
+      const cleanReply = cleanCoachReplyOnly(result.coachReply);
+      this.lastCoachReply = cleanReply;
       this.userTranscript = result.userTranscript;
-      this.coachTranscript = result.coachReply;
+      this.coachTranscript = cleanReply;
       this.status = 'speaking';
       this.isProcessingTurn = false;
       this.notify();
 
       if (result.audioUrl || result.audioBase64) {
-        await this.playGeneratedAudio(result.audioBase64, result.audioMime || 'audio/wav', result.coachReply, result.audioUrl);
+        await this.playGeneratedAudio(result.audioBase64, result.audioMime || 'audio/wav', cleanReply, result.audioUrl);
       } else {
-        this.speakAloud(result.coachReply);
+        this.speakAloud(cleanReply);
       }
     } catch (err) {
       console.error('[VoiceClient] Audio turn error:', err);

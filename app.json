@@ -1,4 +1,3 @@
-
 {
   "expo": {
     "name": "HealthFreak",
@@ -28,7 +27,10 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS"
+        "MODIFY_AUDIO_SETTINGS",
+        "POST_NOTIFICATIONS",
+        "VIBRATE",
+        "WAKE_LOCK"
       ]
     },
 
@@ -51,7 +53,8 @@
           "cameraPermission": "Allow HealthFreak to access your camera to scan meals."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-notifications"
     ]
   }
 }

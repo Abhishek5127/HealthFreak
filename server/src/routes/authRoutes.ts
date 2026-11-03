@@ -185,7 +185,7 @@ authRouter.post(
       if (assessment) {
         healthMemoryStore.setProfileFact({
           userId,
-          category: 'health_goal',
+          category: 'goal',
           key: 'primary_wellness_focus',
           value: assessment.goal,
           confidence: 1.0,
@@ -195,7 +195,7 @@ authRouter.post(
         if (assessment.currentWeightKg) {
           healthMemoryStore.setProfileFact({
             userId,
-            category: 'measurements',
+            category: 'routine',
             key: 'current_body_weight_kg',
             value: assessment.currentWeightKg,
             confidence: 1.0,
@@ -206,7 +206,7 @@ authRouter.post(
         if (assessment.targetWeightKg) {
           healthMemoryStore.setProfileFact({
             userId,
-            category: 'health_goal',
+            category: 'goal',
             key: 'target_body_weight_kg',
             value: assessment.targetWeightKg,
             confidence: 1.0,
