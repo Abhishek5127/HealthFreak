@@ -98,17 +98,17 @@ export const CoachChatScreen: React.FC = () => {
             <Calendar size={13} color="#4AB87A" />
             <Text style={styles.scheduleHeaderBtnText}>Schedule</Text>
           </Pressable>
-        {/* Voice Mode Button */}
-        <Pressable
-          style={styles.voiceButton}
-          onPress={() => {
-            voiceClient.unlockAudio();
-            setIsVoiceActive(true);
-          }}
-          hitSlop={8}
-        >
-          <Mic size={18} color={Colors.coralCTA} />
-        </Pressable>
+          {/* Voice Mode Button */}
+          <Pressable
+            style={styles.voiceButton}
+            onPress={() => {
+              voiceClient.unlockAudio();
+              setIsVoiceActive(true);
+            }}
+            hitSlop={8}
+          >
+            <Mic size={18} color={Colors.coralCTA} />
+          </Pressable>
         </View>
       </View>
 
