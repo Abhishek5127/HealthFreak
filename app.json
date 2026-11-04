@@ -12,7 +12,8 @@
       "bundleIdentifier": "com.healthfreak.app",
       "supportsTablet": true,
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "HealthFreak needs microphone access to speak with your AI wellness coach."
+        "NSMicrophoneUsageDescription": "HealthFreak needs microphone access to speak with your AI wellness coach.",
+        "NSMotionUsageDescription": "HealthFreak tracks your daily steps and active movement using your device motion sensors."
       }
     },
 
@@ -26,6 +27,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
+        "ACTIVITY_RECOGNITION",
         "RECORD_AUDIO",
         "MODIFY_AUDIO_SETTINGS",
         "POST_NOTIFICATIONS",

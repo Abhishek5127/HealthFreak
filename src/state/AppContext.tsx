@@ -14,7 +14,6 @@ import {
 import {
   initialUserProfile,
   mockDailyActivities,
-  mockProgressMetrics,
   mockFeaturedWorkout,
 } from '../mock-data/healthData';
 import { getActivitiesForGoal } from '../mock-data/goalActivities';
@@ -27,6 +26,72 @@ import { expoSecureStoreAdapter } from '../services/auth/secureStorageAdapter';
 import { useAuth } from './AuthContext';
 import { ScheduledAICall, LiveKitTokenData, AICallService } from '../services/aiCallService';
 import { NotificationService } from '../services/notificationService';
+import { pedometerService, PedometerState } from '../services/pedometerService';
+
+export function computeProgressMetrics(
+  currentSteps: number,
+  currentActivities: DailyActivityItem[]
+): ProgressMetric[] {
+  const stepsCount = Math.max(0, currentSteps);
+  // ~0.04 kcal per step
+  const stepCalories = Math.round(stepsCount * 0.04);
+  const workoutCalories = currentActivities
+    .filter((a) => a.completed)
+    .reduce((acc, a) => acc + (a.calories || 0), 0);
+  const totalActiveCalories = stepCalories + workoutCalories;
+
+  // ~100 steps per active minute of walking
+  const stepMinutes = Math.round(stepsCount / 100);
+  const workoutMinutes = currentActivities
+    .filter((a) => a.completed)
+    .reduce((acc, a) => {
+      if (!a.duration) return acc;
+      const m = parseInt(a.duration, 10);
+      return acc + (isNaN(m) ? 0 : m);
+    }, 0);
+  const totalActiveMinutes = stepMinutes + workoutMinutes;
+
+  return [
+    {
+      id: 'steps',
+      title: 'Daily Steps',
+      value: stepsCount.toLocaleString(),
+      target: '8,000',
+      percentage: Math.min(1, stepsCount / 8000),
+      unit: 'steps',
+      trend: stepsCount > 0 ? 'up' : 'steady',
+      trendLabel: stepsCount === 0 ? '0% of 8,000' : `${Math.round((stepsCount / 8000) * 100)}% of 8,000`,
+      color: '#FF715F',
+    },
+    {
+      id: 'calories',
+      title: 'Active Energy',
+      value: totalActiveCalories.toString(),
+      target: '450',
+      percentage: Math.min(1, totalActiveCalories / 450),
+      unit: 'kcal',
+      trend: totalActiveCalories > 0 ? 'up' : 'steady',
+      trendLabel: totalActiveCalories === 0 ? '0 kcal burned' : `${totalActiveCalories} kcal active`,
+      color: '#EAD66F',
+    },
+    {
+      id: 'activity',
+      title: 'Movement Time',
+      value:
+        totalActiveMinutes === 0
+          ? '0m'
+          : totalActiveMinutes >= 60
+          ? `${Math.floor(totalActiveMinutes / 60)}h ${totalActiveMinutes % 60}m`
+          : `${totalActiveMinutes}m`,
+      target: '1h 30m',
+      percentage: Math.min(1, totalActiveMinutes / 90),
+      unit: 'activity',
+      trend: totalActiveMinutes > 0 ? 'up' : 'steady',
+      trendLabel: totalActiveMinutes === 0 ? 'Ready for today' : `${totalActiveMinutes} mins active`,
+      color: '#4E9A6F',
+    },
+  ];
+}
 
 export interface DailyNutritionState {
   caloriesTotal: number;
@@ -99,6 +164,12 @@ interface AppContextType {
   acceptIncomingCall: (call: ScheduledAICall) => Promise<void>;
   declineIncomingCall: (callId: string) => Promise<void>;
   endActiveLiveKitCall: () => void;
+
+  // Live Pedometer & Physical Activity
+  pedometerState: PedometerState;
+  addSimulatedSteps: (count: number) => Promise<void>;
+  resetPedometerSteps: () => Promise<void>;
+  requestPedometerPermission: () => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -128,7 +199,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       : {}),
   }), [userProfileState, authProfile]);
   const [activities, setActivities] = useState<DailyActivityItem[]>(mockDailyActivities);
-  const [metrics, setMetrics] = useState<ProgressMetric[]>(mockProgressMetrics);
+  const [pedometerState, setPedometerState] = useState<PedometerState>(() => pedometerService.getState());
+  const [metrics, setMetrics] = useState<ProgressMetric[]>(() =>
+    computeProgressMetrics(pedometerService.getState().steps, mockDailyActivities)
+  );
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(initialCoachMessages);
   const [isCoachTyping, setIsCoachTyping] = useState<boolean>(false);
   const [isVoiceActive, setIsVoiceActiveState] = useState<boolean>(false);
@@ -310,24 +384,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const nextMeals = [updatedMeal, ...filtered];
       const totals = recalculateDailyNutrition(nextMeals);
 
-      setTodaysNutrition((n) => {
-        const nextNutrition = {
-          ...n,
-          ...totals,
-        };
-        // Update calories progress metric
-        setMetrics((mList) =>
-          mList.map((m) =>
-            m.id === 'calories'
-              ? {
-                  ...m,
-                  percentage: Math.min(1, totals.caloriesTotal / (nextNutrition.caloriesTarget || 2000)),
-                }
-              : m
-          )
-        );
-        return nextNutrition;
-      });
+      setTodaysNutrition((n) => ({
+        ...n,
+        ...totals,
+      }));
 
       expoSecureStoreAdapter.setItem('HEALTHFREAK_TODAYS_MEALS', JSON.stringify(nextMeals)).catch(() => {});
       return nextMeals;
@@ -343,23 +403,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const nextMeals = prev.filter((m) => m.id !== mealId);
       const totals = recalculateDailyNutrition(nextMeals);
 
-      setTodaysNutrition((n) => {
-        const nextNutrition = {
-          ...n,
-          ...totals,
-        };
-        setMetrics((mList) =>
-          mList.map((m) =>
-            m.id === 'calories'
-              ? {
-                  ...m,
-                  percentage: Math.min(1, totals.caloriesTotal / (nextNutrition.caloriesTarget || 2000)),
-                }
-              : m
-          )
-        );
-        return nextNutrition;
-      });
+      setTodaysNutrition((n) => ({
+        ...n,
+        ...totals,
+      }));
 
       expoSecureStoreAdapter.setItem('HEALTHFREAK_TODAYS_MEALS', JSON.stringify(nextMeals)).catch(() => {});
       return nextMeals;
@@ -487,19 +534,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Update daily activities according to the new goal
     const goalActivities = getActivitiesForGoal(assessment.goal);
     setActivities(goalActivities);
-
-    // Reset calories progress metric percentage
-    setMetrics((prev) =>
-      prev.map((m) =>
-        m.id === 'calories'
-          ? {
-              ...m,
-              target: `${plan.dailyCalories}`,
-              percentage: 0,
-            }
-          : m
-      )
-    );
+    setMetrics(computeProgressMetrics(pedometerState.steps, goalActivities));
 
     // Persist assessment to secure storage
     try {
@@ -549,18 +584,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               fiberTarget: parsed.calculatedPlan.fiberGrams,
             });
 
-            setActivities(getActivitiesForGoal(parsed.goal));
-            setMetrics((prev) =>
-              prev.map((m) =>
-                m.id === 'calories'
-                  ? {
-                      ...m,
-                      target: `${parsed.calculatedPlan.dailyCalories}`,
-                      percentage: Math.min(1, totals.caloriesTotal / parsed.calculatedPlan.dailyCalories),
-                    }
-                  : m
-              )
-            );
+            const savedGoalActivities = getActivitiesForGoal(parsed.goal);
+            setActivities(savedGoalActivities);
+            setMetrics(computeProgressMetrics(pedometerService.getState().steps, savedGoalActivities));
           }
         }
       } catch (err: any) {
@@ -586,33 +612,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         act.id === id ? { ...act, completed: !act.completed } : act
       );
 
-      // Recalculate metrics
-      const completedCount = updated.filter((a) => a.completed).length;
-      const totalActivities = updated.length;
-      const completedRatio = completedCount / totalActivities;
-
-      setMetrics((prevMetrics) =>
-        prevMetrics.map((m) => {
-          if (m.id === 'calories') {
-            const newKcal = Math.round(273 + (completedRatio > 0.5 ? 80 : 0));
-            return {
-              ...m,
-              value: `${newKcal}`,
-              percentage: Math.min(1, newKcal / 450),
-            };
-          }
-          if (m.id === 'activity') {
-            const newMinutes = Math.round(65 + completedCount * 12);
-            return {
-              ...m,
-              value: `${Math.floor(newMinutes / 60)}h ${newMinutes % 60}m`,
-              percentage: Math.min(1, newMinutes / 90),
-            };
-          }
-          return m;
-        })
-      );
-
+      setMetrics(computeProgressMetrics(pedometerState.steps, updated));
       return updated;
     });
   };
@@ -674,12 +674,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       voiceClient.endSession();
       setIsVoiceActiveState(false);
     }
+    pedometerService.resetTodaySteps().catch(() => {});
     setUserProfileState(initialUserProfile);
     setActivities(mockDailyActivities);
-    setMetrics(mockProgressMetrics);
+    setMetrics(computeProgressMetrics(0, mockDailyActivities));
     setChatMessages(initialCoachMessages);
     setActiveTabState('home');
     setActiveModalState(null);
+  };
+
+  const addSimulatedSteps = async (count: number) => {
+    triggerHaptic('selection');
+    const newState = await pedometerService.addSimulatedSteps(count);
+    setPedometerState(newState);
+    setActivities((currentActivities) => {
+      setMetrics(computeProgressMetrics(newState.steps, currentActivities));
+      return currentActivities;
+    });
+  };
+
+  const resetPedometerSteps = async () => {
+    triggerHaptic('impact');
+    const newState = await pedometerService.resetTodaySteps();
+    setPedometerState(newState);
+    setActivities((currentActivities) => {
+      setMetrics(computeProgressMetrics(newState.steps, currentActivities));
+      return currentActivities;
+    });
+  };
+
+  const requestPedometerPermission = async () => {
+    triggerHaptic('impact');
+    const granted = await pedometerService.requestPermission();
+    setPedometerState(pedometerService.getState());
+    return granted;
   };
 
   // Scheduled AI Calls Handlers
@@ -744,6 +772,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [userProfile.id, activeIncomingCall, activeLiveKitCall]);
 
+  // Live Pedometer hardware & storage subscription
+  useEffect(() => {
+    pedometerService.initialize().catch((err) => {
+      console.warn('[AppContext] Pedometer initialization failed:', err);
+    });
+
+    const unsubscribe = pedometerService.subscribe((pState) => {
+      setPedometerState(pState);
+      setActivities((currentActivities) => {
+        setMetrics(computeProgressMetrics(pState.steps, currentActivities));
+        return currentActivities;
+      });
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   return (
     <AppContext.Provider
       value={{
@@ -784,6 +831,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         acceptIncomingCall,
         declineIncomingCall,
         endActiveLiveKitCall,
+        pedometerState,
+        addSimulatedSteps,
+        resetPedometerSteps,
+        requestPedometerPermission,
       }}
     >
       {children}

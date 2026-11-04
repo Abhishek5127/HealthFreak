@@ -57,12 +57,16 @@ export const DashboardScreen: React.FC = () => {
     recentMeals,
     waterLoggedMl,
     logWater,
+    pedometerState,
+    addSimulatedSteps,
+    resetPedometerSteps,
+    requestPedometerPermission,
   } = useApp();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('Gym');
 
   // Skincare AM/PM checklist state
-  const [skincareMorningDone, setSkincareMorningDone] = useState<boolean>(true);
+  const [skincareMorningDone, setSkincareMorningDone] = useState<boolean>(false);
   const [skincareEveningDone, setSkincareEveningDone] = useState<boolean>(false);
 
   const categories = [
@@ -644,6 +648,57 @@ export const DashboardScreen: React.FC = () => {
             />
           );
         })}
+      </View>
+
+      {/* Live Pedometer Sensor & Step Controls */}
+      <View style={styles.pedometerStatusRow}>
+        <Pressable
+          style={styles.pedometerStatusBadge}
+          onPress={() => {
+            if (!pedometerState.hasPermission) {
+              requestPedometerPermission();
+            }
+          }}
+        >
+          <View
+            style={[
+              styles.pedometerDot,
+              pedometerState.isTracking ? styles.pedometerDotLive : styles.pedometerDotIdle,
+            ]}
+          />
+          <Text style={styles.pedometerStatusText}>
+            {!pedometerState.hasPermission
+              ? 'Tap to Enable Sensors'
+              : pedometerState.isTracking
+              ? `Live Tracking (${pedometerState.trackingEngine === 'hardware' ? 'Pedometer' : 'Motion'})`
+              : 'Sensor Ready'}
+          </Text>
+        </Pressable>
+
+        <View style={styles.pedometerActionsRow}>
+          <Pressable
+            style={styles.pedometerActionBtn}
+            onPress={() => addSimulatedSteps(250)}
+          >
+            <Plus size={11} color={Colors.textSecondary} />
+            <Text style={styles.pedometerActionBtnText}>250</Text>
+          </Pressable>
+          <Pressable
+            style={styles.pedometerActionBtn}
+            onPress={() => addSimulatedSteps(1000)}
+          >
+            <Plus size={11} color={Colors.textSecondary} />
+            <Text style={styles.pedometerActionBtnText}>1k</Text>
+          </Pressable>
+          {pedometerState.steps > 0 && (
+            <Pressable
+              style={[styles.pedometerActionBtn, styles.pedometerResetBtn]}
+              onPress={() => resetPedometerSteps()}
+            >
+              <Text style={styles.pedometerResetBtnText}>Reset</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
       {/* 10. Today's sessions / Tailored Routine */}
@@ -1273,7 +1328,71 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 8,
+    marginBottom: 20,
+  },
+  pedometerStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: -10,
     marginBottom: 24,
+  },
+  pedometerStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pedometerDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  pedometerDotLive: {
+    backgroundColor: '#4E9A6F',
+  },
+  pedometerDotIdle: {
+    backgroundColor: Colors.textMuted,
+  },
+  pedometerStatusText: {
+    fontFamily: Typography.fontFamilies.sansMedium,
+    fontSize: Typography.fontSizes.xs - 1,
+    color: Colors.textSecondary,
+  },
+  pedometerActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pedometerActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 2,
+  },
+  pedometerActionBtnText: {
+    fontFamily: Typography.fontFamilies.sansBold,
+    fontSize: Typography.fontSizes.xs - 2,
+    color: Colors.textPrimary,
+  },
+  pedometerResetBtn: {
+    backgroundColor: 'rgba(255, 113, 95, 0.12)',
+    borderColor: 'rgba(255, 113, 95, 0.25)',
+  },
+  pedometerResetBtnText: {
+    fontFamily: Typography.fontFamilies.sansBold,
+    fontSize: Typography.fontSizes.xs - 2,
+    color: '#FF715F',
   },
   sessionsList: {
     gap: 12,
