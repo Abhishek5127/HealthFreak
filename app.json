@@ -7,16 +7,14 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-
     "ios": {
       "bundleIdentifier": "com.healthfreak.app",
       "supportsTablet": true,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "HealthFreak needs microphone access to speak with your AI wellness coach.",
-"NSMotionUsageDescription": "HealthFreak tracks your daily steps, distance, and activity goals using your device motion sensors."
+        "NSMotionUsageDescription": "HealthFreak tracks your daily steps, distance, and activity goals using your device motion sensors."
       }
     },
-
     "android": {
       "package": "com.healthfreak.app",
       "adaptiveIcon": {
@@ -35,11 +33,9 @@
         "WAKE_LOCK"
       ]
     },
-
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
     "plugins": [
       "expo-image",
       "expo-font",
@@ -63,6 +59,11 @@
       ],
       "expo-asset",
       "expo-notifications"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "cf4be118-2099-490a-9942-bd66615788bd"
+      }
+    }
   }
 }
