@@ -30,6 +30,7 @@ import { ProfileScreen } from './src/features/profile/ProfileScreen';
 
 import { CheckInFlow } from './src/features/checkin/CheckInFlow';
 import { ActivityDetailScreen } from './src/features/activity/ActivityDetailScreen';
+import { ActivityScreen } from './src/features/activity/ActivityScreen';
 import { LabReportsScreen } from './src/features/labreports/LabReportsScreen';
 import { OnboardingFlow } from './src/features/onboarding/OnboardingFlow';
 import { CameraScannerScreen } from './src/features/scanner/CameraScannerScreen';
@@ -166,6 +167,12 @@ const MainAppContent: React.FC = () => {
             greeting={activeLiveKitCall?.greeting}
             onCallEnded={endActiveLiveKitCall}
           />
+        </View>
+      )}
+
+      {activeModal === 'activity_detail' && (
+        <View style={styles.modalOverlay}>
+          <ActivityScreen />
         </View>
       )}
     </View>

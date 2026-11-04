@@ -20,7 +20,14 @@ export function getBackendBaseUrl(): string {
 export async function askDishaAI(
   message: string,
   userName = 'there',
-  conditions: string[] = []
+  conditions: string[] = [],
+  activityContext?: {
+    todaySteps?: number;
+    stepGoal?: number;
+    distanceMeters?: number;
+    caloriesBurned?: number;
+    activeMinutes?: number;
+  }
 ): Promise<{ text: string; suggestions: string[]; audioBase64?: string; audioMime?: string; audioUrl?: string }> {
   // 1. First try local backend server
   try {
@@ -31,7 +38,12 @@ export async function askDishaAI(
     const res = await fetch(`${backendUrl}/api/voice/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, userId: 'usr_synthetic_alex', generateCloudAudio: true }),
+      body: JSON.stringify({
+        message,
+        userId: 'usr_synthetic_alex',
+        generateCloudAudio: true,
+        activityContext,
+      }),
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -62,16 +74,28 @@ export async function askDishaAI(
       const conditionsStr =
         conditions.length > 0 ? `User reported health conditions: ${conditions.join(', ')}.` : '';
 
+      const activityStr =
+        activityContext && typeof activityContext.todaySteps === 'number'
+          ? `Current Real-Time Activity:
+- Today's Steps Walked: ${activityContext.todaySteps.toLocaleString()} steps
+- Daily Step Target: ${activityContext.stepGoal?.toLocaleString() || '10,000'} steps
+- Walking Distance: ${activityContext.distanceMeters ? (activityContext.distanceMeters / 1000).toFixed(1) + ' km' : '0 km'}
+- Active Calories: ${activityContext.caloriesBurned ? '~' + activityContext.caloriesBurned + ' kcal' : 'N/A'}
+- Active Minutes: ${activityContext.activeMinutes || 0}m.`
+          : '';
+
       const systemPrompt = `You are Disha, an AI Health and Wellness Coach created by Disha Health.
 You are speaking directly with ${userName}.
 You understand English, Hindi, and everyday Hinglish.
 ${conditionsStr}
+${activityStr}
 Rules:
 1. Always be conversational, warm, empathetic, and encouraging.
 2. Reply concisely in 1-2 sentences.
 3. If user speaks in Hindi/Hinglish, reply in friendly natural Hinglish.
 4. Never prescribe medication or give clinical medical diagnosis.
-5. Provide actionable wellness, nutrition, or movement guidance.`;
+5. Provide actionable wellness, nutrition, or movement guidance.
+6. When user asks about steps, distance, or activity goals, use the exact recorded metrics above deterministically.`;
 
       const candidateModels = Array.from(
         new Set([

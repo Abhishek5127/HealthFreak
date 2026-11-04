@@ -12,7 +12,8 @@
       "bundleIdentifier": "com.healthfreak.app",
       "supportsTablet": true,
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "HealthFreak needs microphone access to speak with your AI wellness coach."
+        "NSMicrophoneUsageDescription": "HealthFreak needs microphone access to speak with your AI wellness coach.",
+        "NSMotionUsageDescription": "HealthFreak uses motion sensor data to track your daily steps, distance, and activity goals."
       }
     },
 
@@ -30,7 +31,8 @@
         "MODIFY_AUDIO_SETTINGS",
         "POST_NOTIFICATIONS",
         "VIBRATE",
-        "WAKE_LOCK"
+        "WAKE_LOCK",
+        "ACTIVITY_RECOGNITION"
       ]
     },
 
@@ -51,6 +53,12 @@
         "expo-camera",
         {
           "cameraPermission": "Allow HealthFreak to access your camera to scan meals."
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Allow HealthFreak to access your motion sensors to accurately count your daily steps, distance, and activity goals."
         }
       ],
       "expo-asset",

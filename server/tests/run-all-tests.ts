@@ -13,6 +13,7 @@ import { config } from '../src/config/index.js';
 import { runMealScannerTests } from './meal-scanner.test.js';
 import { runMasterHealthMemorySuite } from './master-health-memory.test.js';
 import { runGoogleAuthTests } from './google-auth.test.js';
+import { runActivityTestSuite } from './activity.test.js';
 
 interface TestResult {
   name: string;
@@ -516,6 +517,25 @@ async function runTestSuite() {
       'Google OAuth 2.0, Supabase Identity Provider & Secure Sessions (11 Scenarios)',
       false,
       err?.message || 'Google OAuth test suite failed'
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // TEST 12: Native Pedometer & Step Tracking Engine (12 Scenarios)
+  // --------------------------------------------------------------------------
+  try {
+    const activityPassed = await runActivityTestSuite();
+    recordTest(
+      'Native Pedometer, Sensor Calculations, Baseline Deltas & Safe Synchronization (12 Scenarios)',
+      activityPassed,
+      'Hardware baseline handling, stride estimation, calorie formulas, local midnight boundaries, and non-destructive merges verified.',
+      'Native Pedometer & Step Engine: 100% VERIFIED'
+    );
+  } catch (err: any) {
+    recordTest(
+      'Native Pedometer, Sensor Calculations, Baseline Deltas & Safe Synchronization (12 Scenarios)',
+      false,
+      err?.message || 'Activity test suite failed'
     );
   }
 

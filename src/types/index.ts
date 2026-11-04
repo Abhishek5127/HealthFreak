@@ -12,7 +12,8 @@ export type ModalType =
   | 'meal_result'
   | 'schedule_call'
   | 'incoming_call'
-  | 'livekit_call';
+  | 'livekit_call'
+  | 'activity_detail';
 
 export type WellnessGoal =
   | 'weight_gain'

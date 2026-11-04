@@ -27,6 +27,7 @@ import { expoSecureStoreAdapter } from '../services/auth/secureStorageAdapter';
 import { useAuth } from './AuthContext';
 import { ScheduledAICall, LiveKitTokenData, AICallService } from '../services/aiCallService';
 import { NotificationService } from '../services/notificationService';
+import { pedometerService } from '../features/activity/services/pedometerService';
 
 export interface DailyNutritionState {
   caloriesTotal: number;
@@ -61,6 +62,7 @@ interface AppContextType {
 
   // Metrics
   metrics: ProgressMetric[];
+  openActivityDetail: () => void;
 
   // Meal Scanner & Nutrition Diary
   todaysNutrition: DailyNutritionState;
@@ -89,7 +91,10 @@ interface AppContextType {
   // Survey & Personalized Targets
   applySurveyAssessment: (assessment: UserSurveyAssessment) => Promise<void>;
   waterLoggedMl: number;
+  waterTargetMl: number;
   logWater: (amountMl?: number) => void;
+  setCustomWaterTarget: (ml: number) => Promise<void>;
+  resetWaterLogged: () => Promise<void>;
 
   // Scheduled & Incoming LiveKit AI Calls
   activeIncomingCall: ScheduledAICall | null;
@@ -108,7 +113,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTab, setActiveTabState] = useState<TabType>('home');
   const [activeModal, setActiveModalState] = useState<ModalType>(null);
   const [userProfileState, setUserProfileState] = useState<UserProfile>(initialUserProfile);
-  const [waterLoggedMl, setWaterLoggedMl] = useState<number>(1250);
+  const [waterLoggedMl, setWaterLoggedMl] = useState<number>(1200);
+  const [waterTargetMl, setWaterTargetMl] = useState<number>(3200);
 
   // Synchronize authenticated profile from Supabase Google OAuth without cascading re-renders
   const userProfile: UserProfile = useMemo(() => ({
@@ -434,9 +440,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const logWater = (amountMl: number = 250) => {
+  const logWater = (amountMl: number = 100) => {
     triggerHaptic('success');
-    setWaterLoggedMl((prev) => Math.min(6000, prev + amountMl));
+    setWaterLoggedMl((prev) => {
+      const next = Math.max(0, Math.min(8000, prev + amountMl));
+      expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED', next.toString()).catch(() => {});
+      return next;
+    });
+  };
+
+  const setCustomWaterTarget = async (ml: number) => {
+    triggerHaptic('success');
+    setWaterTargetMl(ml);
+    await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_TARGET_ML', ml.toString());
+  };
+
+  const resetWaterLogged = async () => {
+    triggerHaptic('selection');
+    setWaterLoggedMl(0);
+    await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED', '0');
   };
 
   const applySurveyAssessment = async (assessment: UserSurveyAssessment) => {
@@ -561,6 +583,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   : m
               )
             );
+
+            // Restore stored hydration metrics
+            try {
+              const savedWaterRaw = await expoSecureStoreAdapter.getItem('HEALTHFREAK_WATER_LOGGED');
+              if (savedWaterRaw) {
+                const pWater = parseInt(savedWaterRaw, 10);
+                if (!isNaN(pWater) && pWater >= 0) setWaterLoggedMl(pWater);
+              }
+              const savedTargetRaw = await expoSecureStoreAdapter.getItem('HEALTHFREAK_WATER_TARGET_ML');
+              if (savedTargetRaw) {
+                const pTarget = parseInt(savedTargetRaw, 10);
+                if (!isNaN(pTarget) && pTarget > 0) setWaterTargetMl(pTarget);
+              } else if (parsed.calculatedPlan.waterLiters) {
+                setWaterTargetMl(Math.round(parsed.calculatedPlan.waterLiters * 1000));
+              }
+            } catch {}
           }
         }
       } catch (err: any) {
@@ -568,6 +606,93 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
     loadSavedAssessment();
+  }, []);
+
+  // Hardware Pedometer & Daily Step Synchronization
+  useEffect(() => {
+    let isSubscribed = true;
+
+    pedometerService.getCurrentTodaySummary().then((summary) => {
+      if (!isSubscribed) return;
+      setMetrics((prev) =>
+        prev.map((m) => {
+          if (m.id === 'steps') {
+            return {
+              ...m,
+              value: summary.steps.toLocaleString(),
+              target: summary.stepGoal.toLocaleString(),
+              percentage: summary.stepGoal > 0 ? Math.min(1, summary.steps / summary.stepGoal) : 0,
+            };
+          }
+          if (m.id === 'calories' && summary.caloriesBurned > 0) {
+            return {
+              ...m,
+              value: `${summary.caloriesBurned}`,
+            };
+          }
+          if (m.id === 'activity' && summary.activeMinutes > 0) {
+            return {
+              ...m,
+              value:
+                summary.activeMinutes >= 60
+                  ? `${Math.floor(summary.activeMinutes / 60)}h ${summary.activeMinutes % 60}m`
+                  : `${summary.activeMinutes}m`,
+            };
+          }
+          return m;
+        })
+      );
+    });
+
+    const unsubscribe = pedometerService.subscribe((summary) => {
+      if (!isSubscribed) return;
+      setMetrics((prev) =>
+        prev.map((m) => {
+          if (m.id === 'steps') {
+            return {
+              ...m,
+              value: summary.steps.toLocaleString(),
+              target: summary.stepGoal.toLocaleString(),
+              percentage: summary.stepGoal > 0 ? Math.min(1, summary.steps / summary.stepGoal) : 0,
+            };
+          }
+          if (m.id === 'calories' && summary.caloriesBurned > 0) {
+            return {
+              ...m,
+              value: `${summary.caloriesBurned}`,
+            };
+          }
+          if (m.id === 'activity' && summary.activeMinutes > 0) {
+            return {
+              ...m,
+              value:
+                summary.activeMinutes >= 60
+                  ? `${Math.floor(summary.activeMinutes / 60)}h ${summary.activeMinutes % 60}m`
+                  : `${summary.activeMinutes}m`,
+            };
+          }
+          return m;
+        })
+      );
+
+      // Auto-complete walking activity when step goal is attained
+      if (summary.steps >= summary.stepGoal && summary.stepGoal > 0) {
+        setActivities((prevActs) =>
+          prevActs.map((act) =>
+            act.id === 'act_walking' ||
+            act.title.toLowerCase().includes('walk') ||
+            act.title.toLowerCase().includes('step')
+              ? { ...act, completed: true }
+              : act
+          )
+        );
+      }
+    });
+
+    return () => {
+      isSubscribed = false;
+      unsubscribe();
+    };
   }, []);
 
   const setUserMood = (mood: CheckInMood) => {
@@ -633,10 +758,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsCoachTyping(true);
 
     try {
+      const todaySummary = await pedometerService.getCurrentTodaySummary();
       const aiResponse = await askDishaAI(
         trimmed,
         userProfile.name.split(' ')[0] || 'friend',
-        userProfile.healthConditions || []
+        userProfile.healthConditions || [],
+        {
+          todaySteps: todaySummary.steps,
+          stepGoal: todaySummary.stepGoal,
+          distanceMeters: todaySummary.distanceMeters,
+          caloriesBurned: todaySummary.caloriesBurned,
+          activeMinutes: todaySummary.activeMinutes,
+        }
       );
 
       const coachMsg: ChatMessage = {
@@ -758,6 +891,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleActivityCompletion,
         featuredWorkout: mockFeaturedWorkout,
         metrics,
+        openActivityDetail: () => setActiveModal('activity_detail'),
         todaysNutrition,
         recentMeals,
         activeScannedMeal,
@@ -776,7 +910,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetAll,
         applySurveyAssessment,
         waterLoggedMl,
+        waterTargetMl,
         logWater,
+        setCustomWaterTarget,
+        resetWaterLogged,
         activeIncomingCall,
         activeLiveKitCall,
         openScheduleCallModal,

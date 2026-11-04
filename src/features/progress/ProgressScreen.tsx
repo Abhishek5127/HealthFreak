@@ -19,10 +19,24 @@ import { ScreenContainer } from '../../components/common/ScreenContainer';
 import { SectionHeader } from '../../components/common/SectionHeader';
 import { ProgressRing } from '../../components/illustrations/ProgressRing';
 import { MetricLineChart } from '../../components/illustrations/MetricLineChart';
+import { usePedometer } from '../activity/hooks/usePedometer';
+import { formatDayAbbr } from '../activity/utils/stepDateUtils';
 
 export const ProgressScreen: React.FC = () => {
   const { userProfile, setActiveModal } = useApp();
+  const { history } = usePedometer();
   const [timeRange, setTimeRange] = useState<'Week' | 'Month'>('Week');
+
+  const recentWeek = history.slice(-7);
+  const chartData = recentWeek.length >= 2
+    ? recentWeek.map((h) => Math.max(0, h.steps))
+    : [0, 0, 0, 0, 0, 0, 0];
+  const chartLabels = recentWeek.length >= 2
+    ? recentWeek.map((h) => formatDayAbbr(h.date))
+    : ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const avgSteps = recentWeek.length > 0
+    ? Math.round(recentWeek.reduce((sum, h) => sum + h.steps, 0) / recentWeek.length)
+    : 0;
 
   return (
     <ScreenContainer scrollable={true}>
@@ -96,28 +110,28 @@ export const ProgressScreen: React.FC = () => {
       <SectionHeader
         title="Weekly Activity Volume"
         actionText="Detailed log"
-        onActionPress={() => {}}
+        onActionPress={() => setActiveModal('activity_detail')}
       />
-      <View style={styles.chartCard}>
+      <Pressable style={styles.chartCard} onPress={() => setActiveModal('activity_detail')}>
         <View style={styles.chartHeaderRow}>
           <View>
-            <Text style={styles.chartMetricValue}>5,680</Text>
+            <Text style={styles.chartMetricValue}>{avgSteps > 0 ? avgSteps.toLocaleString() : '0'}</Text>
             <Text style={styles.chartMetricSub}>Daily average steps</Text>
           </View>
           <View style={styles.trendPill}>
             <TrendingUp size={14} color={Colors.success} />
-            <Text style={styles.trendPillText}>+14.2% vs last week</Text>
+            <Text style={styles.trendPillText}>Live Hardware Pedometer</Text>
           </View>
         </View>
 
         <MetricLineChart
-          data={[3400, 4200, 6100, 4900, 6800, 7500, 8200]}
-          labels={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']}
+          data={chartData}
+          labels={chartLabels}
           color={Colors.coralCTA}
           height={160}
           width={330}
         />
-      </View>
+      </Pressable>
 
       {/* 30-Day Nutrition & Food Diary Analytics */}
       <SectionHeader

@@ -23,6 +23,7 @@ import {
   WeeklyNutritionSummaryEntity,
   MonthlyNutritionSummaryEntity,
   ActivityLogEntity,
+  DailyActivityEntity,
   SleepLogEntity,
   WaterIntakeLogEntity,
   HabitLogEntity,
@@ -87,6 +88,7 @@ export class HealthMemoryStore {
 
   // 4. Lifestyle & Activity
   public activityLogs: Map<string, ActivityLogEntity[]> = new Map();
+  public dailyActivities: Map<string, DailyActivityEntity> = new Map();
   public sleepLogs: Map<string, SleepLogEntity[]> = new Map();
   public waterIntakeLogs: Map<string, WaterIntakeLogEntity[]> = new Map();
   public habitLogs: Map<string, HabitLogEntity[]> = new Map();

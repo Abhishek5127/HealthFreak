@@ -14,6 +14,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 interface CategoryTileProps {
   label: string;
   icon: React.ReactNode;
+  badge?: string;
+  progress?: number;
   isSelected?: boolean;
   onPress: () => void;
 }
@@ -21,6 +23,8 @@ interface CategoryTileProps {
 export const CategoryTile: React.FC<CategoryTileProps> = ({
   label,
   icon,
+  badge,
+  progress,
   isSelected = false,
   onPress,
 }) => {
@@ -49,6 +53,12 @@ export const CategoryTile: React.FC<CategoryTileProps> = ({
         animatedStyle,
       ]}
     >
+      {badge && (
+        <View style={[styles.badgeChip, progress !== undefined && progress >= 1 && styles.badgeChipCompleted]}>
+          <Text style={styles.badgeText}>{badge}</Text>
+        </View>
+      )}
+
       <View style={styles.iconContainer}>{icon}</View>
       <Text
         style={[
@@ -73,6 +83,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
+    position: 'relative',
+  },
+  badgeChip: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: '#203445',
+    paddingVertical: 2,
+    paddingHorizontal: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#376891',
+  },
+  badgeChipCompleted: {
+    backgroundColor: '#1E452B',
+    borderColor: '#4AB87A',
+  },
+  badgeText: {
+    color: '#7AD3FA',
+    fontSize: 9,
+    fontFamily: Typography.fontFamilies.sansBold,
   },
   tileSelected: {
     backgroundColor: '#28342C',

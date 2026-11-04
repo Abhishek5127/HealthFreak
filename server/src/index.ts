@@ -8,6 +8,7 @@ import { healthMemoryRouter } from './routes/healthMemoryRoutes.js';
 import { planRouter } from './routes/planRoutes.js';
 import { followupRouter } from './routes/followupRoutes.js';
 import { authRouter } from './routes/authRoutes.js';
+import { activityRouter } from './routes/activityRoutes.js';
 import { ScheduledCallQueue } from './queue/scheduledCallQueue.js';
 import { aiCallRouter } from './routes/aiCallRoutes.js';
 import { AICallScheduler } from './queue/aiCallScheduler.js';
@@ -226,6 +227,7 @@ app.use('/api/followups', followupRouter);
 
 // Supabase Google OAuth & Authentication Routes
 app.use('/api/auth', authRouter);
+app.use('/api/activity', activityRouter);
 
 // OAuth Callback Bridge for Supabase Redirects
 app.get('/auth/callback', (req, res) => {

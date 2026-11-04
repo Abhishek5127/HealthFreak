@@ -473,6 +473,20 @@ export interface ActivityLogEntity {
   completedAt: string;
 }
 
+export interface DailyActivityEntity {
+  id: string;
+  userId: string;
+  activityDate: string;
+  steps: number;
+  stepGoal: number;
+  distanceMeters: number;
+  activeMinutes: number;
+  caloriesBurned: number;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SleepLogEntity {
   id: string;
   userId: string;

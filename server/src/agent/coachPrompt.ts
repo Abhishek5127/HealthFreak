@@ -23,6 +23,13 @@ export function buildCoachSystemPrompt(user: User, memoryFacts: Record<string, a
     ? recentMeals.map((m) => `  * ${m.consumptionDate} (${m.mealCategory}): ${m.mealDescription} [${m.totalNutrients.calories} kcal, ${m.totalNutrients.protein}g protein]`).join('\n')
     : '  * No meals recorded yet today.';
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayKey = `${user.id}_${todayStr}`;
+  const todayActivity = healthMemoryStore.dailyActivities.get(todayKey);
+  const activitySummary = todayActivity
+    ? `- Steps Walked: ${todayActivity.steps.toLocaleString()} / ${todayActivity.stepGoal.toLocaleString()} (${Math.round((todayActivity.steps / (todayActivity.stepGoal || 10000)) * 100)}% of goal)\n- Walking Distance: ${(todayActivity.distanceMeters / 1000).toFixed(1)} km\n- Active Calories: ~${todayActivity.caloriesBurned} kcal\n- Active Minutes: ${todayActivity.activeMinutes}m`
+    : '- No step data recorded yet today.';
+
   return `
 You are "Disha", an AI Health and Wellness Coach created by Disha Health.
 You are speaking directly with the user over real-time voice.
@@ -33,6 +40,9 @@ You are speaking directly with the user over real-time voice.
 - Health Goals: ${user.healthGoals.join(', ')}
 - Known Health Conditions / Constraints: ${user.knownConditions.join(', ') || 'None reported'}
 - Current Energy Baseline: ${user.currentEnergyLevel}
+
+### DAILY PHYSICAL ACTIVITY & STEPS
+${activitySummary}
 
 ### 30-DAY FOOD DIARY & NUTRITION MEMORY
 - Data Coverage: ${thirtyDayData.dataReliability.daysWithRecords} of 30 days recorded (${thirtyDayData.dataReliability.coveragePercentage}% coverage)

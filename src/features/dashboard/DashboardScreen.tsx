@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Pressable,
   Image,
+  ScrollView,
 } from 'react-native';
 import {
   Bell,
@@ -41,6 +42,11 @@ import { ProgressMetricCard } from '../../components/cards/ProgressMetricCard';
 import { PlanActivityCard } from '../../components/cards/PlanActivityCard';
 import { CheckInCharacterView } from '../../components/illustrations/CheckInCharacters';
 import { SAMPLE_MEAL_TEMPLATES } from '../../mock-data/sampleMealTemplates';
+import { StepCounterCard } from '../activity/components/StepCounterCard';
+import { usePedometer } from '../activity/hooks/usePedometer';
+import { WaterBottleWidget } from './components/WaterBottleWidget';
+import { WaterBottleIcon } from './components/WaterBottleIcon';
+import { WaterTargetModal } from './components/WaterTargetModal';
 
 export const DashboardScreen: React.FC = () => {
   const {
@@ -56,22 +62,31 @@ export const DashboardScreen: React.FC = () => {
     todaysNutrition,
     recentMeals,
     waterLoggedMl,
+    waterTargetMl,
     logWater,
+    setCustomWaterTarget,
+    resetWaterLogged,
   } = useApp();
+
+  const [showWaterTargetModal, setShowWaterTargetModal] = useState<boolean>(false);
+
+  const {
+    todaySteps,
+    stepGoal,
+    distanceMeters,
+    caloriesBurned,
+    activeMinutes,
+    permissionStatus,
+    isAvailable,
+    isTracking,
+    requestPermissions,
+  } = usePedometer();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('Gym');
 
   // Skincare AM/PM checklist state
   const [skincareMorningDone, setSkincareMorningDone] = useState<boolean>(true);
   const [skincareEveningDone, setSkincareEveningDone] = useState<boolean>(false);
-
-  const categories = [
-    { label: 'Gym', icon: <Dumbbell size={20} color={selectedCategory === 'Gym' ? '#FFFFFF' : Colors.textSecondary} /> },
-    { label: 'Yoga', icon: <Sparkles size={20} color={selectedCategory === 'Yoga' ? '#FFFFFF' : Colors.textSecondary} /> },
-    { label: 'Fitness', icon: <Zap size={20} color={selectedCategory === 'Fitness' ? '#FFFFFF' : Colors.textSecondary} /> },
-    { label: 'Run', icon: <Footprints size={20} color={selectedCategory === 'Run' ? '#FFFFFF' : Colors.textSecondary} /> },
-    { label: 'Nutrition', icon: <Salad size={20} color={selectedCategory === 'Nutrition' ? '#FFFFFF' : Colors.textSecondary} /> },
-  ];
 
   // Survey assessment data
   const assessment = userProfile.surveyAssessment;
@@ -86,7 +101,7 @@ export const DashboardScreen: React.FC = () => {
   let goalMacroExplainer = '2.0g protein/kg of body weight to fuel muscle protein synthesis while keeping surplus lean.';
   let isSurplus = false;
   let isDeficit = false;
-  let waterTargetL = assessment?.calculatedPlan?.waterLiters || 3.2;
+  let baseWaterTargetL = assessment?.calculatedPlan?.waterLiters || 3.2;
 
   if (currentGoal === 'weight_gain') {
     isSurplus = true;
@@ -115,7 +130,7 @@ export const DashboardScreen: React.FC = () => {
     goalColor = '#45D09E';
     goalIcon = <Sparkles size={20} color="#45D09E" />;
     goalMacroExplainer = 'Low glycemic load meals to prevent insulin/IGF-1 surges that trigger excess sebum & acne.';
-    waterTargetL = 3.5;
+    baseWaterTargetL = 3.5;
   } else if (currentGoal === 'skincare_glow') {
     goalTitle = 'Radiant Glow & Skin Barrier Restoration';
     goalSub = 'Collagen Amino Acids • Lipid Barrier Plumping • 3.5L Hydration';
@@ -123,7 +138,7 @@ export const DashboardScreen: React.FC = () => {
     goalColor = '#F38BA8';
     goalIcon = <Heart size={20} color="#F38BA8" />;
     goalMacroExplainer = 'Collagen-supporting amino acids, Vitamin C, and healthy lipids for barrier elasticity.';
-    waterTargetL = 3.5;
+    baseWaterTargetL = 3.5;
   } else if (currentGoal === 'hair_health') {
     goalTitle = 'Follicle Strength & Anti-Hair Fall';
     goalSub = 'Keratin Amino Acids • Scalp Blood Flow • Biotin & Ferritin';
@@ -147,8 +162,31 @@ export const DashboardScreen: React.FC = () => {
     goalMacroExplainer = 'Mitochondrial fuel balance to beat the afternoon slump and steady metabolic rate.';
   }
 
+  const effectiveTargetMl = waterTargetMl > 0 ? waterTargetMl : Math.round(baseWaterTargetL * 1000);
+  const waterTargetL = +(effectiveTargetMl / 1000).toFixed(1);
   const waterLoggedLiters = +(waterLoggedMl / 1000).toFixed(1);
-  const waterProgressRatio = Math.min(1, waterLoggedLiters / waterTargetL);
+  const waterProgressRatio = Math.min(1, waterLoggedMl / effectiveTargetMl);
+
+  const categories = [
+    { label: 'Gym', icon: <Dumbbell size={20} color={selectedCategory === 'Gym' ? '#FFFFFF' : Colors.textSecondary} /> },
+    { label: 'Yoga', icon: <Sparkles size={20} color={selectedCategory === 'Yoga' ? '#FFFFFF' : Colors.textSecondary} /> },
+    { label: 'Fitness', icon: <Zap size={20} color={selectedCategory === 'Fitness' ? '#FFFFFF' : Colors.textSecondary} /> },
+    { label: 'Run', icon: <Footprints size={20} color={selectedCategory === 'Run' ? '#FFFFFF' : Colors.textSecondary} /> },
+    { label: 'Nutrition', icon: <Salad size={20} color={selectedCategory === 'Nutrition' ? '#FFFFFF' : Colors.textSecondary} /> },
+    {
+      label: 'Hydration',
+      icon: (
+        <WaterBottleIcon
+          size={22}
+          color={selectedCategory === 'Hydration' ? '#FFFFFF' : '#4FA3E2'}
+          fillPercentage={waterProgressRatio * 100}
+          isCompleted={waterProgressRatio >= 1}
+        />
+      ),
+      badge: `${Math.round(waterProgressRatio * 100)}%`,
+      progress: waterProgressRatio,
+    },
+  ];
 
   return (
     <ScreenContainer scrollable={true}>
@@ -280,12 +318,19 @@ export const DashboardScreen: React.FC = () => {
         actionText="See all"
         onActionPress={() => setActiveTab('plan')}
       />
-      <View style={styles.categoriesRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categoriesScrollContent}
+        style={{ marginBottom: 16 }}
+      >
         {categories.map((cat) => (
           <CategoryTile
             key={cat.label}
             label={cat.label}
             icon={cat.icon}
+            badge={cat.badge}
+            progress={cat.progress}
             isSelected={selectedCategory === cat.label}
             onPress={() => {
               setSelectedCategory(cat.label);
@@ -295,7 +340,57 @@ export const DashboardScreen: React.FC = () => {
             }}
           />
         ))}
-      </View>
+      </ScrollView>
+
+      {/* Hydration Category Spotlight Banner */}
+      {selectedCategory === 'Hydration' && (
+        <View style={styles.hydrationFocusCard}>
+          <View style={styles.hydrationFocusHeader}>
+            <View style={styles.hydrationFocusBadge}>
+              <Droplet size={14} color="#4FA3E2" style={{ marginRight: 4 }} />
+              <Text style={styles.hydrationFocusBadgeText}>HYDRATION FOCUS • ACTIVE</Text>
+            </View>
+            <Pressable
+              onPress={() => setShowWaterTargetModal(true)}
+              style={styles.hydrationAdjustBtn}
+            >
+              <Sliders size={13} color={Colors.textSecondary} style={{ marginRight: 4 }} />
+              <Text style={styles.hydrationAdjustText}>Edit Goal</Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.hydrationFocusTitle}>Cellular Hydration & Toxin Flush</Text>
+          <Text style={styles.hydrationFocusReason}>
+            Current intake: {waterLoggedLiters}L of {waterTargetL}L goal ({Math.round(waterProgressRatio * 100)}% complete).
+            {waterProgressRatio >= 1
+              ? ' 🎉 Excellent! Minimum daily hydration target met. Your bottle is smiling.'
+              : ` 💧 Drink ${Math.max(0, effectiveTargetMl - waterLoggedMl)} ml more to reach full cellular saturation.`}
+          </Text>
+
+          <View style={styles.hydrationQuickActionsRow}>
+            <Pressable
+              style={styles.hydrationQuickBtn}
+              onPress={() => logWater(100)}
+            >
+              <Plus size={13} color="#FFFFFF" style={{ marginRight: 3 }} />
+              <Text style={styles.hydrationQuickBtnText}>+100ml Sip</Text>
+            </Pressable>
+            <Pressable
+              style={styles.hydrationQuickBtn}
+              onPress={() => logWater(250)}
+            >
+              <Plus size={13} color="#FFFFFF" style={{ marginRight: 3 }} />
+              <Text style={styles.hydrationQuickBtnText}>+250ml Glass</Text>
+            </Pressable>
+            <Pressable
+              style={styles.hydrationQuickBtnOutline}
+              onPress={() => setShowWaterTargetModal(true)}
+            >
+              <Text style={styles.hydrationQuickBtnOutlineText}>Configure Target</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
 
       {/* 6. DAILY NUTRITION & AI MEAL SCANNER (PERSONALIZED MACRO TARGETS) */}
       <SectionHeader
@@ -591,40 +686,36 @@ export const DashboardScreen: React.FC = () => {
         </View>
       )}
 
-      {/* 8. INTERACTIVE DAILY HYDRATION TRACKER */}
-      <View style={styles.waterTrackerCard}>
-        <View style={styles.waterTopRow}>
-          <View style={styles.waterIconCircle}>
-            <Droplet size={18} color="#4FA3E2" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.waterCardTitle}>Daily Cellular Hydration</Text>
-            <Text style={styles.waterCardSub}>
-              Logged {waterLoggedLiters}L / {waterTargetL}L Target ({Math.round(waterLoggedMl / 250)} glasses)
-            </Text>
-          </View>
-          <Pressable style={styles.quickAddWaterBtn} onPress={() => logWater(250)}>
-            <Plus size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
-            <Text style={styles.quickAddWaterText}>+250ml</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.waterProgressTrack}>
-          <View
-            style={[
-              styles.waterProgressBar,
-              { width: `${waterProgressRatio * 100}%` },
-            ]}
-          />
-        </View>
-      </View>
+      {/* 8. INTERACTIVE DAILY HYDRATION WIDGET & SMILING BOTTLE */}
+      <WaterBottleWidget
+        waterLoggedMl={waterLoggedMl}
+        waterTargetMl={effectiveTargetMl}
+        onLogWater={(amount) => logWater(amount)}
+        onOpenTargetModal={() => setShowWaterTargetModal(true)}
+        onResetWater={resetWaterLogged}
+      />
 
       {/* 9. Your Progress Section */}
       <SectionHeader
         title="Your progress"
-        actionText="See activity"
-        onActionPress={() => setActiveTab('progress')}
+        actionText="Detailed stats"
+        onActionPress={() => setActiveModal('activity_detail')}
       />
+
+      {/* Native Hardware Step Counter Card */}
+      <StepCounterCard
+        todaySteps={todaySteps}
+        stepGoal={stepGoal}
+        distanceMeters={distanceMeters}
+        caloriesBurned={caloriesBurned}
+        activeMinutes={activeMinutes}
+        permissionStatus={permissionStatus}
+        isAvailable={isAvailable}
+        isTracking={isTracking}
+        onPress={() => setActiveModal('activity_detail')}
+        onRequestPermission={requestPermissions}
+      />
+
       <View style={styles.progressCardsRow}>
         {metrics.map((metric) => {
           let IconComponent = Footprints;
@@ -668,6 +759,12 @@ export const DashboardScreen: React.FC = () => {
           />
         ))}
       </View>
+      <WaterTargetModal
+        visible={showWaterTargetModal}
+        currentTargetMl={effectiveTargetMl}
+        onClose={() => setShowWaterTargetModal(false)}
+        onSave={(newTarget) => setCustomWaterTarget(newTarget)}
+      />
     </ScreenContainer>
   );
 };
@@ -1279,4 +1376,94 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 32,
   },
+  categoriesScrollContent: {
+    paddingRight: 10,
+    gap: 8,
+  },
+  hydrationFocusCard: {
+    backgroundColor: '#161C18',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#242D26',
+    marginBottom: 16,
+  },
+  hydrationFocusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  hydrationFocusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(79, 163, 226, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  hydrationFocusBadgeText: {
+    fontFamily: Typography.fontFamilies.sansBold,
+    fontSize: 9,
+    color: '#4FA3E2',
+    letterSpacing: 0.5,
+  },
+  hydrationAdjustBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  hydrationAdjustText: {
+    fontFamily: Typography.fontFamilies.sansMedium,
+    fontSize: Typography.fontSizes.xs - 1,
+    color: Colors.textSecondary,
+  },
+  hydrationFocusTitle: {
+    fontFamily: Typography.fontFamilies.sansBold,
+    fontSize: Typography.fontSizes.sm,
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  hydrationFocusReason: {
+    fontFamily: Typography.fontFamilies.sansRegular,
+    fontSize: Typography.fontSizes.xs,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  hydrationQuickActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  hydrationQuickBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#256EB3',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  hydrationQuickBtnText: {
+    fontFamily: Typography.fontFamilies.sansBold,
+    fontSize: Typography.fontSizes.xs,
+    color: '#FFFFFF',
+  },
+  hydrationQuickBtnOutline: {
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  hydrationQuickBtnOutlineText: {
+    fontFamily: Typography.fontFamilies.sansMedium,
+    fontSize: Typography.fontSizes.xs - 1,
+    color: Colors.textSecondary,
+  },
+
 });
