@@ -1159,7 +1159,7 @@ export class VoiceClientService {
   /**
    * Starts a live hands-free voice session.
    */
-  public async startSession(userId = 'usr_synthetic_alex'): Promise<void> {
+  public async startSession(userId = 'usr_synthetic_alex', customGreeting?: string): Promise<void> {
     this.currentUserId = userId;
     this.status = 'connecting';
     this.errorMessage = null;
@@ -1201,47 +1201,51 @@ export class VoiceClientService {
       this.notify();
     }, 1000);
 
-    // Dynamic greeting based on time of day
+    // Dynamic greeting based on time of day, or custom scheduled call greeting
     const hour = new Date().getHours();
-    let greeting = '';
-    if (hour >= 5 && hour < 12) {
-      greeting = 'Good morning Alex! Main Disha bol rahi hoon, aapki AI health coach. How did you sleep, and how is your morning energy today?';
-    } else if (hour >= 12 && hour < 17) {
-      greeting = 'Namaste Alex! Disha here. Taking a quick wellness check-in—how was your lunch and routine so far?';
-    } else if (hour >= 17 && hour < 22) {
-      greeting = 'Good evening Alex! Disha here. How are you feeling after today’s activities? Any discomfort or meal questions tonight?';
-    } else {
-      greeting = 'Namaste Alex! Main Disha bol rahi hoon. Time for a peaceful wind-down. How did your day go overall?';
+    let greeting = customGreeting || '';
+    if (!greeting) {
+      if (hour >= 5 && hour < 12) {
+        greeting = 'Good morning! Main Disha bol rahi hoon, aapki AI health coach. How did you sleep, and how is your morning energy today?';
+      } else if (hour >= 12 && hour < 17) {
+        greeting = 'Namaste! Disha here. Taking a quick wellness check-in—how was your lunch and routine so far?';
+      } else if (hour >= 17 && hour < 22) {
+        greeting = 'Good evening! Disha here. How are you feeling after today’s activities? Any discomfort or meal questions tonight?';
+      } else {
+        greeting = 'Namaste! Main Disha bol rahi hoon. Time for a peaceful wind-down. How did your day go overall?';
+      }
     }
 
-    // Fetch neural greeting from backend so initial voice is ALWAYS Gemini Aoede
-    try {
-      const backendUrl = getBackendBaseUrl();
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 6000);
-      const greetRes = await fetch(`${backendUrl}/api/voice/greeting`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
+    // Only fetch default neural greeting if no custom greeting was provided
+    if (!customGreeting) {
+      try {
+        const backendUrl = getBackendBaseUrl();
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6000);
+        const greetRes = await fetch(`${backendUrl}/api/voice/greeting`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
 
-      if (greetRes.ok) {
-        const greetData = await greetRes.json();
-        if (greetData.greeting) {
-          greeting = greetData.greeting;
-          this.coachTranscript = greeting;
-          if (greetData.audioUrl || greetData.audioBase64) {
-            this.status = 'speaking';
-            this.notify();
-            await this.playGeneratedAudio(greetData.audioBase64, greetData.audioMime || 'audio/wav', greeting, greetData.audioUrl);
-            return;
+        if (greetRes.ok) {
+          const greetData = await greetRes.json();
+          if (greetData.greeting) {
+            greeting = greetData.greeting;
+            this.coachTranscript = greeting;
+            if (greetData.audioUrl || greetData.audioBase64) {
+              this.status = 'speaking';
+              this.notify();
+              await this.playGeneratedAudio(greetData.audioBase64, greetData.audioMime || 'audio/wav', greeting, greetData.audioUrl);
+              return;
+            }
           }
         }
+      } catch {
+        // Fallback to local audio
       }
-    } catch {
-      // Fallback to local audio
     }
 
     this.coachTranscript = greeting;

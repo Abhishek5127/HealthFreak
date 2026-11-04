@@ -226,6 +226,14 @@ export async function processOAuthCallbackUrl(url: string): Promise<GoogleAuthRe
 
     // PKCE Flow: Authorization code returned
     if (params.code) {
+      const { data: currentSession } = await supabase.auth.getSession();
+      if (currentSession?.session?.user) {
+        return {
+          success: true,
+          user: currentSession.session.user,
+          session: currentSession.session,
+        };
+      }
       const { data: sessionData, error: exchangeError } =
         await supabase.auth.exchangeCodeForSession(params.code);
 

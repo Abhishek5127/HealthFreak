@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { expoSecureStoreAdapter } from './auth/secureStorageAdapter';
 
@@ -20,7 +21,7 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabasePublis
     storage: expoSecureStoreAdapter,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false, // Critical for React Native to prevent false web redirects
+    detectSessionInUrl: Platform.OS === 'web', // Critical for web to auto-detect tokens, false on mobile
   },
 });
 
@@ -36,4 +37,3 @@ export async function getSupabaseAccessToken(): Promise<string | null> {
     return null;
   }
 }
-

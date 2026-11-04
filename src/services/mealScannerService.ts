@@ -38,7 +38,7 @@ export const getBackendBaseUrl = (): string => {
       return `http://${ip}:3001`;
     }
   }
-  return 'http://192.168.43.249:3001';
+  return 'http://localhost:3001';
 };
 
 const DIRECT_GEMINI_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';

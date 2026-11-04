@@ -693,6 +693,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const acceptIncomingCall = async (call: ScheduledAICall) => {
+    voiceClient.unlockAudio();
     const res = await AICallService.acceptCall(call.id);
     setActiveIncomingCall(null);
     setActiveLiveKitCall({ call, livekit: res.livekit, greeting: res.greeting });
@@ -706,6 +707,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const endActiveLiveKitCall = () => {
+    voiceClient.endSession();
     setActiveLiveKitCall(null);
     setActiveModalState(null);
   };
