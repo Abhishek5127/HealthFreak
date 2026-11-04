@@ -634,92 +634,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadSavedAssessment();
   }, []);
 
-  // Hardware Pedometer & Daily Step Synchronization
-  useEffect(() => {
-    let isSubscribed = true;
-
-    pedometerService.getCurrentTodaySummary().then((summary) => {
-      if (!isSubscribed) return;
-      setMetrics((prev) =>
-        prev.map((m) => {
-          if (m.id === 'steps') {
-            return {
-              ...m,
-              value: summary.steps.toLocaleString(),
-              target: summary.stepGoal.toLocaleString(),
-              percentage: summary.stepGoal > 0 ? Math.min(1, summary.steps / summary.stepGoal) : 0,
-            };
-          }
-          if (m.id === 'calories' && summary.caloriesBurned > 0) {
-            return {
-              ...m,
-              value: `${summary.caloriesBurned}`,
-            };
-          }
-          if (m.id === 'activity' && summary.activeMinutes > 0) {
-            return {
-              ...m,
-              value:
-                summary.activeMinutes >= 60
-                  ? `${Math.floor(summary.activeMinutes / 60)}h ${summary.activeMinutes % 60}m`
-                  : `${summary.activeMinutes}m`,
-            };
-          }
-          return m;
-        })
-      );
-    });
-
-    const unsubscribe = pedometerService.subscribe((summary) => {
-      if (!isSubscribed) return;
-      setMetrics((prev) =>
-        prev.map((m) => {
-          if (m.id === 'steps') {
-            return {
-              ...m,
-              value: summary.steps.toLocaleString(),
-              target: summary.stepGoal.toLocaleString(),
-              percentage: summary.stepGoal > 0 ? Math.min(1, summary.steps / summary.stepGoal) : 0,
-            };
-          }
-          if (m.id === 'calories' && summary.caloriesBurned > 0) {
-            return {
-              ...m,
-              value: `${summary.caloriesBurned}`,
-            };
-          }
-          if (m.id === 'activity' && summary.activeMinutes > 0) {
-            return {
-              ...m,
-              value:
-                summary.activeMinutes >= 60
-                  ? `${Math.floor(summary.activeMinutes / 60)}h ${summary.activeMinutes % 60}m`
-                  : `${summary.activeMinutes}m`,
-            };
-          }
-          return m;
-        })
-      );
-
-      // Auto-complete walking activity when step goal is attained
-      if (summary.steps >= summary.stepGoal && summary.stepGoal > 0) {
-        setActivities((prevActs) =>
-          prevActs.map((act) =>
-            act.id === 'act_walking' ||
-            act.title.toLowerCase().includes('walk') ||
-            act.title.toLowerCase().includes('step')
-              ? { ...act, completed: true }
-              : act
-          )
-        );
-      }
-    });
-
-    return () => {
-      isSubscribed = false;
-      unsubscribe();
-    };
-  }, []);
 
   const setUserMood = (mood: CheckInMood) => {
     triggerHaptic('success');
@@ -914,8 +828,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const unsubscribe = pedometerService.subscribe((pState) => {
       setPedometerState(pState);
       setActivities((currentActivities) => {
-        setMetrics(computeProgressMetrics(pState.steps, currentActivities));
-        return currentActivities;
+        let acts = currentActivities;
+        const goal = pState.stepGoal || 8000;
+        if (pState.steps >= goal && goal > 0) {
+          acts = acts.map((act) =>
+            act.id === 'act_walking' ||
+            act.title.toLowerCase().includes('walk') ||
+            act.title.toLowerCase().includes('step')
+              ? { ...act, completed: true }
+              : act
+          );
+        }
+        setMetrics(computeProgressMetrics(pState.steps, acts));
+        return acts;
       });
     });
 

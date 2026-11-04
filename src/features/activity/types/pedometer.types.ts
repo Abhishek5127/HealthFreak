@@ -23,17 +23,17 @@ export interface PedometerTrackingSession {
   lastUpdated: string;
 }
 
-export interface PedometerState {
-  todaySteps: number;
-  stepGoal: number;
-  distanceMeters: number;
-  caloriesBurned: number;
-  activeMinutes: number;
+export interface PedometerState extends StepSummary {
+  todaySteps: number; // Convenient alias for steps
+  calories: number; // Convenient alias for caloriesBurned
   permissionStatus: PedometerPermissionState;
+  hasPermission: boolean;
   isAvailable: boolean;
   isTracking: boolean;
+  trackingEngine: 'hardware' | 'motion' | 'idle';
   history: StepSummary[];
   lastSyncedAt: string | null;
+  lastUpdated: string;
 }
 
 export interface ActivityContext {
@@ -56,4 +56,3 @@ export interface ActivityInsight {
   description: string;
   iconName: string;
 }
-

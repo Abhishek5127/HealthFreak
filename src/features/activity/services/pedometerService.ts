@@ -1,9 +1,10 @@
 import { Platform, AppState, AppStateStatus } from 'react-native';
-import { Pedometer } from 'expo-sensors';
+import { Pedometer, Accelerometer } from 'expo-sensors';
 import {
   PedometerPermissionState,
   StepSummary,
   PedometerTrackingSession,
+  PedometerState,
 } from '../types/pedometer.types';
 import { StepPersistenceService } from './stepPersistenceService';
 import {
@@ -17,17 +18,28 @@ import {
   calculateActiveMinutes,
 } from '../utils/activityCalculations';
 
-export type StepUpdateListener = (summary: StepSummary) => void;
+export type StepUpdateListener = (summary: PedometerState) => void;
+export type PedometerListener = StepUpdateListener;
+export type { PedometerState } from '../types/pedometer.types';
 
 export class PedometerService {
   private static instance: PedometerService;
   private isAvailable: boolean | null = null;
   private permissionState: PedometerPermissionState = 'unknown';
   private subscription: { remove: () => void } | null = null;
+  private accelSubscription: { remove: () => void } | null = null;
   private listeners: Set<StepUpdateListener> = new Set();
   private currentSession: PedometerTrackingSession | null = null;
   private isTrackingActive: boolean = false;
+  private trackingEngine: 'hardware' | 'motion' | 'idle' = 'idle';
   private appStateSubscription: { remove: () => void } | null = null;
+
+  // Accelerometer step detector state
+  private lastStepTimestamp: number = 0;
+  private inValley: boolean = true;
+  private lastHardwareTimestamp: number = 0;
+  private persistTimer: any = null;
+  private isInitialized: boolean = false;
 
   private userHeightCm: number = 170;
   private userWeightKg: number = 70;
@@ -42,6 +54,60 @@ export class PedometerService {
       PedometerService.instance = new PedometerService();
     }
     return PedometerService.instance;
+  }
+
+  /**
+   * Initializes the pedometer service, loads today's session, and begins tracking.
+   */
+  public async initialize(): Promise<PedometerState> {
+    if (this.isInitialized) {
+      return this.getState();
+    }
+    this.isInitialized = true;
+    this.currentSession = await StepPersistenceService.getOrCreateTodaySession();
+
+    if (Platform.OS === 'web') {
+      this.isAvailable = false;
+      this.trackingEngine = 'idle';
+      this.notifyListeners(await this.getCurrentTodaySummary());
+      return this.getState();
+    }
+
+    await this.startTracking();
+    return this.getState();
+  }
+
+  /**
+   * Returns current synchronous snapshot of PedometerState.
+   */
+  public getState(): PedometerState {
+    const totalSteps = this.currentSession
+      ? (this.currentSession.accumulatedSteps || 0) + (this.currentSession.sessionSteps || 0)
+      : 0;
+    const distance = calculateDistanceMeters(totalSteps, this.userHeightCm, this.userSex);
+    const calories = calculateActiveCalories(totalSteps, this.userWeightKg) || 0;
+    const activeMins = calculateActiveMinutes(totalSteps);
+
+    return {
+      todaySteps: totalSteps,
+      steps: totalSteps,
+      stepGoal: 8000,
+      distanceMeters: distance,
+      caloriesBurned: calories,
+      calories: calories,
+      activeMinutes: activeMins,
+      permissionStatus: this.permissionState,
+      hasPermission: this.permissionState === 'granted',
+      isAvailable: this.isAvailable ?? (Platform.OS !== 'web'),
+      isTracking: this.isTrackingActive,
+      trackingEngine: this.trackingEngine,
+      history: [],
+      lastSyncedAt: null,
+      lastUpdated: new Date().toISOString(),
+      date: getLocalDateString(),
+      source: 'device',
+      updatedAt: new Date().toISOString(),
+    };
   }
 
   /**
@@ -124,7 +190,15 @@ export class PedometerService {
   }
 
   /**
-   * Starts tracking steps. Reconnects hardware listener and loads persistent state.
+   * Boolean wrapper for permission requests.
+   */
+  public async requestPermission(): Promise<boolean> {
+    const res = await this.requestPermissions();
+    return res === 'granted';
+  }
+
+  /**
+   * Starts tracking steps. Reconnects hardware listener, accelerometer fallback, and loads persistent state.
    */
   public async startTracking(): Promise<boolean> {
     if (Platform.OS === 'web') return false;
@@ -133,6 +207,8 @@ export class PedometerService {
     if (perm !== 'granted') {
       const requested = await this.requestPermissions();
       if (requested !== 'granted') {
+        // Even without hardware pedometer permission, attempt accelerometer tracking if available
+        this.startAccelerometerTracking();
         return false;
       }
     }
@@ -148,6 +224,9 @@ export class PedometerService {
     // Register active real-time step counter listener
     this.registerHardwareListener();
 
+    // Register real-time accelerometer step detector as zero-latency fallback
+    this.startAccelerometerTracking();
+
     // Broadcast current state to all subscribers
     const currentSummary = await this.getCurrentTodaySummary();
     this.notifyListeners(currentSummary);
@@ -160,6 +239,8 @@ export class PedometerService {
    */
   public async stopTracking(): Promise<void> {
     this.isTrackingActive = false;
+    this.trackingEngine = 'idle';
+
     if (this.subscription) {
       try {
         this.subscription.remove();
@@ -167,13 +248,20 @@ export class PedometerService {
       this.subscription = null;
     }
 
+    if (this.accelSubscription) {
+      try {
+        this.accelSubscription.remove();
+      } catch {}
+      this.accelSubscription = null;
+    }
+
     await this.persistCurrentState();
   }
 
   /**
-   * Returns current day's active step summary.
+   * Returns current day's active step summary with unified fields.
    */
-  public async getCurrentTodaySummary(): Promise<StepSummary> {
+  public async getCurrentTodaySummary(): Promise<PedometerState> {
     const today = getLocalDateString();
     if (!this.currentSession || this.currentSession.date !== today) {
       this.currentSession = await StepPersistenceService.getOrCreateTodaySession();
@@ -190,12 +278,22 @@ export class PedometerService {
     return {
       date: today,
       steps: totalSteps,
+      todaySteps: totalSteps,
       stepGoal: goal,
       distanceMeters: distance,
       caloriesBurned: calories,
+      calories: calories,
       activeMinutes: activeMins,
       source: 'device',
+      isTracking: this.isTrackingActive,
+      trackingEngine: this.trackingEngine,
+      hasPermission: this.permissionState === 'granted',
+      permissionStatus: this.permissionState,
+      isAvailable: this.isAvailable ?? (Platform.OS !== 'web'),
+      history: [],
+      lastSyncedAt: null,
       updatedAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
     };
   }
 
@@ -204,6 +302,8 @@ export class PedometerService {
    */
   public subscribe(listener: StepUpdateListener): () => void {
     this.listeners.add(listener);
+    // Send immediate initial state
+    listener(this.getState());
     return () => {
       this.listeners.delete(listener);
     };
@@ -219,6 +319,46 @@ export class PedometerService {
       return await this.fetchIosHistoricalSteps(daysCount);
     }
     return await StepPersistenceService.getRecentHistory(daysCount);
+  }
+
+  /**
+   * Adds simulated steps for manual testing, emulator testing, or quick verification.
+   */
+  public async addSimulatedSteps(count: number): Promise<PedometerState> {
+    const today = getLocalDateString();
+    if (!this.currentSession || this.currentSession.date !== today) {
+      this.currentSession = await StepPersistenceService.getOrCreateTodaySession();
+    }
+    this.currentSession.accumulatedSteps = Math.max(
+      0,
+      (this.currentSession.accumulatedSteps || 0) + count
+    );
+    this.currentSession.lastUpdated = new Date().toISOString();
+    await StepPersistenceService.saveCurrentSession(this.currentSession);
+
+    const summary = await this.getCurrentTodaySummary();
+    await StepPersistenceService.saveDailySummary(summary);
+    this.notifyListeners(summary);
+    return this.getState();
+  }
+
+  /**
+   * Resets today's steps to zero.
+   */
+  public async resetTodaySteps(): Promise<PedometerState> {
+    const today = getLocalDateString();
+    if (!this.currentSession || this.currentSession.date !== today) {
+      this.currentSession = await StepPersistenceService.getOrCreateTodaySession();
+    }
+    this.currentSession.accumulatedSteps = 0;
+    this.currentSession.sessionSteps = 0;
+    this.currentSession.lastUpdated = new Date().toISOString();
+    await StepPersistenceService.saveCurrentSession(this.currentSession);
+
+    const summary = await this.getCurrentTodaySummary();
+    await StepPersistenceService.saveDailySummary(summary);
+    this.notifyListeners(summary);
+    return this.getState();
   }
 
   // ================= PRIVATE ENGINE METHODS =================
@@ -248,6 +388,9 @@ export class PedometerService {
       this.subscription = Pedometer.watchStepCount(async (result) => {
         if (!this.isTrackingActive) return;
 
+        this.lastHardwareTimestamp = Date.now();
+        this.trackingEngine = 'hardware';
+
         // Check for midnight rollover
         const today = getLocalDateString();
         if (this.currentSession && this.currentSession.date !== today) {
@@ -264,13 +407,70 @@ export class PedometerService {
           this.notifyListeners(summary);
 
           // Debounced / periodic persistence
-          await StepPersistenceService.saveCurrentSession(this.currentSession);
-          await StepPersistenceService.saveDailySummary(summary);
+          this.persistDebounced(this.currentSession, summary);
         }
       });
     } catch (err) {
       console.warn('[PedometerService] Failed to register watchStepCount:', err);
     }
+  }
+
+  private startAccelerometerTracking(): void {
+    if (this.accelSubscription) {
+      try {
+        this.accelSubscription.remove();
+      } catch {}
+      this.accelSubscription = null;
+    }
+
+    try {
+      // 50ms interval = 20Hz sampling rate (optimal for walking cadence without battery drain)
+      Accelerometer.setUpdateInterval(50);
+
+      this.accelSubscription = Accelerometer.addListener(async ({ x, y, z }) => {
+        if (!this.isTrackingActive) return;
+
+        // If hardware sensor fired within the last 4 seconds, prioritize hardware to prevent double-counting
+        if (Date.now() - this.lastHardwareTimestamp < 4000) {
+          return;
+        }
+
+        // Calculate 3D acceleration magnitude (earth gravity is ~1.0g at rest)
+        const magnitude = Math.sqrt(x * x + y * y + z * z);
+        const now = Date.now();
+
+        // Walking Step Algorithm:
+        // A human walking step produces an acceleration peak (>1.16g) followed by a valley (<0.96g).
+        // Max human cadence is ~3.5 steps/sec (refractory window >= 260ms).
+        if (magnitude > 1.16 && this.inValley && (now - this.lastStepTimestamp > 260)) {
+          this.lastStepTimestamp = now;
+          this.inValley = false;
+          this.trackingEngine = 'motion';
+
+          if (this.currentSession) {
+            this.currentSession.sessionSteps = (this.currentSession.sessionSteps || 0) + 1;
+            this.currentSession.lastUpdated = new Date().toISOString();
+
+            const summary = await this.getCurrentTodaySummary();
+            this.notifyListeners(summary);
+
+            this.persistDebounced(this.currentSession, summary);
+          }
+        } else if (magnitude < 0.96) {
+          this.inValley = true;
+        }
+      });
+    } catch (err) {
+      console.warn('[PedometerService] Failed to start Accelerometer listener:', err);
+    }
+  }
+
+  private persistDebounced(session: PedometerTrackingSession, summary: StepSummary): void {
+    if (this.persistTimer) clearTimeout(this.persistTimer);
+    this.persistTimer = setTimeout(async () => {
+      await StepPersistenceService.saveCurrentSession(session);
+      await StepPersistenceService.saveDailySummary(summary);
+    }, 1500);
   }
 
   /**
@@ -408,7 +608,7 @@ export class PedometerService {
     );
   }
 
-  private notifyListeners(summary: StepSummary): void {
+  private notifyListeners(summary: PedometerState): void {
     this.listeners.forEach((listener) => {
       try {
         listener(summary);
