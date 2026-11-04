@@ -2,13 +2,13 @@ import { UserProfile, DailyActivityItem, ActivitySession, ProgressMetric } from 
 
 export const initialUserProfile: UserProfile = {
   name: 'Alex Sharma',
-  streakDays: 21,
+  streakDays: 0,
   selectedGoal: 'metabolic_fitness',
   goalLabel: 'Metabolic Health & Energy',
   language: 'English',
   onboardingCompleted: true,
   currentMood: 'energized',
-  lastCheckInTime: 'Today, 9:15 AM',
+  lastCheckInTime: 'Today',
   healthConditions: ['Insulin Sensitivity', 'Metabolic Vitality'],
 };
 

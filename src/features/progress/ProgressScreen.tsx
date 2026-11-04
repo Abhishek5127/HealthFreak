@@ -4,12 +4,12 @@ import {
   Flame,
   TrendingUp,
   FileText,
-  Activity,
-  Heart,
   Moon,
   Droplet,
   ChevronRight,
   History,
+  Sun,
+  Plus,
 } from 'lucide-react-native';
 import { useApp } from '../../state/AppContext';
 import { Colors } from '../../theme/colors';
@@ -19,24 +19,40 @@ import { ScreenContainer } from '../../components/common/ScreenContainer';
 import { SectionHeader } from '../../components/common/SectionHeader';
 import { ProgressRing } from '../../components/illustrations/ProgressRing';
 import { MetricLineChart } from '../../components/illustrations/MetricLineChart';
-import { usePedometer } from '../activity/hooks/usePedometer';
-import { formatDayAbbr } from '../activity/utils/stepDateUtils';
 
 export const ProgressScreen: React.FC = () => {
-  const { userProfile, setActiveModal } = useApp();
-  const { history } = usePedometer();
+  const {
+    userProfile,
+    activities,
+    todaysNutrition,
+    recentMeals,
+    waterLoggedMl,
+    logWater,
+    pedometerState,
+    weeklySteps,
+    sleepSession,
+    startSleep,
+    wakeUp,
+    setActiveModal,
+  } = useApp();
   const [timeRange, setTimeRange] = useState<'Week' | 'Month'>('Week');
 
-  const recentWeek = history.slice(-7);
-  const chartData = recentWeek.length >= 2
-    ? recentWeek.map((h) => Math.max(0, h.steps))
-    : [0, 0, 0, 0, 0, 0, 0];
-  const chartLabels = recentWeek.length >= 2
-    ? recentWeek.map((h) => formatDayAbbr(h.date))
-    : ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  const avgSteps = recentWeek.length > 0
-    ? Math.round(recentWeek.reduce((sum, h) => sum + h.steps, 0) / recentWeek.length)
-    : 0;
+  // Real-time daily score calculation
+  const completedTasksCount = activities.filter((a) => a.completed).length;
+  const totalTasksCount = activities.length;
+  const completionRatio = totalTasksCount > 0 ? completedTasksCount / totalTasksCount : 0;
+  const scorePercent = Math.round(completionRatio * 100);
+
+  const streakDays = userProfile.streakDays || 0;
+
+  // Real Monday-Sunday weekly steps chart data
+  const currentDayOfWeekIdx = (new Date().getDay() + 6) % 7;
+  const chartData =
+    weeklySteps && weeklySteps.length === 7
+      ? weeklySteps
+      : [0, 0, 0, 0, 0, 0, 0].map((v, i) => (i === currentDayOfWeekIdx ? pedometerState.steps : 0));
+
+  const hasMeals = recentMeals.length > 0;
 
   return (
     <ScreenContainer scrollable={true}>
@@ -83,24 +99,28 @@ export const ProgressScreen: React.FC = () => {
       <View style={styles.consistencyBanner}>
         <View style={styles.consistencyLeft}>
           <View style={styles.streakCrownRow}>
-            <Flame size={20} color={Colors.coralCTA} />
-            <Text style={styles.streakCountText}>{userProfile.streakDays} Days</Text>
+            <Flame size={20} color={streakDays > 0 ? Colors.coralCTA : Colors.textMuted} />
+            <Text style={styles.streakCountText}>{streakDays} Day{streakDays === 1 ? '' : 's'}</Text>
           </View>
-          <Text style={styles.consistencyTitle}>Unbroken Streak</Text>
+          <Text style={styles.consistencyTitle}>
+            {streakDays > 0 ? `${streakDays}-Day Streak` : 'Start Your Streak'}
+          </Text>
           <Text style={styles.consistencySubtitle}>
-            Your daily routines have sustained optimal insulin stabilization for 3 consecutive weeks.
+            {streakDays > 0
+              ? `Consistent for ${streakDays} consecutive day${streakDays > 1 ? 's' : ''}! Complete today's sessions to advance.`
+              : "Complete all of today's routine sessions to start your 1-day streak!"}
           </Text>
         </View>
 
         <ProgressRing
           size={84}
           strokeWidth={7}
-          percentage={0.88}
+          percentage={completionRatio}
           color={Colors.forestGreenLight}
           bgColor="#28342C"
         >
           <View style={styles.ringCenterText}>
-            <Text style={styles.ringPercentNumber}>88%</Text>
+            <Text style={styles.ringPercentNumber}>{scorePercent}%</Text>
             <Text style={styles.ringPercentLabel}>Score</Text>
           </View>
         </ProgressRing>
@@ -115,18 +135,20 @@ export const ProgressScreen: React.FC = () => {
       <Pressable style={styles.chartCard} onPress={() => setActiveModal('activity_detail')}>
         <View style={styles.chartHeaderRow}>
           <View>
-            <Text style={styles.chartMetricValue}>{avgSteps > 0 ? avgSteps.toLocaleString() : '0'}</Text>
-            <Text style={styles.chartMetricSub}>Daily average steps</Text>
+            <Text style={styles.chartMetricValue}>{pedometerState.steps.toLocaleString()}</Text>
+            <Text style={styles.chartMetricSub}>Steps walked today</Text>
           </View>
           <View style={styles.trendPill}>
-            <TrendingUp size={14} color={Colors.success} />
-            <Text style={styles.trendPillText}>Live Hardware Pedometer</Text>
+            <TrendingUp size={14} color={pedometerState.steps > 0 ? Colors.success : Colors.textMuted} />
+            <Text style={styles.trendPillText}>
+              {pedometerState.steps > 0 ? `${pedometerState.steps.toLocaleString()} active` : 'Ready to walk'}
+            </Text>
           </View>
         </View>
 
         <MetricLineChart
           data={chartData}
-          labels={chartLabels}
+          labels={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']}
           color={Colors.coralCTA}
           height={160}
           width={330}
@@ -143,16 +165,16 @@ export const ProgressScreen: React.FC = () => {
         <View style={styles.nutritionHeaderRow}>
           <View>
             <Text style={styles.nutritionCoverageHeadline}>
-              {timeRange === 'Week' ? '7 of 7 Days Tracked' : '28 of 30 Days Logged (93% Coverage)'}
+              {hasMeals ? `${recentMeals.length} Meal${recentMeals.length > 1 ? 's' : ''} Logged Today` : '0 Days Tracked'}
             </Text>
             <Text style={styles.nutritionCoverageSub}>
-              IFCT Verified • High Confidence Food Data
+              {hasMeals ? 'IFCT Verified • High Confidence Food Data' : 'Log meals with AI scanner to see insights'}
             </Text>
           </View>
           <View style={styles.coverageBadgePill}>
-            <History size={12} color={Colors.success} style={{ marginRight: 4 }} />
-            <Text style={styles.coverageBadgeText}>
-              {timeRange === 'Week' ? '100% Coverage' : '93% Coverage'}
+            <History size={12} color={hasMeals ? Colors.success : Colors.textMuted} style={{ marginRight: 4 }} />
+            <Text style={[styles.coverageBadgeText, !hasMeals && { color: Colors.textMuted }]}>
+              {hasMeals ? `${Math.min(100, Math.round((recentMeals.length / 3) * 100))}% Today` : '0% Coverage'}
             </Text>
           </View>
         </View>
@@ -160,69 +182,100 @@ export const ProgressScreen: React.FC = () => {
         {/* Macro Averages Grid */}
         <View style={styles.macroAvgGrid}>
           <View style={styles.macroAvgBox}>
-            <Text style={styles.macroAvgNum}>2,050</Text>
+            <Text style={styles.macroAvgNum}>{todaysNutrition.caloriesTotal.toLocaleString()}</Text>
             <Text style={styles.macroAvgLabel}>Avg Daily kcal</Text>
           </View>
           <View style={styles.macroAvgBox}>
-            <Text style={[styles.macroAvgNum, { color: Colors.coralCTA }]}>108g</Text>
+            <Text style={[styles.macroAvgNum, { color: Colors.coralCTA }]}>{todaysNutrition.proteinTotal}g</Text>
             <Text style={styles.macroAvgLabel}>Avg Protein</Text>
           </View>
           <View style={styles.macroAvgBox}>
-            <Text style={[styles.macroAvgNum, { color: Colors.softYellow }]}>218g</Text>
+            <Text style={[styles.macroAvgNum, { color: Colors.softYellow }]}>{todaysNutrition.carbsTotal}g</Text>
             <Text style={styles.macroAvgLabel}>Avg Carbs</Text>
           </View>
           <View style={styles.macroAvgBox}>
-            <Text style={[styles.macroAvgNum, { color: Colors.lightSage }]}>31g</Text>
+            <Text style={[styles.macroAvgNum, { color: Colors.lightSage }]}>{todaysNutrition.fiberTotal}g</Text>
             <Text style={styles.macroAvgLabel}>Avg Fiber</Text>
           </View>
         </View>
 
         {/* Frequent Food Habits */}
         <View style={styles.frequentFoodRow}>
-          <Text style={styles.frequentFoodTitle}>Top Logged Foods (30 Days):</Text>
+          <Text style={styles.frequentFoodTitle}>Top Logged Foods:</Text>
           <Text style={styles.frequentFoodList}>
-            • Roti (62x) • Dal Tadka (30x) • Kanda Poha (24x) • Paneer Curry (22x)
+            {hasMeals
+              ? `• ${recentMeals.map((m) => m.mealName).slice(0, 3).join(' • ')}`
+              : 'No foods logged yet. Use the AI Meal Scanner to log your first meal.'}
           </Text>
         </View>
       </View>
 
       {/* Key Biomarkers & Wellness Metrics Grid */}
-      <SectionHeader title="Holistic Biomarkers" />
+      <SectionHeader title="Circadian & Metabolic Biomarkers" />
       <View style={styles.metricsGrid}>
+        {/* Interactive Sleep Phase Card */}
         <View style={styles.gridCard}>
-          <View style={[styles.gridIconCircle, { backgroundColor: 'rgba(234, 214, 111, 0.12)' }]}>
-            <Heart size={18} color={Colors.softYellow} />
+          <View
+            style={[
+              styles.gridIconCircle,
+              {
+                backgroundColor: sleepSession.isSleeping
+                  ? 'rgba(234, 214, 111, 0.18)'
+                  : 'rgba(78, 154, 111, 0.15)',
+              },
+            ]}
+          >
+            <Moon
+              size={18}
+              color={sleepSession.isSleeping ? Colors.softYellow : Colors.success}
+            />
           </View>
-          <Text style={styles.gridValue}>64 bpm</Text>
-          <Text style={styles.gridLabel}>Resting Heart Rate</Text>
-          <Text style={styles.gridStatus}>• Optimal balance</Text>
+          <Text style={styles.gridValue}>
+            {sleepSession.isSleeping
+              ? 'Sleeping 🌙'
+              : sleepSession.durationMinutes > 0
+              ? `${Math.floor(sleepSession.durationMinutes / 60)}h ${sleepSession.durationMinutes % 60}m`
+              : '0h 0m'}
+          </Text>
+          <Text style={styles.gridLabel}>Circadian Sleep</Text>
+          <Text style={styles.gridStatus}>
+            {sleepSession.isSleeping
+              ? `• Soya: ${new Date(sleepSession.bedtimeIso || '').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+              : sleepSession.durationMinutes > 0
+              ? `• ${sleepSession.recoveryScore}% recovery`
+              : '• Ready to log tonight'}
+          </Text>
+
+          {sleepSession.isSleeping ? (
+            <Pressable style={styles.biomarkerActionBtnActive} onPress={wakeUp}>
+              <Sun size={12} color="#FFFFFF" />
+              <Text style={styles.biomarkerActionText}>{"I'm Awake ☀️"}</Text>
+            </Pressable>
+          ) : (
+            <Pressable style={styles.biomarkerActionBtn} onPress={startSleep}>
+              <Moon size={12} color="#FFFFFF" />
+              <Text style={styles.biomarkerActionText}>Going to Sleep 🌙</Text>
+            </Pressable>
+          )}
         </View>
 
-        <View style={styles.gridCard}>
-          <View style={[styles.gridIconCircle, { backgroundColor: 'rgba(78, 154, 111, 0.12)' }]}>
-            <Moon size={18} color={Colors.success} />
-          </View>
-          <Text style={styles.gridValue}>7h 45m</Text>
-          <Text style={styles.gridLabel}>Deep Sleep Phase</Text>
-          <Text style={styles.gridStatus}>• 92% recovery</Text>
-        </View>
-
+        {/* Cellular Hydration Card */}
         <View style={styles.gridCard}>
           <View style={[styles.gridIconCircle, { backgroundColor: 'rgba(55, 104, 165, 0.15)' }]}>
             <Droplet size={18} color="#5B9FE2" />
           </View>
-          <Text style={styles.gridValue}>2.6 L</Text>
+          <Text style={styles.gridValue}>{(waterLoggedMl / 1000).toFixed(1)} L</Text>
           <Text style={styles.gridLabel}>Cellular Hydration</Text>
-          <Text style={styles.gridStatus}>• Goal met</Text>
-        </View>
+          <Text style={styles.gridStatus}>
+            {waterLoggedMl >= 2500
+              ? '• Daily target met'
+              : `• ${Math.round((waterLoggedMl / 3000) * 100)}% of 3.0 L`}
+          </Text>
 
-        <View style={styles.gridCard}>
-          <View style={[styles.gridIconCircle, { backgroundColor: 'rgba(255, 113, 95, 0.12)' }]}>
-            <Activity size={18} color={Colors.coralCTA} />
-          </View>
-          <Text style={styles.gridValue}>86 mg/dL</Text>
-          <Text style={styles.gridLabel}>Fasting Glucose</Text>
-          <Text style={styles.gridStatus}>• Healthy baseline</Text>
+          <Pressable style={styles.biomarkerActionBtn} onPress={() => logWater(250)}>
+            <Plus size={12} color="#FFFFFF" />
+            <Text style={styles.biomarkerActionText}>+250 ml Water</Text>
+          </Pressable>
         </View>
       </View>
 
@@ -422,6 +475,35 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSizes.xs - 1,
     fontFamily: Typography.fontFamilies.sansRegular,
     marginTop: 6,
+  },
+  biomarkerActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#27332A',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    marginTop: 10,
+    gap: 4,
+  },
+  biomarkerActionBtnActive: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF715F',
+    borderRadius: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    marginTop: 10,
+    gap: 4,
+  },
+  biomarkerActionText: {
+    fontFamily: Typography.fontFamilies.sansBold,
+    fontSize: Typography.fontSizes.xs - 1,
+    color: '#FFFFFF',
   },
   labReportBanner: {
     flexDirection: 'row',

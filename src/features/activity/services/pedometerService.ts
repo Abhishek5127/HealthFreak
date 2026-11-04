@@ -322,6 +322,46 @@ export class PedometerService {
   }
 
   /**
+   * Returns steps array for current week [Mon, Tue, Wed, Thu, Fri, Sat, Sun].
+   * Unwalked / past unrecorded days return 0.
+   */
+  public async getWeeklyStepsData(): Promise<number[]> {
+    const now = new Date();
+    const currentDayIdx = (now.getDay() + 6) % 7; // Mon = 0, Sun = 6
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - currentDayIdx);
+
+    const history = await this.getHistory(7);
+    const historyMap: Record<string, number> = {};
+    history.forEach((h) => {
+      historyMap[h.date] = h.steps;
+    });
+
+    const todayKey = getLocalDateString();
+    const currentSteps = this.getState().steps;
+    const weeklyData: number[] = [];
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const yr = d.getFullYear();
+      const mo = String(d.getMonth() + 1).padStart(2, '0');
+      const da = String(d.getDate()).padStart(2, '0');
+      const dateKey = `${yr}-${mo}-${da}`;
+
+      if (dateKey === todayKey) {
+        weeklyData.push(currentSteps);
+      } else if (historyMap[dateKey] !== undefined) {
+        weeklyData.push(historyMap[dateKey]);
+      } else {
+        weeklyData.push(0);
+      }
+    }
+
+    return weeklyData;
+  }
+
+  /**
    * Adds simulated steps for manual testing, emulator testing, or quick verification.
    */
   public async addSimulatedSteps(count: number): Promise<PedometerState> {

@@ -741,57 +741,6 @@ export const DashboardScreen: React.FC = () => {
         })}
       </View>
 
-      {/* Live Pedometer Sensor & Step Controls */}
-      <View style={styles.pedometerStatusRow}>
-        <Pressable
-          style={styles.pedometerStatusBadge}
-          onPress={() => {
-            if (!pedometerState.hasPermission) {
-              requestPedometerPermission();
-            }
-          }}
-        >
-          <View
-            style={[
-              styles.pedometerDot,
-              pedometerState.isTracking ? styles.pedometerDotLive : styles.pedometerDotIdle,
-            ]}
-          />
-          <Text style={styles.pedometerStatusText}>
-            {!pedometerState.hasPermission
-              ? 'Tap to Enable Sensors'
-              : pedometerState.isTracking
-              ? `Live Tracking (${pedometerState.trackingEngine === 'hardware' ? 'Pedometer' : 'Motion'})`
-              : 'Sensor Ready'}
-          </Text>
-        </Pressable>
-
-        <View style={styles.pedometerActionsRow}>
-          <Pressable
-            style={styles.pedometerActionBtn}
-            onPress={() => addSimulatedSteps(250)}
-          >
-            <Plus size={11} color={Colors.textSecondary} />
-            <Text style={styles.pedometerActionBtnText}>250</Text>
-          </Pressable>
-          <Pressable
-            style={styles.pedometerActionBtn}
-            onPress={() => addSimulatedSteps(1000)}
-          >
-            <Plus size={11} color={Colors.textSecondary} />
-            <Text style={styles.pedometerActionBtnText}>1k</Text>
-          </Pressable>
-          {pedometerState.steps > 0 && (
-            <Pressable
-              style={[styles.pedometerActionBtn, styles.pedometerResetBtn]}
-              onPress={() => resetPedometerSteps()}
-            >
-              <Text style={styles.pedometerResetBtnText}>Reset</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
-
       {/* 10. Today's sessions / Tailored Routine */}
       <SectionHeader
         title="Today's sessions"

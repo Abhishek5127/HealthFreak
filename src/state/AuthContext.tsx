@@ -84,7 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: json.profile.name,
             email: json.profile.email,
             avatarUrl: json.profile.avatarUrl,
-            streakDays: 21,
+            streakDays: 0,
             selectedGoal: 'metabolic_fitness',
             goalLabel: 'Metabolic Fitness & Energy',
             language: 'Hinglish',
@@ -111,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       avatarUrl:
         currentSession.user.user_metadata?.avatar_url ||
         currentSession.user.user_metadata?.picture,
-      streakDays: 21,
+      streakDays: 0,
       selectedGoal: 'metabolic_fitness',
       goalLabel: 'Metabolic Fitness & Energy',
       language: 'Hinglish',
@@ -143,7 +143,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         avatarUrl:
           newSession.user.user_metadata?.avatar_url ||
           newSession.user.user_metadata?.picture,
-        streakDays: 21,
+        streakDays: 0,
         selectedGoal: 'metabolic_fitness',
         goalLabel: 'Metabolic Fitness & Energy',
         language: 'Hinglish',
@@ -351,7 +351,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       name: 'Alex Sharma',
       email: 'alex.sharma@healthfreak.com',
       avatarUrl: undefined,
-      streakDays: 21,
+      streakDays: 0,
       selectedGoal: 'metabolic_fitness',
       goalLabel: 'Metabolic Fitness & Energy',
       language: 'Hinglish',
