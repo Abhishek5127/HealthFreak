@@ -1,9 +1,25 @@
 import { Pool } from 'pg';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { config } from '../config/index.js';
 
 let pool: Pool | null = null;
+let supabaseClient: SupabaseClient | null = null;
 
 export class SupabaseDb {
+  public static isConfigured(): boolean {
+    return Boolean(config.supabase.url && (config.supabase.serviceRoleKey || config.supabase.anonKey));
+  }
+
+  public static getClient(): SupabaseClient {
+    if (!supabaseClient) {
+      supabaseClient = createClient(
+        config.supabase.url || 'https://placeholder.supabase.co',
+        config.supabase.serviceRoleKey || config.supabase.anonKey || 'placeholder'
+      );
+    }
+    return supabaseClient;
+  }
+
   public static getPool(): Pool | null {
     if (!config.supabase.databaseUrl) {
       return null;

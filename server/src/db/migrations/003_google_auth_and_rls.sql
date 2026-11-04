@@ -118,3 +118,4 @@ DROP POLICY IF EXISTS "Users manage own consents" ON public.user_consents;
 CREATE POLICY "Users manage own consents" ON public.user_consents
   FOR ALL
   USING (auth.uid()::text = user_id OR user_id = 'usr_synthetic_alex');
+
