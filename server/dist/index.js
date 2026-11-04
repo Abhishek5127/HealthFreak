@@ -313,15 +313,23 @@ app.get('/auth/callback', (req, res) => {
   `);
 });
 async function startServer() {
-    // Initialize BullMQ Queue / Redis
-    await scheduledCallQueue_js_1.ScheduledCallQueue.initialize();
-    aiCallScheduler_js_1.AICallScheduler.init();
-    const server = app.listen(index_js_1.config.port, () => {
-        console.log(`[Disha Voice Server] Running on http://localhost:${index_js_1.config.port}`);
+    const port = parseInt(process.env.PORT || String(index_js_1.config.port) || '3001', 10);
+    const host = '0.0.0.0';
+    const server = app.listen(port, host, () => {
+        console.log(`[Disha Voice Server] Running on http://${host}:${port}`);
         console.log(`[Disha Voice Server] Selected Voice Provider: ${index_js_1.config.voiceProvider}`);
         console.log(`[Disha Voice Server] Concurrency limit: ${index_js_1.config.callingLimits.maxConcurrentCalls}`);
         console.log(`[Disha Voice Server] Synthetic Data Mode: ${index_js_1.config.privacy.syntheticDataMode}`);
     });
+    scheduledCallQueue_js_1.ScheduledCallQueue.initialize().catch((err) => {
+        console.warn('[ScheduledCallQueue] Background Redis init note:', err?.message || err);
+    });
+    try {
+        aiCallScheduler_js_1.AICallScheduler.init();
+    }
+    catch (err) {
+        console.warn('[AICallScheduler] Scheduler init note:', err?.message || err);
+    }
     return server;
 }
 if (process.env.NODE_ENV !== 'test') {

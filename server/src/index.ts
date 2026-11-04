@@ -322,16 +322,25 @@ app.get('/auth/callback', (req, res) => {
 });
 
 async function startServer() {
-  // Initialize BullMQ Queue / Redis
-  await ScheduledCallQueue.initialize();
-  AICallScheduler.init();
+  const port = parseInt(process.env.PORT || String(config.port) || '3001', 10);
+  const host = '0.0.0.0';
 
-  const server = app.listen(config.port, () => {
-    console.log(`[Disha Voice Server] Running on http://localhost:${config.port}`);
+  const server = app.listen(port, host, () => {
+    console.log(`[Disha Voice Server] Running on http://${host}:${port}`);
     console.log(`[Disha Voice Server] Selected Voice Provider: ${config.voiceProvider}`);
     console.log(`[Disha Voice Server] Concurrency limit: ${config.callingLimits.maxConcurrentCalls}`);
     console.log(`[Disha Voice Server] Synthetic Data Mode: ${config.privacy.syntheticDataMode}`);
   });
+
+  ScheduledCallQueue.initialize().catch((err) => {
+    console.warn('[ScheduledCallQueue] Background Redis init note:', err?.message || err);
+  });
+
+  try {
+    AICallScheduler.init();
+  } catch (err: any) {
+    console.warn('[AICallScheduler] Scheduler init note:', err?.message || err);
+  }
 
   return server;
 }
