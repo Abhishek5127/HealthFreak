@@ -27,6 +27,8 @@ import { useAuth } from './AuthContext';
 import { ScheduledAICall, LiveKitTokenData, AICallService } from '../services/aiCallService';
 import { NotificationService } from '../services/notificationService';
 import { pedometerService, PedometerState } from '../services/pedometerService';
+import { streakService } from '../services/streakService';
+import { sleepService, SleepSession } from '../services/sleepService';
 
 export function computeProgressMetrics(
   currentSteps: number,
@@ -170,6 +172,14 @@ interface AppContextType {
   addSimulatedSteps: (count: number) => Promise<void>;
   resetPedometerSteps: () => Promise<void>;
   requestPedometerPermission: () => Promise<boolean>;
+
+  // Sleep & Circadian Phase Tracker
+  sleepSession: SleepSession;
+  startSleep: () => Promise<void>;
+  wakeUp: () => Promise<void>;
+
+  // Insights Weekly Steps
+  weeklySteps: number[];
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -179,7 +189,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTab, setActiveTabState] = useState<TabType>('home');
   const [activeModal, setActiveModalState] = useState<ModalType>(null);
   const [userProfileState, setUserProfileState] = useState<UserProfile>(initialUserProfile);
-  const [waterLoggedMl, setWaterLoggedMl] = useState<number>(1250);
+  const [waterLoggedMl, setWaterLoggedMl] = useState<number>(0);
 
   // Synchronize authenticated profile from Supabase Google OAuth without cascading re-renders
   const userProfile: UserProfile = useMemo(() => ({
@@ -200,6 +210,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }), [userProfileState, authProfile]);
   const [activities, setActivities] = useState<DailyActivityItem[]>(mockDailyActivities);
   const [pedometerState, setPedometerState] = useState<PedometerState>(() => pedometerService.getState());
+  const [sleepSession, setSleepSession] = useState<SleepSession>(() => sleepService.getState());
+  const [weeklySteps, setWeeklySteps] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
   const [metrics, setMetrics] = useState<ProgressMetric[]>(() =>
     computeProgressMetrics(pedometerService.getState().steps, mockDailyActivities)
   );
@@ -209,136 +221,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeIncomingCall, setActiveIncomingCall] = useState<ScheduledAICall | null>(null);
   const [activeLiveKitCall, setActiveLiveKitCall] = useState<{ call: ScheduledAICall; livekit?: LiveKitTokenData; greeting?: string } | null>(null);
 
-  // Meal Scanner & Nutrition Diary State
+  // Meal Scanner & Nutrition Diary State (starts at 0 for clean baseline)
   const [todaysNutrition, setTodaysNutrition] = useState<DailyNutritionState>({
-    caloriesTotal: 453,
+    caloriesTotal: 0,
     caloriesTarget: 2100,
-    proteinTotal: 21,
+    proteinTotal: 0,
     proteinTarget: 130,
-    carbsTotal: 64,
+    carbsTotal: 0,
     carbsTarget: 220,
-    fatTotal: 13,
+    fatTotal: 0,
     fatTarget: 65,
-    fiberTotal: 10,
+    fiberTotal: 0,
     fiberTarget: 35,
-    mealsCount: 1,
+    mealsCount: 0,
   });
 
-  const [recentMeals, setRecentMeals] = useState<MealAnalysisResult[]>([
-    {
-      id: 'seed_meal_breakfast',
-      userId: 'usr_synthetic_alex',
-      mealName: 'Sprouted Moong & Poha Breakfast',
-      mealType: 'breakfast',
-      timestamp: new Date().toISOString(),
-      recognitionConfidence: 0.95,
-      foods: [
-        {
-          id: 'f_seed_1',
-          name: 'Poha',
-          localizedName: 'Kanda Poha',
-          estimatedWeightGrams: 140,
-          servingDescription: '1 bowl (~140g)',
-          confidence: 0.96,
-          visibleIngredients: ['Flattened rice', 'Mustard seeds', 'Peanuts'],
-          inferredIngredients: ['Turmeric', 'Green chillies'],
-          cookingMethod: 'Tempered and steamed',
-          nutrition: {
-            calories: 250,
-            protein: 4.8,
-            carbs: 44.1,
-            fat: 6.4,
-            fiber: 3.6,
-            sugar: 2.5,
-            sodium: 308,
-            potassium: 210,
-          },
-        },
-        {
-          id: 'f_seed_2',
-          name: 'Sprouted Moong Salad',
-          localizedName: 'Moong Sprouts',
-          estimatedWeightGrams: 120,
-          servingDescription: '1 medium bowl (~120g)',
-          confidence: 0.95,
-          visibleIngredients: ['Moong sprouts', 'Tomato', 'Coriander'],
-          inferredIngredients: ['Lemon juice', 'Chaat masala'],
-          cookingMethod: 'Raw sprouted',
-          nutrition: {
-            calories: 118,
-            protein: 9.4,
-            carbs: 19.4,
-            fat: 1.0,
-            fiber: 5.9,
-            sugar: 2.5,
-            sodium: 22,
-            potassium: 384,
-          },
-        },
-        {
-          id: 'f_seed_3',
-          name: 'Boiled Egg / Egg Omelette',
-          localizedName: 'Boiled Egg',
-          estimatedWeightGrams: 55,
-          servingDescription: '1 egg (~55g)',
-          confidence: 0.98,
-          visibleIngredients: ['1 hard boiled egg'],
-          inferredIngredients: ['Black pepper'],
-          cookingMethod: 'Boiled',
-          nutrition: {
-            calories: 85,
-            protein: 6.9,
-            carbs: 0.6,
-            fat: 5.8,
-            fiber: 0.0,
-            sugar: 0.6,
-            sodium: 77,
-            potassium: 76,
-          },
-        },
-      ],
-      totalNutrition: {
-        calories: 453,
-        proteinGrams: 21.1,
-        carbsGrams: 64.1,
-        fatGrams: 13.2,
-        fiberGrams: 9.5,
-        sugarGrams: 5.6,
-        sodiumMg: 407,
-        potassiumMg: 670,
-        proteinPercent: 19,
-        carbsPercent: 56,
-        fatPercent: 25,
-      },
-      micronutrients: [
-        { name: 'Iron', amount: 5.2, unit: 'mg', dailyValuePercent: 29, category: 'mineral' },
-        { name: 'Calcium', amount: 96, unit: 'mg', dailyValuePercent: 10, category: 'mineral' },
-        { name: 'Folate (B9)', amount: 155, unit: 'mcg', dailyValuePercent: 39, category: 'vitamin' },
-        { name: 'Vitamin C', amount: 28, unit: 'mg', dailyValuePercent: 31, category: 'vitamin' },
-      ],
-      healthBenefits: [
-        {
-          title: 'High Bioavailable Protein',
-          description: 'Moong sprouts + egg provide a clean amino acid profile to fuel morning metabolic tone.',
-          category: 'muscle',
-        },
-        {
-          title: 'Slow Glycemic Release',
-          description: '9.5g fiber buffers morning blood sugar spikes and sustains energy.',
-          category: 'digestion',
-        },
-      ],
-      considerations: [
-        {
-          title: 'Solid Hydration Baseline',
-          description: 'Follow this breakfast with 400ml water to optimize fiber digestion.',
-          type: 'info',
-        },
-      ],
-      coachInsight: 'Great start to your day Alex! 21g protein in your breakfast sets a strong metabolic foundation.',
-      status: 'saved',
-    },
-  ]);
+  const [recentMeals, setRecentMeals] = useState<MealAnalysisResult[]>([]);
 
   const [activeScannedMeal, setActiveScannedMeal] = useState<MealAnalysisResult | null>(null);
 
@@ -613,6 +511,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
 
       setMetrics(computeProgressMetrics(pedometerState.steps, updated));
+
+      // Daily streak evaluation: all daily routine tasks completed
+      const allCompleted = updated.length > 0 && updated.every((a) => a.completed);
+      streakService.evaluateTaskCompletion(allCompleted).then((newStreak) => {
+        updateUserProfile({ streakDays: newStreak });
+      });
+
       return updated;
     });
   };
@@ -710,6 +615,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return granted;
   };
 
+  const startSleep = async () => {
+    triggerHaptic('impact');
+    const sess = await sleepService.startSleep();
+    setSleepSession(sess);
+
+    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const bedtimeMsg: ChatMessage = {
+      id: `msg_sleep_${Date.now()}`,
+      sender: 'coach',
+      text: `Shubh Ratri ${userProfile.name.split(' ')[0]}! 🌙 Bedtime logged at ${nowStr}. Keep your phone on silent and rest deeply. Kal subah milte hain!`,
+      timestamp: nowStr,
+      suggestions: ['Sleep meditation', 'Set wake-up goal'],
+    };
+    setChatMessages((prev) => [...prev, bedtimeMsg]);
+  };
+
+  const wakeUp = async () => {
+    triggerHaptic('success');
+    const { session: sess, summaryText } = await sleepService.wakeUp();
+    setSleepSession(sess);
+
+    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const wakeupMsg: ChatMessage = {
+      id: `msg_wake_${Date.now()}`,
+      sender: 'coach',
+      text: `Suprabhat ${userProfile.name.split(' ')[0]}! ☀️ You completed ${summaryText}. Sleep recovery recorded! Hydrate with water to kickstart your metabolic energy today.`,
+      timestamp: nowStr,
+      suggestions: ['Log 350ml water', 'View morning routine', 'Plan breakfast'],
+    };
+    setChatMessages((prev) => [...prev, wakeupMsg]);
+  };
+
   // Scheduled AI Calls Handlers
   const openScheduleCallModal = () => {
     setActiveModalState('schedule_call');
@@ -772,22 +709,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [userProfile.id, activeIncomingCall, activeLiveKitCall]);
 
-  // Live Pedometer hardware & storage subscription
+  // Live Pedometer, Sleep & Streak Subscriptions
   useEffect(() => {
+    // 1. Initialize streak from storage & auto-reset if day missed
+    streakService.initialize().then((initialStreak) => {
+      updateUserProfile({ streakDays: initialStreak });
+    });
+
+    // 2. Initialize sleep tracker
+    sleepService.initialize();
+    const unsubSleep = sleepService.subscribe((sess) => {
+      setSleepSession(sess);
+    });
+
+    // 3. Initialize pedometer & load weekly steps history
     pedometerService.initialize().catch((err) => {
       console.warn('[AppContext] Pedometer initialization failed:', err);
     });
 
-    const unsubscribe = pedometerService.subscribe((pState) => {
+    const unsubPedometer = pedometerService.subscribe((pState) => {
       setPedometerState(pState);
       setActivities((currentActivities) => {
         setMetrics(computeProgressMetrics(pState.steps, currentActivities));
         return currentActivities;
       });
+      pedometerService.getWeeklyStepsData().then((wData) => {
+        setWeeklySteps(wData);
+      });
     });
 
     return () => {
-      unsubscribe();
+      unsubSleep();
+      unsubPedometer();
     };
   }, []);
 
@@ -835,6 +788,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addSimulatedSteps,
         resetPedometerSteps,
         requestPedometerPermission,
+        sleepSession,
+        startSleep,
+        wakeUp,
+        weeklySteps,
       }}
     >
       {children}

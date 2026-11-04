@@ -17,8 +17,9 @@ export interface PedometerState {
 export type PedometerListener = (state: PedometerState) => void;
 
 const STORAGE_KEY = 'HEALTHFREAK_PEDOMETER_TODAY_V1';
+const HISTORY_KEY = 'HEALTHFREAK_WEEKLY_STEPS_HISTORY_V1';
 
-function getTodayKey(): string {
+export function getTodayKey(): string {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -48,6 +49,8 @@ export class PedometerService {
   private baselineStoredSteps: number = 0;
   private sessionDeltaSteps: number = 0;
   private isInitialized: boolean = false;
+  private currentDateKey: string = getTodayKey();
+  private midnightCheckInterval: any = null;
 
   // Accelerometer step detector state
   private lastStepTimestamp: number = 0;
@@ -107,8 +110,43 @@ export class PedometerService {
   }
 
   /**
+   * Archives previous day steps into weekly history.
+   */
+  private async archiveDaySteps(dateKey: string, steps: number): Promise<void> {
+    try {
+      const raw = await expoSecureStoreAdapter.getItem(HISTORY_KEY);
+      const history = raw ? JSON.parse(raw) : {};
+      history[dateKey] = steps;
+      await expoSecureStoreAdapter.setItem(HISTORY_KEY, JSON.stringify(history));
+    } catch (e) {
+      console.warn('[PedometerService] Error archiving day steps:', e);
+    }
+  }
+
+  /**
+   * Midnight auto-reset: Checks if date changed (e.g. 12:00 AM passed).
+   * Archives yesterday's final steps and starts fresh from 0.
+   */
+  private async checkMidnightRollover(): Promise<boolean> {
+    const today = getTodayKey();
+    if (today !== this.currentDateKey) {
+      const prevSteps = this.baselineStoredSteps + this.sessionDeltaSteps;
+      await this.archiveDaySteps(this.currentDateKey, prevSteps);
+
+      this.currentDateKey = today;
+      this.baselineStoredSteps = 0;
+      this.sessionDeltaSteps = 0;
+      this.calculateMetrics(0);
+      await this.persistSteps(0);
+      this.notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Load today's persisted steps from SecureStore.
-   * Auto-resets to 0 if the date changed (e.g. past midnight).
+   * Auto-resets to 0 if the date changed (past midnight).
    */
   private async loadPersistedSteps(): Promise<number> {
     try {
@@ -116,8 +154,13 @@ export class PedometerService {
       if (raw) {
         const parsed = JSON.parse(raw);
         const today = getTodayKey();
-        if (parsed && parsed.date === today && typeof parsed.steps === 'number') {
-          return parsed.steps;
+        if (parsed && typeof parsed.steps === 'number') {
+          if (parsed.date === today) {
+            return parsed.steps;
+          } else {
+            // New day detected on launch: archive previous steps
+            await this.archiveDaySteps(parsed.date, parsed.steps);
+          }
         }
       }
     } catch (err) {
@@ -153,11 +196,19 @@ export class PedometerService {
       return this.getState();
     }
     this.isInitialized = true;
+    this.currentDateKey = getTodayKey();
 
     // Load persisted steps for today
     this.baselineStoredSteps = await this.loadPersistedSteps();
     this.sessionDeltaSteps = 0;
     this.calculateMetrics(this.baselineStoredSteps);
+
+    // Periodic check every 30 seconds for midnight date change
+    if (!this.midnightCheckInterval) {
+      this.midnightCheckInterval = setInterval(() => {
+        this.checkMidnightRollover().catch(() => {});
+      }, 30000);
+    }
 
     if (Platform.OS === 'web') {
       this.state.isAvailable = false;
@@ -217,8 +268,6 @@ export class PedometerService {
     }
 
     // Always start real-time Accelerometer Step Detector
-    // This provides zero-latency step counts even if hardware pedometer is batching,
-    // delayed, or unavailable on the specific Android device.
     this.startAccelerometerTracking();
   }
 
@@ -230,11 +279,11 @@ export class PedometerService {
 
     try {
       this.hardwareSubscription = Pedometer.watchStepCount((result) => {
+        this.checkMidnightRollover().catch(() => {});
         this.lastHardwareTimestamp = Date.now();
         this.state.trackingEngine = 'hardware';
         this.state.isTracking = true;
 
-        // On hardware updates, align session delta
         this.sessionDeltaSteps = result.steps;
         const totalSteps = this.baselineStoredSteps + this.sessionDeltaSteps;
         this.calculateMetrics(totalSteps);
@@ -256,22 +305,20 @@ export class PedometerService {
     }
 
     try {
-      // 50ms interval = 20Hz sampling rate (optimal for walking cadence without battery drain)
       Accelerometer.setUpdateInterval(50);
 
       this.accelSubscription = Accelerometer.addListener(({ x, y, z }) => {
-        // If hardware sensor fired within the last 4 seconds, prioritize hardware to prevent double-counting
+        this.checkMidnightRollover().catch(() => {});
+
+        // Prioritize hardware sensor if active within 4s
         if (Date.now() - this.lastHardwareTimestamp < 4000) {
           return;
         }
 
-        // Calculate 3D acceleration magnitude (earth gravity is ~1.0g at rest)
         const magnitude = Math.sqrt(x * x + y * y + z * z);
         const now = Date.now();
 
-        // Walking Step Algorithm:
-        // A human walking step produces an acceleration peak (>1.16g) followed by a valley (<0.96g).
-        // Max human cadence is ~3.5 steps/sec (refractory window >= 260ms).
+        // Walking Step Algorithm
         if (magnitude > 1.16 && this.inValley && (now - this.lastStepTimestamp > 260)) {
           this.lastStepTimestamp = now;
           this.inValley = false;
@@ -298,6 +345,45 @@ export class PedometerService {
     }
   }
 
+  /**
+   * Returns steps array for current week [Mon, Tue, Wed, Thu, Fri, Sat, Sun].
+   * Unwalked / past unrecorded days return 0.
+   */
+  public async getWeeklyStepsData(): Promise<number[]> {
+    const now = new Date();
+    const currentDayIdx = (now.getDay() + 6) % 7; // Mon = 0, Sun = 6
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - currentDayIdx);
+
+    let history: Record<string, number> = {};
+    try {
+      const raw = await expoSecureStoreAdapter.getItem(HISTORY_KEY);
+      if (raw) history = JSON.parse(raw);
+    } catch {}
+
+    const todayKey = getTodayKey();
+    const weeklyData: number[] = [];
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const yr = d.getFullYear();
+      const mo = String(d.getMonth() + 1).padStart(2, '0');
+      const da = String(d.getDate()).padStart(2, '0');
+      const dateKey = `${yr}-${mo}-${da}`;
+
+      if (dateKey === todayKey) {
+        weeklyData.push(this.state.steps);
+      } else if (history[dateKey] !== undefined) {
+        weeklyData.push(history[dateKey]);
+      } else {
+        weeklyData.push(0);
+      }
+    }
+
+    return weeklyData;
+  }
+
   public stopTracking(): void {
     if (this.hardwareSubscription) {
       this.hardwareSubscription.remove();
@@ -306,6 +392,10 @@ export class PedometerService {
     if (this.accelSubscription) {
       this.accelSubscription.remove();
       this.accelSubscription = null;
+    }
+    if (this.midnightCheckInterval) {
+      clearInterval(this.midnightCheckInterval);
+      this.midnightCheckInterval = null;
     }
     this.baselineStoredSteps += this.sessionDeltaSteps;
     this.sessionDeltaSteps = 0;
@@ -316,7 +406,6 @@ export class PedometerService {
 
   /**
    * Adds steps manually or via simulation.
-   * Crucial for emulators, treadmill testing, or manual testing.
    */
   public async addSimulatedSteps(count: number): Promise<PedometerState> {
     this.baselineStoredSteps = Math.max(0, this.baselineStoredSteps + count);
