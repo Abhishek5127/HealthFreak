@@ -66,10 +66,6 @@ export const DashboardScreen: React.FC = () => {
     logWater,
     setCustomWaterTarget,
     resetWaterLogged,
-    pedometerState,
-    addSimulatedSteps,
-    resetPedometerSteps,
-    requestPedometerPermission,
   } = useApp();
 
   const [showWaterTargetModal, setShowWaterTargetModal] = useState<boolean>(false);
