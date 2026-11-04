@@ -13,7 +13,7 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "HealthFreak needs microphone access to speak with your AI wellness coach.",
-        "NSMotionUsageDescription": "HealthFreak uses motion sensor data to track your daily steps, distance, and activity goals."
+"NSMotionUsageDescription": "HealthFreak tracks your daily steps, distance, and activity goals using your device motion sensors."
       }
     },
 
@@ -27,12 +27,12 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
+        "ACTIVITY_RECOGNITION",
         "RECORD_AUDIO",
         "MODIFY_AUDIO_SETTINGS",
         "POST_NOTIFICATIONS",
         "VIBRATE",
-        "WAKE_LOCK",
-        "ACTIVITY_RECOGNITION"
+        "WAKE_LOCK"
       ]
     },
 
