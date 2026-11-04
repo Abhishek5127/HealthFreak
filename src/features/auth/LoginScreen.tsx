@@ -83,28 +83,42 @@ export const LoginScreen: React.FC = () => {
 
         {/* Authentication Action Area */}
         <View style={styles.actionContainer}>
+          {/* Primary One-Tap Demo Account Login */}
+          <Pressable
+            style={({ pressed }) => [styles.demoCardButton, pressed && styles.demoCardButtonPressed]}
+            onPress={signInAsDemoUser}
+          >
+            <View style={styles.demoIconCircle}>
+              <Sparkles size={20} color="#FFFFFF" />
+            </View>
+            <View style={styles.demoTextCol}>
+              <View style={styles.demoBadgeRow}>
+                <Text style={styles.demoButtonTitle}>Login with Demo Account</Text>
+                <View style={styles.instantBadge}>
+                  <Text style={styles.instantBadgeText}>INSTANT</Text>
+                </View>
+              </View>
+              <Text style={styles.demoButtonSub}>
+                1-tap bypass • No Google sign-in needed • Stats stored locally
+              </Text>
+            </View>
+          </Pressable>
+
+          <View style={styles.orDivider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.orText}>OR LOGIN WITH GOOGLE</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Google OAuth Sign-In */}
           <GoogleSignInButton
             onPress={signInWithGoogle}
             isLoading={isAuthenticating}
             disabled={isAuthenticating}
           />
 
-          <View style={styles.orDivider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.orText}>OR</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <Pressable
-            style={({ pressed }) => [styles.demoButton, pressed && styles.demoButtonPressed]}
-            onPress={signInAsDemoUser}
-          >
-            <Sparkles size={16} color={Colors.forestGreenLight} style={{ marginRight: 8 }} />
-            <Text style={styles.demoButtonText}>Explore Demo Profile (Alex Sharma)</Text>
-          </Pressable>
-
           <Text style={styles.oauthNotice}>
-            One-tap authentication secured by Supabase Auth with Google OAuth 2.0 PKCE.
+            Demo account works offline with zero setup. All steps, hydration, sleep, and workouts persist locally on this phone.
           </Text>
         </View>
 
@@ -239,24 +253,68 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.md,
     letterSpacing: 1,
   },
-  demoButton: {
+  demoCardButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    height: 48,
-    backgroundColor: '#161E18',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#2D3D30',
+    backgroundColor: '#1E2B21',
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#3D5A43',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    shadowColor: Colors.forestGreenLight,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  demoButtonPressed: {
-    backgroundColor: '#202C23',
+  demoCardButtonPressed: {
+    backgroundColor: '#26372A',
     borderColor: Colors.forestGreenLight,
+    transform: [{ scale: 0.99 }],
   },
-  demoButtonText: {
+  demoIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.forestGreenLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  demoTextCol: {
+    flex: 1,
+  },
+  demoBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  demoButtonTitle: {
+    color: '#FFFFFF',
+    fontSize: Typography.fontSizes.sm,
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
+  instantBadge: {
+    backgroundColor: 'rgba(78, 154, 111, 0.25)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(78, 154, 111, 0.4)',
+  },
+  instantBadgeText: {
+    color: Colors.forestGreenLight,
+    fontSize: 9,
+    fontFamily: Typography.fontFamilies.sansBold,
+    letterSpacing: 0.5,
+  },
+  demoButtonSub: {
     color: Colors.textSecondary,
-    fontSize: Typography.fontSizes.xs + 1,
-    fontFamily: Typography.fontFamilies.sansSemiBold,
+    fontSize: Typography.fontSizes.xs - 1,
+    fontFamily: Typography.fontFamilies.sansRegular,
+    marginTop: 3,
+    lineHeight: 16,
   },
   oauthNotice: {
     color: Colors.textMuted,

@@ -210,7 +210,7 @@ export const ProfileScreen: React.FC = () => {
           <Text style={styles.authLabel}>Auth Provider</Text>
           <View style={styles.authValueRow}>
             <Shield size={14} color={Colors.forestGreenLight} style={{ marginRight: 6 }} />
-            <Text style={styles.authValue}>Google OAuth 2.0</Text>
+            <Text style={styles.authValue}>{authProfile?.authProvider === 'demo' ? 'Local Demo Account' : 'Google OAuth 2.0'}</Text>
           </View>
         </View>
 
@@ -218,7 +218,7 @@ export const ProfileScreen: React.FC = () => {
 
         <View style={styles.authRow}>
           <Text style={styles.authLabel}>Identity Authority</Text>
-          <Text style={styles.authValue}>Supabase Cloud Auth</Text>
+          <Text style={styles.authValue}>{authProfile?.authProvider === 'demo' ? 'On-Device Local Storage' : 'Supabase Cloud Auth'}</Text>
         </View>
 
         <View style={styles.authDivider} />
@@ -235,7 +235,7 @@ export const ProfileScreen: React.FC = () => {
       {/* Logout Action */}
       <Pressable style={styles.logoutButton} onPress={handleSignOut}>
         <LogOut size={16} color="#FF6B6B" style={{ marginRight: 8 }} />
-        <Text style={styles.logoutButtonText}>Sign Out from Google</Text>
+        <Text style={styles.logoutButtonText}>{authProfile?.authProvider === 'demo' ? 'Sign Out of Demo Account' : 'Sign Out from Google'}</Text>
       </Pressable>
 
       {/* Privacy & Reset Section */}

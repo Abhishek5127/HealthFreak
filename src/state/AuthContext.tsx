@@ -10,6 +10,7 @@ import {
 } from '../services/auth/googleAuth';
 import { UserProfile } from '../types';
 import { voiceClient } from '../services/voiceClient';
+import { expoSecureStoreAdapter } from '../services/auth/secureStorageAdapter';
 
 export type AuthState =
   | 'initializing'
@@ -41,6 +42,56 @@ const getBackendUrl = (): string => {
   }
   return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 };
+
+const DEMO_SESSION_KEY = 'HEALTHFREAK_DEMO_SESSION_ACTIVE';
+const DEMO_PROFILE_KEY = 'HEALTHFREAK_DEMO_USER_PROFILE';
+
+export async function getLocalDemoSession(): Promise<{
+  demoUser: User;
+  demoSession: Session;
+  demoProfile: UserProfile;
+}> {
+  let savedDemoProfile: Partial<UserProfile> = {};
+  try {
+    const raw = await expoSecureStoreAdapter.getItem(DEMO_PROFILE_KEY);
+    if (raw) savedDemoProfile = JSON.parse(raw);
+  } catch {}
+
+  const demoUser = {
+    id: 'usr_synthetic_alex',
+    app_metadata: { provider: 'demo' },
+    user_metadata: { full_name: 'Alex Sharma' },
+    aud: 'authenticated',
+    created_at: new Date().toISOString(),
+    email: 'alex.sharma@healthfreak.com',
+  } as any;
+
+  const demoSession = {
+    access_token: 'demo_token_usr_synthetic_alex',
+    token_type: 'bearer',
+    user: demoUser,
+    expires_in: 3600,
+    refresh_token: 'demo_refresh_token',
+  } as any;
+
+  const demoProfile: UserProfile = {
+    id: 'usr_synthetic_alex',
+    name: 'Alex Sharma',
+    email: 'alex.sharma@healthfreak.com',
+    avatarUrl: undefined,
+    streakDays: 0,
+    selectedGoal: 'metabolic_fitness',
+    goalLabel: 'Metabolic Fitness & Energy',
+    language: 'Hinglish',
+    onboardingCompleted: true,
+    currentMood: 'balanced',
+    healthConditions: ['patellofemoral_knee_pain', 'sedentary_desk_job'],
+    authProvider: 'demo',
+    ...savedDemoProfile,
+  };
+
+  return { demoUser, demoSession, demoProfile };
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [authState, setAuthState] = useState<AuthState>('initializing');
@@ -188,8 +239,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (data?.session && isMounted) {
           await handleSessionEstablished(data.session);
-        } else if (isMounted) {
-          setAuthState('logged_out');
+        } else {
+          // Check for active local demo account session
+          const isDemoActive = await expoSecureStoreAdapter.getItem(DEMO_SESSION_KEY).catch(() => null);
+          if (isDemoActive === 'true' && isMounted) {
+            const { demoUser, demoSession, demoProfile } = await getLocalDemoSession();
+            setSession(demoSession);
+            setUser(demoUser);
+            setProfile(demoProfile);
+            setError(null);
+            setAuthState('authenticated');
+          } else if (isMounted) {
+            setAuthState('logged_out');
+          }
         }
       } catch (err: any) {
         if (isMounted) {
@@ -326,46 +388,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   /**
-   * One-tap Instant Demo Access (Preloaded with Alex Sharma's 30-day health profile)
+   * One-tap Instant Demo Access (Preloaded with Alex Sharma's health profile, stored 100% locally)
    */
   const signInAsDemoUser = () => {
-    const demoUser = {
-      id: 'usr_synthetic_alex',
-      app_metadata: { provider: 'demo' },
-      user_metadata: { full_name: 'Alex Sharma' },
-      aud: 'authenticated',
-      created_at: new Date().toISOString(),
-      email: 'alex.sharma@healthfreak.com',
-    } as any;
-
-    const demoSession = {
-      access_token: 'demo_token_usr_synthetic_alex',
-      token_type: 'bearer',
-      user: demoUser,
-      expires_in: 3600,
-      refresh_token: 'demo_refresh_token',
-    } as any;
-
-    const demoProfile: UserProfile = {
-      id: 'usr_synthetic_alex',
-      name: 'Alex Sharma',
-      email: 'alex.sharma@healthfreak.com',
-      avatarUrl: undefined,
-      streakDays: 0,
-      selectedGoal: 'metabolic_fitness',
-      goalLabel: 'Metabolic Fitness & Energy',
-      language: 'Hinglish',
-      onboardingCompleted: true,
-      currentMood: 'balanced',
-      healthConditions: ['patellofemoral_knee_pain', 'sedentary_desk_job'],
-      authProvider: 'demo',
-    };
-
-    setSession(demoSession);
-    setUser(demoUser);
-    setProfile(demoProfile);
-    setError(null);
-    setAuthState('authenticated');
+    getLocalDemoSession().then(async ({ demoUser, demoSession, demoProfile }) => {
+      await expoSecureStoreAdapter.setItem(DEMO_SESSION_KEY, 'true').catch(() => {});
+      await expoSecureStoreAdapter.setItem(DEMO_PROFILE_KEY, JSON.stringify(demoProfile)).catch(() => {});
+      setSession(demoSession);
+      setUser(demoUser);
+      setProfile(demoProfile);
+      setError(null);
+      setAuthState('authenticated');
+    });
   };
 
   /**
@@ -381,6 +415,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (voiceErr: any) {
         console.warn('[AuthContext] Voice disconnect error:', voiceErr.message);
       }
+
+      // 1b. Clear local demo session flag if active
+      await expoSecureStoreAdapter.removeItem(DEMO_SESSION_KEY).catch(() => {});
 
       // 2. Clear remote Supabase session
       await signOutFromSupabase();
@@ -405,7 +442,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateProfileState = (updates: Partial<UserProfile>) => {
-    setProfile((prev) => (prev ? { ...prev, ...updates } : null));
+    setProfile((prev) => {
+      if (!prev) return null;
+      const next = { ...prev, ...updates };
+      if (next.authProvider === 'demo') {
+        expoSecureStoreAdapter.setItem(DEMO_PROFILE_KEY, JSON.stringify(next)).catch(() => {});
+      }
+      return next;
+    });
   };
 
   return (
