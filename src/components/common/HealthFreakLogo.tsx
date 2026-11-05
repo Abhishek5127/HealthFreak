@@ -4,9 +4,9 @@ import { Image } from 'expo-image';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 
-const LOGO_ANIMATED_GIF = require('../../assets/logo/HealthFreakLogoTranasparent.gif');
-const LOGO_STATIC_PNG = require('../../assets/logo/HealthFreakLogoTransparent.png');
-const LOGO_BLACK_BG_PNG = require('../../assets/logo/HealthFreakLogoBlackbg.png');
+const LOGO_ANIMATED_GIF = require('../../../assets/logo/HealthFreakLogoTranasparent.gif');
+const LOGO_STATIC_PNG = require('../../../assets/logo/HealthFreakLogoTransparent.png');
+const LOGO_BLACK_BG_PNG = require('../../../assets/logo/HealthFreakLogoBlackbg.png');
 
 export interface HealthFreakLogoProps {
   size?: number;
@@ -234,3 +234,4 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 });
+
