@@ -1,0 +1,7 @@
+{
+  "name": "healthfreak-step-counter",
+  "version": "1.0.0",
+  "description": "Native background step counter module for HealthFreak that tracks steps 24/7 even when the app is completely closed",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}

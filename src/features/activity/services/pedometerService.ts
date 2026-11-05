@@ -1,5 +1,6 @@
 import { Platform, AppState, AppStateStatus } from 'react-native';
 import { Pedometer, Accelerometer } from 'expo-sensors';
+import * as NativeStepCounter from '../../../../modules/healthfreak-step-counter/src';
 import {
   PedometerPermissionState,
   StepSummary,
@@ -28,6 +29,7 @@ export class PedometerService {
   private permissionState: PedometerPermissionState = 'unknown';
   private subscription: { remove: () => void } | null = null;
   private accelSubscription: { remove: () => void } | null = null;
+  private nativeListenerSubscription: { remove: () => void } | null = null;
   private listeners: Set<StepUpdateListener> = new Set();
   private currentSession: PedometerTrackingSession | null = null;
   private isTrackingActive: boolean = false;
@@ -221,6 +223,38 @@ export class PedometerService {
       await this.syncIosStepsToday();
     }
 
+    // Reconcile with native hardware step counter (accounts for any steps walked while app was closed!)
+    try {
+      const nativeSteps = await NativeStepCounter.getTodaySteps();
+      if (nativeSteps > 0 && this.currentSession) {
+        this.currentSession.accumulatedSteps = Math.max(
+          this.currentSession.accumulatedSteps || 0,
+          nativeSteps
+        );
+        this.currentSession.sessionSteps = 0;
+        await StepPersistenceService.saveCurrentSession(this.currentSession);
+      }
+      // Ensure persistent native background service is running so steps continue counting when app is closed
+      await NativeStepCounter.startBackgroundService();
+    } catch (err) {
+      console.warn('[PedometerService] Native step catch-up error:', err);
+    }
+
+    // Attach native step listener for live updates from background service
+    if (!this.nativeListenerSubscription) {
+      this.nativeListenerSubscription = NativeStepCounter.addStepListener(async (event) => {
+        if (this.currentSession && typeof event.steps === 'number' && event.steps > 0) {
+          this.currentSession.accumulatedSteps = event.steps;
+          this.currentSession.sessionSteps = 0;
+          this.currentSession.lastUpdated = new Date().toISOString();
+
+          const summary = await this.getCurrentTodaySummary();
+          this.notifyListeners(summary);
+          this.persistDebounced(this.currentSession, summary);
+        }
+      });
+    }
+
     // Register active real-time step counter listener
     this.registerHardwareListener();
 
@@ -253,6 +287,13 @@ export class PedometerService {
         this.accelSubscription.remove();
       } catch {}
       this.accelSubscription = null;
+    }
+
+    if (this.nativeListenerSubscription) {
+      try {
+        this.nativeListenerSubscription.remove();
+      } catch {}
+      this.nativeListenerSubscription = null;
     }
 
     await this.persistCurrentState();
@@ -395,10 +436,35 @@ export class PedometerService {
     this.currentSession.lastUpdated = new Date().toISOString();
     await StepPersistenceService.saveCurrentSession(this.currentSession);
 
+    try {
+      await NativeStepCounter.resetTodaySteps();
+    } catch {}
+
     const summary = await this.getCurrentTodaySummary();
     await StepPersistenceService.saveDailySummary(summary);
     this.notifyListeners(summary);
     return this.getState();
+  }
+
+  /**
+   * Starts the native persistent background step tracking service (Foreground Service on Android).
+   */
+  public async startBackgroundService(): Promise<boolean> {
+    return await NativeStepCounter.startBackgroundService();
+  }
+
+  /**
+   * Stops the native persistent background step tracking service.
+   */
+  public async stopBackgroundService(): Promise<boolean> {
+    return await NativeStepCounter.stopBackgroundService();
+  }
+
+  /**
+   * Checks whether the native background step service is currently active.
+   */
+  public async isBackgroundServiceRunning(): Promise<boolean> {
+    return await NativeStepCounter.isBackgroundServiceRunning();
   }
 
   // ================= PRIVATE ENGINE METHODS =================
@@ -638,6 +704,22 @@ export class PedometerService {
           } else if (Platform.OS === 'ios') {
             await this.syncIosStepsToday();
           }
+
+          // Authoritative hardware catch-up: credit all steps taken while app was closed!
+          try {
+            const closedSteps = await NativeStepCounter.getTodaySteps();
+            if (closedSteps > 0 && this.currentSession) {
+              this.currentSession.accumulatedSteps = Math.max(
+                this.currentSession.accumulatedSteps || 0,
+                closedSteps
+              );
+              this.currentSession.sessionSteps = 0;
+              await StepPersistenceService.saveCurrentSession(this.currentSession);
+            }
+          } catch (err) {
+            console.warn('[PedometerService] AppState active native catch-up error:', err);
+          }
+
           const summary = await this.getCurrentTodaySummary();
           this.notifyListeners(summary);
         } else if (nextAppState === 'background' || nextAppState === 'inactive') {

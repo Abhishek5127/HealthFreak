@@ -1,0 +1,16 @@
+{
+  "platforms": [
+    "apple",
+    "android"
+  ],
+  "android": {
+    "modules": [
+      "com.healthfreak.stepcounter.HealthfreakStepCounterModule"
+    ]
+  },
+  "apple": {
+    "modules": [
+      "HealthfreakStepCounterModule"
+    ]
+  }
+}

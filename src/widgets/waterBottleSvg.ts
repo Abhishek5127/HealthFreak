@@ -105,3 +105,4 @@ export function generateWaterBottleSvg(
     <line x1="26" y1="65" x2="35" y2="65" stroke="#FFFFFF" stroke-width="1.5" opacity="0.4" />
   </svg>`;
 }
+
