@@ -3,258 +3,121 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Water Bottle Desktop Widget</title>
+  <title>Water Bottle Widget</title>
   <style>
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
       user-select: none;
       -webkit-user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
     }
 
     body {
       min-height: 100vh;
       background: #0d120f;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      color: #E2ECE5;
     }
 
-    /* ==========================================================
-       AUTHENTIC DESKTOP WIDGET (155px x 165px)
-       Standard macOS / Windows 11 Desktop Widget Dimensions
-       ========================================================== */
-    .desktop-widget {
-      width: 155px;
-      height: 165px;
-      background: rgba(18, 25, 21, 0.95);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-radius: 22px;
+    /* Minimalist Desktop Widget Box */
+    .widget-box {
+      width: 140px;
+      height: 160px;
+      background: #121915;
+      border-radius: 24px;
       border: 1.5px solid #243429;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 8px 8px 8px;
-      position: relative;
-      cursor: pointer;
-      transition: transform 0.15s ease, border-color 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    .desktop-widget:hover {
-      border-color: #385240;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
-    }
-
-    .desktop-widget.goal-met {
-      border-color: #386644;
-      box-shadow: 0 12px 35px rgba(74, 184, 122, 0.25);
-    }
-
-    /* Top tiny header */
-    .widget-header {
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0 4px;
-    }
-
-    .widget-label {
-      font-size: 9px;
-      font-weight: 700;
-      color: #7EA089;
-      letter-spacing: 0.6px;
-      text-transform: uppercase;
-    }
-
-    .widget-badge {
-      font-size: 10px;
-      font-weight: 700;
-      color: #7AD3FA;
-      background: #182B36;
-      border: 1px solid #2B4A5C;
-      padding: 1px 5px;
-      border-radius: 6px;
-      line-height: 1.2;
-    }
-
-    .widget-badge.goal-met {
-      color: #7AE69E;
-      background: #1B3D26;
-      border-color: #347248;
-    }
-
-    /* Bottle Container */
-    .bottle-stage {
-      position: relative;
-      width: 80px;
-      height: 105px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 1px 0;
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.12s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     }
 
+    .widget-box:hover {
+      border-color: #385240;
+    }
+
+    .widget-box:active {
+      transform: scale(0.96);
+    }
+
+    .widget-box.goal-met {
+      border-color: #386644;
+      box-shadow: 0 12px 35px rgba(74, 184, 122, 0.22);
+    }
+
+    /* Bottle SVG */
     .bottle-svg {
-      width: 72px;
-      height: 105px;
+      width: 75px;
+      height: 120px;
       display: block;
       transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
       filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
     }
 
-    /* Squish & Bounce on tap */
-    .bottle-stage:active .bottle-svg,
-    .desktop-widget:active .bottle-svg {
+    .widget-box:active .bottle-svg {
       transform: scale(0.92);
     }
 
-    /* Floating +100ml Bubble */
-    .floating-pill {
+    /* Floating ml pop-up (only appears when clicked, then disappears) */
+    .pop-ml {
       position: absolute;
-      top: 35%;
+      top: 50%;
       left: 50%;
-      transform: translate(-50%, 0);
+      transform: translate(-50%, -50%);
       background: rgba(38, 119, 180, 0.95);
       color: #FFFFFF;
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 800;
-      padding: 3px 8px;
+      padding: 4px 10px;
       border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
       pointer-events: none;
       opacity: 0;
-      transition: none;
     }
 
-    .floating-pill.animate {
-      animation: floatUp 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    .pop-ml.animate {
+      animation: popFade 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     }
 
-    @keyframes floatUp {
+    @keyframes popFade {
       0% {
         opacity: 0;
-        transform: translate(-50%, 8px) scale(0.85);
+        transform: translate(-50%, -30%) scale(0.8);
       }
       25% {
         opacity: 1;
-        transform: translate(-50%, -4px) scale(1.05);
+        transform: translate(-50%, -60%) scale(1.05);
       }
       100% {
         opacity: 0;
-        transform: translate(-50%, -26px) scale(0.95);
+        transform: translate(-50%, -100%) scale(0.95);
       }
-    }
-
-    /* Bottom stats */
-    .widget-bottom {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1px;
-    }
-
-    .volume-text {
-      font-size: 11px;
-      font-weight: 700;
-      color: #FFFFFF;
-      letter-spacing: -0.2px;
-    }
-
-    .sub-prompt {
-      font-size: 8.5px;
-      color: #6C8273;
-      font-weight: 500;
-    }
-
-    .sub-prompt.goal-met {
-      color: #7AE69E;
-      font-weight: 700;
-    }
-
-    /* Discreet desktop mini controls */
-    .mini-actions {
-      display: flex;
-      gap: 6px;
-      margin-top: 14px;
-      opacity: 0.5;
-      transition: opacity 0.2s ease;
-    }
-
-    .mini-actions:hover {
-      opacity: 1;
-    }
-
-    .mini-btn {
-      background: #18221B;
-      border: 1px solid #28372D;
-      color: #8BA192;
-      font-size: 10px;
-      font-weight: 600;
-      padding: 4px 8px;
-      border-radius: 6px;
-      cursor: pointer;
-      outline: none;
-    }
-
-    .mini-btn:hover {
-      background: #233027;
-      color: #FFFFFF;
     }
   </style>
 </head>
 <body>
 
-  <!-- DESKTOP WIDGET (Exact Desktop App Scale) -->
-  <div id="desktopWidget" class="desktop-widget" title="Click anywhere on the widget to drink +100ml">
-    
-    <!-- Header -->
-    <div class="widget-header">
-      <span class="widget-label">Water</span>
-      <span id="badge" class="widget-badge">0%</span>
-    </div>
-
-    <!-- Bottle Area -->
-    <div class="bottle-stage">
-      <div id="bottleSvgContainer"></div>
-      <div id="floatingPill" class="floating-pill">+100ml</div>
-    </div>
-
-    <!-- Bottom Stat -->
-    <div class="widget-bottom">
-      <div id="volumeText" class="volume-text">0.0L / 3.2L</div>
-      <div id="subPrompt" class="sub-prompt">Click to +100ml</div>
-    </div>
-
-  </div>
-
-  <!-- Discreet Desktop Controls -->
-  <div class="mini-actions">
-    <button class="mini-btn" onclick="addWater(100)">+100ml</button>
-    <button class="mini-btn" onclick="addWater(250)">+250ml</button>
-    <button class="mini-btn" onclick="fillToGoal()">100% Goal</button>
-    <button class="mini-btn" onclick="resetWater()">Reset</button>
+  <!-- Clean Widget Box (Right-click to reset) -->
+  <div id="widgetBox" class="widget-box" title="Click to add water • Right-click to reset">
+    <div id="bottleContainer"></div>
+    <div id="popMl" class="pop-ml">+150ml</div>
   </div>
 
   <script>
-    let waterLoggedMl = 1400; // Starting realistic level
-    const waterTargetMl = 3200;
+    let waterLoggedMl = 0;
+    const addAmountMl = 150; // Default amount per click (configurable via app)
+    const targetMl = 3000;
 
-    const desktopWidget = document.getElementById('desktopWidget');
-    const badge = document.getElementById('badge');
-    const volumeText = document.getElementById('volumeText');
-    const subPrompt = document.getElementById('subPrompt');
-    const floatingPill = document.getElementById('floatingPill');
-    const bottleSvgContainer = document.getElementById('bottleSvgContainer');
+    const widgetBox = document.getElementById('widgetBox');
+    const bottleContainer = document.getElementById('bottleContainer');
+    const popMl = document.getElementById('popMl');
 
     function generateBottleSvg(fillPercentage) {
       const isGoalReached = fillPercentage >= 100;
@@ -284,7 +147,7 @@
         Z
       `;
 
-      // Smiling face upon 100%
+      // Smiling face appears when goal is met
       const face = isGoalReached
         ? `
           <g transform="translate(0, 10)">
@@ -354,58 +217,37 @@
     }
 
     function render() {
-      const percentage = Math.round((waterLoggedMl / waterTargetMl) * 100);
-      const isGoalMet = waterLoggedMl >= waterTargetMl;
-      const remainingMl = Math.max(0, waterTargetMl - waterLoggedMl);
+      const percentage = Math.round((waterLoggedMl / targetMl) * 100);
+      const isGoalMet = waterLoggedMl >= targetMl;
 
-      bottleSvgContainer.innerHTML = generateBottleSvg(percentage);
-
-      const loggedL = (waterLoggedMl / 1000).toFixed(1);
-      const targetL = (waterTargetMl / 1000).toFixed(1);
-      volumeText.textContent = `${loggedL}L / ${targetL}L`;
+      bottleContainer.innerHTML = generateBottleSvg(percentage);
 
       if (isGoalMet) {
-        desktopWidget.classList.add('goal-met');
-        badge.classList.add('goal-met');
-        badge.textContent = '100% 😊';
-        subPrompt.classList.add('goal-met');
-        subPrompt.textContent = 'Goal reached! ✨';
+        widgetBox.classList.add('goal-met');
       } else {
-        desktopWidget.classList.remove('goal-met');
-        badge.classList.remove('goal-met');
-        badge.textContent = `${percentage}%`;
-        subPrompt.classList.remove('goal-met');
-        subPrompt.textContent = `${remainingMl}ml left`;
+        widgetBox.classList.remove('goal-met');
       }
     }
 
-    function triggerPillAnimation(amount) {
-      floatingPill.textContent = `+${amount}ml`;
-      floatingPill.classList.remove('animate');
-      void floatingPill.offsetWidth; // re-flow
-      floatingPill.classList.add('animate');
+    function triggerPop(amount) {
+      popMl.textContent = `+${amount}ml`;
+      popMl.classList.remove('animate');
+      void popMl.offsetWidth; // Force CSS reflow
+      popMl.classList.add('animate');
     }
 
-    function addWater(amount) {
-      waterLoggedMl += amount;
-      triggerPillAnimation(amount);
+    // Left-click adds 150ml and pops up text that disappears
+    widgetBox.addEventListener('click', () => {
+      waterLoggedMl += addAmountMl;
+      triggerPop(addAmountMl);
       render();
-    }
+    });
 
-    function fillToGoal() {
-      waterLoggedMl = waterTargetMl;
-      triggerPillAnimation(waterTargetMl);
-      render();
-    }
-
-    function resetWater() {
+    // Right-click resets water (for testing convenience)
+    widgetBox.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
       waterLoggedMl = 0;
       render();
-    }
-
-    // Clicking anywhere on the widget logs +100ml
-    desktopWidget.addEventListener('click', () => {
-      addWater(100);
     });
 
     // Initial render
