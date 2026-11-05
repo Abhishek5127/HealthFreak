@@ -30,7 +30,12 @@
         "MODIFY_AUDIO_SETTINGS",
         "POST_NOTIFICATIONS",
         "VIBRATE",
-        "WAKE_LOCK"
+        "WAKE_LOCK",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -58,7 +63,30 @@
         }
       ],
       "expo-asset",
-      "expo-notifications"
-    ]
+      "expo-notifications",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "WaterBottleWidget",
+              "label": "HealthFreak Water Tracker",
+              "description": "Tap to add 100ml water and track daily hydration with smiling bottle progress",
+              "minWidth": "160dp",
+              "minHeight": "140dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "previewImage": "./assets/water_widget_preview.png",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "795b6406-b121-4e16-9d07-0fba0525956e"
+      }
+    }
   }
 }

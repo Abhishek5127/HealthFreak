@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
+import { AppState } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
   TabType,
@@ -29,6 +30,7 @@ import { NotificationService } from '../services/notificationService';
 import { pedometerService, PedometerState } from '../features/activity/services/pedometerService';
 import { streakService } from '../services/streakService';
 import { sleepService, SleepSession } from '../services/sleepService';
+import { syncWidgetStateToHomeScreen, getWaterWidgetState } from '../widgets/widgetStorage';
 
 export function computeProgressMetrics(
   currentSteps: number,
@@ -390,6 +392,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setWaterLoggedMl((prev) => {
       const next = Math.max(0, Math.min(8000, prev + amountMl));
       expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED', next.toString()).catch(() => {});
+      syncWidgetStateToHomeScreen(next, waterTargetMl).catch(() => {});
       return next;
     });
   };
@@ -398,12 +401,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     triggerHaptic('success');
     setWaterTargetMl(ml);
     await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_TARGET_ML', ml.toString());
+    syncWidgetStateToHomeScreen(waterLoggedMl, ml).catch(() => {});
   };
 
   const resetWaterLogged = async () => {
     triggerHaptic('selection');
     setWaterLoggedMl(0);
     await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED', '0');
+    syncWidgetStateToHomeScreen(0, waterTargetMl).catch(() => {});
   };
 
   const applySurveyAssessment = async (assessment: UserSurveyAssessment) => {
@@ -530,6 +535,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
     loadSavedAssessment();
+  }, []);
+
+  // Sync hydration state when app comes to foreground from home screen widget interaction
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        try {
+          const widgetState = await getWaterWidgetState();
+          if (typeof widgetState.waterLoggedMl === 'number') {
+            setWaterLoggedMl((prev) =>
+              prev !== widgetState.waterLoggedMl ? widgetState.waterLoggedMl : prev
+            );
+          }
+          if (widgetState.waterTargetMl && widgetState.waterTargetMl > 0) {
+            setWaterTargetMl((prev) =>
+              prev !== widgetState.waterTargetMl ? widgetState.waterTargetMl : prev
+            );
+          }
+        } catch (e) {
+          console.warn('[AppContext] Error syncing widget state on foreground:', e);
+        }
+      }
+    };
+
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => sub.remove();
   }, []);
 
 
