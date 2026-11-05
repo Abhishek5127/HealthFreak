@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Water Bottle Widget</title>
+  <title>Water Bottle Desktop Widget</title>
   <style>
     * {
       box-sizing: border-box;
@@ -16,114 +16,237 @@
 
     body {
       min-height: 100vh;
-      background: #0d120f;
+      /* Ambient desktop background that highlights glassmorphism blur and refraction */
+      background: radial-gradient(circle at 35% 30%, #1a3324 0%, #0d1a12 40%, #060b08 100%);
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      position: relative;
     }
 
-    /* Minimalist Desktop Widget Box */
-    .widget-box {
-      width: 140px;
-      height: 160px;
-      background: #121915;
-      border-radius: 24px;
-      border: 1.5px solid #243429;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
+    /* Ambient background accent shapes to showcase glassmorphism frosted effect */
+    .bg-orb-1 {
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      background: radial-gradient(circle, rgba(74, 184, 122, 0.22) 0%, transparent 70%);
+      top: 30%;
+      left: 36%;
+      filter: blur(40px);
+      pointer-events: none;
+    }
+
+    .bg-orb-2 {
+      position: absolute;
+      width: 180px;
+      height: 180px;
+      background: radial-gradient(circle, rgba(42, 142, 222, 0.2) 0%, transparent 70%);
+      bottom: 30%;
+      right: 36%;
+      filter: blur(35px);
+      pointer-events: none;
+    }
+
+    /* ==========================================================
+       ULTRA-PREMIUM GLASSMORPHISM WIDGET BOX
+       ========================================================== */
+    .glass-widget-box {
+      width: 142px;
+      height: 164px;
+      /* Frosted glass backdrop filter with layered translucency */
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(20, 32, 24, 0.55) 40%, rgba(10, 18, 13, 0.75) 100%);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      border-radius: 26px;
+      /* Specular edge highlight */
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 
+        0 20px 45px rgba(0, 0, 0, 0.65),
+        0 4px 12px rgba(0, 0, 0, 0.35),
+        inset 0 1px 1px rgba(255, 255, 255, 0.3),
+        inset 0 -1px 1px rgba(0, 0, 0, 0.3);
       display: flex;
       align-items: center;
       justify-content: center;
       position: relative;
       cursor: pointer;
-      transition: transform 0.12s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+      transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.4s ease, box-shadow 0.4s ease;
+      z-index: 2;
     }
 
-    .widget-box:hover {
-      border-color: #385240;
+    .glass-widget-box:hover {
+      border-color: rgba(122, 230, 158, 0.35);
+      box-shadow: 
+        0 24px 52px rgba(0, 0, 0, 0.7),
+        0 0 20px rgba(74, 184, 122, 0.15),
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.4);
     }
 
-    .widget-box:active {
-      transform: scale(0.96);
+    .glass-widget-box:active {
+      transform: scale(0.95);
     }
 
-    .widget-box.goal-met {
-      border-color: #386644;
-      box-shadow: 0 12px 35px rgba(74, 184, 122, 0.22);
+    .glass-widget-box.goal-met {
+      border-color: rgba(122, 230, 158, 0.5);
+      box-shadow: 
+        0 22px 50px rgba(0, 0, 0, 0.65),
+        0 0 30px rgba(74, 184, 122, 0.3),
+        inset 0 1px 2px rgba(255, 255, 255, 0.5);
     }
 
-    /* Bottle SVG */
+    /* Bottle Container */
+    .bottle-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 78px;
+      height: 122px;
+    }
+
     .bottle-svg {
-      width: 75px;
-      height: 120px;
+      width: 78px;
+      height: 122px;
       display: block;
-      transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
-      filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
+      transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+      filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45));
     }
 
-    .widget-box:active .bottle-svg {
-      transform: scale(0.92);
+    /* Squish & Bounce upon clicking */
+    .squish {
+      animation: bottleBounce 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
-    /* Floating ml pop-up (only appears when clicked, then disappears) */
-    .pop-ml {
+    @keyframes bottleBounce {
+      0% { transform: scale(1, 1); }
+      30% { transform: scale(1.08, 0.88); }
+      60% { transform: scale(0.94, 1.06); }
+      80% { transform: scale(1.02, 0.98); }
+      100% { transform: scale(1, 1); }
+    }
+
+    /* ==========================================================
+       ANIMATED & STYLISH +150ML FLOATING POPUP PILLS
+       ========================================================== */
+    .popup-container {
       position: absolute;
-      top: 50%;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .floating-popup {
+      position: absolute;
+      top: 48%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background: rgba(38, 119, 180, 0.95);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: linear-gradient(135deg, rgba(74, 184, 250, 0.95) 0%, rgba(32, 122, 212, 0.95) 100%);
       color: #FFFFFF;
       font-size: 11px;
       font-weight: 800;
-      padding: 4px 10px;
-      border-radius: 12px;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+      letter-spacing: 0.3px;
+      padding: 5px 11px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow: 
+        0 8px 24px rgba(24, 119, 214, 0.5),
+        0 2px 6px rgba(0, 0, 0, 0.3),
+        inset 0 1px 1px rgba(255, 255, 255, 0.6);
       pointer-events: none;
-      opacity: 0;
+      animation: floatBurst 0.75s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+      z-index: 10;
     }
 
-    .pop-ml.animate {
-      animation: popFade 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    .floating-popup .drop-icon {
+      font-size: 12px;
+      line-height: 1;
     }
 
-    @keyframes popFade {
+    @keyframes floatBurst {
       0% {
         opacity: 0;
-        transform: translate(-50%, -30%) scale(0.8);
+        transform: translate(-50%, -30%) scale(0.65) rotate(var(--rot, 0deg));
       }
-      25% {
+      22% {
         opacity: 1;
-        transform: translate(-50%, -60%) scale(1.05);
+        transform: translate(-50%, -65%) scale(1.08) rotate(var(--rot, 0deg));
+      }
+      70% {
+        opacity: 0.9;
+        transform: translate(-50%, -115%) scale(1) rotate(var(--rot, 0deg));
       }
       100% {
         opacity: 0;
-        transform: translate(-50%, -100%) scale(0.95);
+        transform: translate(-50%, -150%) scale(0.9) rotate(var(--rot, 0deg));
+      }
+    }
+
+    /* Small particle splash droplet */
+    .splash-particle {
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      background: #7AD3FA;
+      border-radius: 50%;
+      box-shadow: 0 0 6px #7AD3FA;
+      pointer-events: none;
+      animation: particleFly 0.55s ease-out forwards;
+      z-index: 9;
+    }
+
+    @keyframes particleFly {
+      0% {
+        opacity: 1;
+        transform: translate(0, 0) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(var(--tx), var(--ty)) scale(0.2);
       }
     }
   </style>
 </head>
 <body>
 
-  <!-- Clean Widget Box (Right-click to reset) -->
-  <div id="widgetBox" class="widget-box" title="Click to add water • Right-click to reset">
-    <div id="bottleContainer"></div>
-    <div id="popMl" class="pop-ml">+150ml</div>
+  <!-- Ambient background glow elements -->
+  <div class="bg-orb-1"></div>
+  <div class="bg-orb-2"></div>
+
+  <!-- GLASSMORPHISM DESKTOP WIDGET BOX -->
+  <div id="widgetBox" class="glass-widget-box" title="Click to drink water (+150ml) • Right-click to reset">
+    <div id="bottleContainer" class="bottle-wrapper"></div>
+    <div id="popupContainer" class="popup-container"></div>
   </div>
 
   <script>
-    let waterLoggedMl = 0;
-    const addAmountMl = 150; // Default amount per click (configurable via app)
-    const targetMl = 3000;
+    let waterLoggedMl = 0; // Starts empty so user sees the sad expression!
+    const addAmountMl = 150; // Default 150ml per click (configurable via app)
+    const targetMl = 3000;   // 3000ml goal (20 sips = 100%)
 
     const widgetBox = document.getElementById('widgetBox');
     const bottleContainer = document.getElementById('bottleContainer');
-    const popMl = document.getElementById('popMl');
+    const popupContainer = document.getElementById('popupContainer');
 
+    /**
+     * Generates dynamic SVG with expression evolving at each graduation bar:
+     * 1. Empty (<15%): Sad, droopy dehydrated face with tiny tear droplet
+     * 2. Bar 1 (~15% - 45%): Pouty / focused neutral hydrating face
+     * 3. Bar 2 (~45% - 75%): Gentle, content half-smile with soft blush
+     * 4. Bar 3 (~75% - 99%): Big cheerful grin with rosy cheeks & curved eyes
+     * 5. Full Goal (>= 100%): Radiant ecstatic beaming smile with sparkles!
+     */
     function generateBottleSvg(fillPercentage) {
       const isGoalReached = fillPercentage >= 100;
       const clampedPercent = Math.min(Math.max(fillPercentage, 0), 100);
 
-      // Geometry for viewBox 0 0 120 200
+      // Bottle Geometry
       const bottleTopY = 38;
       const bottleBottomY = 188;
       const bottleHeight = bottleBottomY - bottleTopY; // 150
@@ -147,34 +270,92 @@
         Z
       `;
 
-      // Smiling face appears when goal is met
-      const face = isGoalReached
-        ? `
-          <g transform="translate(0, 10)">
-            <path d="M 43,105 Q 49,97 55,105" stroke="#0D2E49" stroke-width="3.5" stroke-linecap="round" fill="none" />
-            <path d="M 65,105 Q 71,97 77,105" stroke="#0D2E49" stroke-width="3.5" stroke-linecap="round" fill="none" />
-            <circle cx="39" cy="113" r="4.5" fill="#FF8BA7" opacity="0.85" />
-            <circle cx="81" cy="113" r="4.5" fill="#FF8BA7" opacity="0.85" />
-            <path d="M 48,114 Q 60,134 72,114 Z" fill="#0D2E49" />
-            <path d="M 53,123 Q 60,133 67,123 Z" fill="#FF6B8B" />
-          </g>
-        `
-        : `
-          <g transform="translate(0, 8)" opacity="${clampedPercent > 30 ? '0.75' : '0.4'}">
-            <circle cx="48" cy="108" r="3" fill="#1C384E" />
-            <circle cx="72" cy="108" r="3" fill="#1C384E" />
-            <path d="M 54,118 Q 60,123 66,118" stroke="#1C384E" stroke-width="2.5" stroke-linecap="round" fill="none" />
+      // Dynamic Face Expression based on Water Level Bars
+      let faceSvg = '';
+
+      if (clampedPercent < 15) {
+        // --- LEVEL 0: SAD / THIRSTY BOTTLE (< 15%) ---
+        faceSvg = `
+          <g id="faceSad" transform="translate(0, 10)">
+            <!-- Droopy sad eyebrows -->
+            <path d="M 44,103 Q 48,107 53,105" stroke="#1C384E" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.85" />
+            <path d="M 67,105 Q 72,107 76,103" stroke="#1C384E" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.85" />
+            <!-- Droopy sad eyes -->
+            <circle cx="48" cy="110" r="3" fill="#1C384E" />
+            <circle cx="72" cy="110" r="3" fill="#1C384E" />
+            <!-- Sad downturned mouth -->
+            <path d="M 53,124 Q 60,117 67,124" stroke="#1C384E" stroke-width="2.8" stroke-linecap="round" fill="none" />
+            <!-- Tiny sad dehydration tear drop -->
+            <path d="M 76,113 C 74,116 74,119 76,120 C 78,119 78,116 76,113 Z" fill="#64B5F6" opacity="0.9" />
           </g>
         `;
+      } else if (clampedPercent < 45) {
+        // --- LEVEL 1: REACHING BAR 1 (15% - 44%) — Neutral / Relieved sipping ---
+        faceSvg = `
+          <g id="faceNeutral" transform="translate(0, 8)" opacity="0.75">
+            <circle cx="48" cy="109" r="3" fill="#1C384E" />
+            <circle cx="72" cy="109" r="3" fill="#1C384E" />
+            <!-- Flat / attentive sipping mouth -->
+            <line x1="55" y1="120" x2="65" y2="120" stroke="#1C384E" stroke-width="2.5" stroke-linecap="round" />
+          </g>
+        `;
+      } else if (clampedPercent < 75) {
+        // --- LEVEL 2: REACHING BAR 2 (45% - 74%) — Pleasant Content Half-Smile ---
+        faceSvg = `
+          <g id="faceHalfSmile" transform="translate(0, 9)">
+            <circle cx="48" cy="108" r="3.2" fill="#1C384E" />
+            <circle cx="72" cy="108" r="3.2" fill="#1C384E" />
+            <!-- Soft blush cheeks -->
+            <circle cx="41" cy="114" r="3.5" fill="#FF8BA7" opacity="0.5" />
+            <circle cx="79" cy="114" r="3.5" fill="#FF8BA7" opacity="0.5" />
+            <!-- Gentle curved smile -->
+            <path d="M 53,118 Q 60,126 67,118" stroke="#1C384E" stroke-width="2.6" stroke-linecap="round" fill="none" />
+          </g>
+        `;
+      } else if (clampedPercent < 100) {
+        // --- LEVEL 3: REACHING BAR 3 (75% - 99%) — Big Cheerful Grin ---
+        faceSvg = `
+          <g id="faceBigGrin" transform="translate(0, 9)">
+            <!-- Curved happy eyes ^ ^ -->
+            <path d="M 44,106 Q 49,99 54,106" stroke="#0D2E49" stroke-width="3" stroke-linecap="round" fill="none" />
+            <path d="M 66,106 Q 71,99 76,106" stroke="#0D2E49" stroke-width="3" stroke-linecap="round" fill="none" />
+            <!-- Rosy pink blush cheeks -->
+            <circle cx="40" cy="113" r="4.2" fill="#FF8BA7" opacity="0.75" />
+            <circle cx="80" cy="113" r="4.2" fill="#FF8BA7" opacity="0.75" />
+            <!-- Big open cheerful smile -->
+            <path d="M 50,115 Q 60,131 70,115 Z" fill="#0D2E49" />
+            <path d="M 54,122 Q 60,130 66,122 Z" fill="#FF6B8B" />
+          </g>
+        `;
+      } else {
+        // --- LEVEL 4: GOAL ACHIEVED (100%+) — Radiant Ecstatic Beaming Smile ---
+        faceSvg = `
+          <g id="faceEcstatic" transform="translate(0, 9)">
+            <!-- Joyful curved arc eyes ^ ^ -->
+            <path d="M 43,105 Q 49,97 55,105" stroke="#0D2E49" stroke-width="3.6" stroke-linecap="round" fill="none" />
+            <path d="M 65,105 Q 71,97 77,105" stroke="#0D2E49" stroke-width="3.6" stroke-linecap="round" fill="none" />
+            <!-- Radiant rosy blush cheeks -->
+            <circle cx="39" cy="113" r="4.8" fill="#FF8BA7" opacity="0.9" />
+            <circle cx="81" cy="113" r="4.8" fill="#FF8BA7" opacity="0.9" />
+            <!-- Wide beaming smile with tongue -->
+            <path d="M 48,114 Q 60,134 72,114 Z" fill="#0D2E49" />
+            <path d="M 53,123 Q 60,133 67,123 Z" fill="#FF6B8B" />
+            <!-- Celebration golden stars around the cap -->
+            <polygon points="35,32 37,37 42,37 38,40 39,45 35,42 31,45 32,40 28,37 33,37" fill="#FFD166" opacity="0.95" />
+            <polygon points="85,32 87,37 92,37 88,40 89,45 85,42 81,45 82,40 78,37 83,37" fill="#FFD166" opacity="0.95" />
+          </g>
+        `;
+      }
 
+      // Fluid wave at the liquid surface
       const wave = clampedPercent > 0 && clampedPercent < 100
         ? `
           <path d="
             M 15,${liquidTopY + 2}
             Q 35,${liquidTopY - 4} 60,${liquidTopY}
             Q 85,${liquidTopY + 4} 105,${liquidTopY - 1}
-            L 105,${liquidTopY + 12}
-            L 15,${liquidTopY + 12}
+            L 105,${liquidTopY + 14}
+            L 15,${liquidTopY + 14}
             Z
           " fill="#98E1FD" opacity="0.85" />
         `
@@ -185,7 +366,7 @@
           <defs>
             <linearGradient id="wGrad" x1="0%" y1="0%" x2="0%" y2="100%">
               <stop offset="0%" stop-color="#7AD3FA" />
-              <stop offset="40%" stop-color="#4FA3E2" />
+              <stop offset="35%" stop-color="#4FA3E2" />
               <stop offset="100%" stop-color="#256EB3" />
             </linearGradient>
             <clipPath id="bClip">
@@ -193,25 +374,29 @@
             </clipPath>
           </defs>
 
-          <!-- Bottle Body -->
+          <!-- Bottle Outer Glass Silhouette -->
           <path d="${bottleInnerPath}" fill="#142018" stroke="#2D4233" stroke-width="3.5" />
 
-          <!-- Clipped Water -->
+          <!-- Clipped Water Fill & Expressions -->
           <g clip-path="url(#bClip)">
             <rect x="10" y="${liquidTopY}" width="100" height="${liquidHeight + 25}" fill="url(#wGrad)" />
             ${wave}
-            ${face}
+            ${faceSvg}
           </g>
 
-          <!-- Cap & Handle -->
+          <!-- Cap Collar & Thread -->
           <rect x="42" y="27" width="36" height="11" rx="3" fill="#3D4B40" stroke="#546558" stroke-width="1.5" />
           <rect x="47" y="15" width="26" height="12" rx="4" fill="#2B362E" stroke="#546558" stroke-width="1.5" />
+          <!-- Cap Loop Handle -->
           <path d="M 54,15 C 54,8 66,8 66,15" stroke="#546558" stroke-width="3" fill="none" stroke-linecap="round" />
 
-          <!-- Measurement Ticks -->
-          <line x1="26" y1="140" x2="35" y2="140" stroke="#FFFFFF" stroke-width="1.5" opacity="0.35" />
-          <line x1="26" y1="100" x2="38" y2="100" stroke="#FFFFFF" stroke-width="2" opacity="0.45" />
-          <line x1="26" y1="65" x2="35" y2="65" stroke="#FFFFFF" stroke-width="1.5" opacity="0.35" />
+          <!-- Graduation Bar Ticks -->
+          <!-- Bar 1 (Bottom): Y=140 -->
+          <line x1="26" y1="140" x2="36" y2="140" stroke="#FFFFFF" stroke-width="1.8" opacity="0.4" />
+          <!-- Bar 2 (Middle): Y=100 -->
+          <line x1="26" y1="100" x2="39" y2="100" stroke="#FFFFFF" stroke-width="2.2" opacity="0.55" />
+          <!-- Bar 3 (Top): Y=65 -->
+          <line x1="26" y1="65" x2="36" y2="65" stroke="#FFFFFF" stroke-width="1.8" opacity="0.4" />
         </svg>
       `;
     }
@@ -229,28 +414,66 @@
       }
     }
 
-    function triggerPop(amount) {
-      popMl.textContent = `+${amount}ml`;
-      popMl.classList.remove('animate');
-      void popMl.offsetWidth; // Force CSS reflow
-      popMl.classList.add('animate');
+    /**
+     * Spawns an animated, stylish +150ml floating popup pill with slight dynamic angle
+     */
+    function spawnPopup(amount) {
+      const popup = document.createElement('div');
+      popup.className = 'floating-popup';
+      
+      // Random subtle rotation between -7deg and +7deg for dynamic playfulness
+      const randomAngle = (Math.random() * 14 - 7).toFixed(1);
+      popup.style.setProperty('--rot', `${randomAngle}deg`);
+
+      popup.innerHTML = `<span class="drop-icon">💧</span><span>+${amount}ml</span>`;
+      popupContainer.appendChild(popup);
+
+      // Spawn a couple of miniature water sparkle droplets
+      for (let i = 0; i < 4; i++) {
+        const drop = document.createElement('div');
+        drop.className = 'splash-particle';
+        drop.style.left = `${45 + Math.random() * 10}%`;
+        drop.style.top = `38%`;
+        const tx = (Math.random() * 50 - 25).toFixed(0) + 'px';
+        const ty = (-20 - Math.random() * 35).toFixed(0) + 'px';
+        drop.style.setProperty('--tx', tx);
+        drop.style.setProperty('--ty', ty);
+        popupContainer.appendChild(drop);
+        setTimeout(() => drop.remove(), 600);
+      }
+
+      // Self-destruct after animation completes
+      setTimeout(() => {
+        popup.remove();
+      }, 750);
     }
 
-    // Left-click adds 150ml and pops up text that disappears
+    function triggerSquish() {
+      const svg = bottleContainer.querySelector('.bottle-svg');
+      if (svg) {
+        svg.classList.remove('squish');
+        void svg.offsetWidth; // Force CSS reflow
+        svg.classList.add('squish');
+      }
+    }
+
+    // Left-Click: Add 150ml, squish bottle, spawn stylish popup, update expression
     widgetBox.addEventListener('click', () => {
       waterLoggedMl += addAmountMl;
-      triggerPop(addAmountMl);
+      triggerSquish();
+      spawnPopup(addAmountMl);
       render();
     });
 
-    // Right-click resets water (for testing convenience)
+    // Right-Click: Reset back to 0ml to test from the sad empty state again!
     widgetBox.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       waterLoggedMl = 0;
+      triggerSquish();
       render();
     });
 
-    // Initial render
+    // Initial render: starts empty with the sad expression!
     render();
   </script>
 </body>
