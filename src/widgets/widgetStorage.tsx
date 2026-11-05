@@ -46,10 +46,10 @@ export async function getWaterWidgetState(): Promise<WaterWidgetState> {
 }
 
 /**
- * Increments water consumption by the specified amount (defaults to 100ml)
+ * Increments water consumption by the specified amount (defaults to 150ml)
  * and returns the updated state.
  */
-export async function addWaterFromWidget(amountMl: number = 100): Promise<WaterWidgetState> {
+export async function addWaterFromWidget(amountMl: number = 150): Promise<WaterWidgetState> {
   const current = await getWaterWidgetState();
   const nextLogged = current.waterLoggedMl + amountMl;
 

@@ -75,10 +75,10 @@
             {
               "name": "WaterBottleWidget",
               "label": "HealthFreak Water Tracker",
-              "description": "Tap to add 100ml water and track daily hydration with smiling bottle progress",
-              "minWidth": "160dp",
-              "minHeight": "140dp",
-              "targetCellWidth": 3,
+              "description": "Tap bottle to add 150ml water and track daily hydration with dynamic smiling bottle",
+              "minWidth": "120dp",
+              "minHeight": "120dp",
+              "targetCellWidth": 2,
               "targetCellHeight": 2,
               "previewImage": "./assets/water_widget_preview.png",
               "updatePeriodMillis": 1800000

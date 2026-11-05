@@ -21,8 +21,9 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
     }
 
     case 'WIDGET_CLICK': {
-      if (clickAction === 'ADD_WATER_100ML') {
-        const nextState = await addWaterFromWidget(100);
+      if (clickAction === 'ADD_WATER_150ML' || clickAction === 'ADD_WATER_100ML') {
+        const amount = clickAction === 'ADD_WATER_100ML' ? 100 : 150;
+        const nextState = await addWaterFromWidget(amount);
         renderWidget(
           <WaterBottleWidget
             waterLoggedMl={nextState.waterLoggedMl}
@@ -38,4 +39,3 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
       break;
   }
 }
-

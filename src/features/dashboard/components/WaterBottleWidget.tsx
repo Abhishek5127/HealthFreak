@@ -69,8 +69,8 @@ export const WaterBottleWidget: React.FC<WaterBottleWidgetProps> = ({
   };
 
   const handleBottleTap = () => {
-    triggerTapEffect(100);
-    onLogWater(100);
+    triggerTapEffect(150);
+    onLogWater(150);
   };
 
   const handleQuickAdd = (amount: number) => {
@@ -134,7 +134,7 @@ export const WaterBottleWidget: React.FC<WaterBottleWidgetProps> = ({
           </Animated.View>
 
           <View style={styles.tapPromptPill}>
-            <Text style={styles.tapPromptText}>Tap +100ml</Text>
+            <Text style={styles.tapPromptText}>Tap +150ml</Text>
           </View>
         </Pressable>
 

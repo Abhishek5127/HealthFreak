@@ -9,6 +9,8 @@ import Svg, {
   ClipPath,
   Circle,
   G,
+  Line,
+  Polygon,
 } from 'react-native-svg';
 
 interface WaterBottleGraphicProps {
@@ -147,39 +149,54 @@ export const WaterBottleGraphic: React.FC<WaterBottleGraphicProps> = ({
             </G>
           )}
 
-          {/* 3. HAPPY SMILE FACE (Appears when minimum water intake is hit: >= 100%) */}
-          {isGoalReached && (
+          {/* 3. DYNAMIC EXPRESSIONS BASED ON GRADUATION BARS */}
+          {clampedPercent < 15 ? (
+            /* Level 0: Sad & Dehydrated (< 15%) */
             <G transform="translate(0, 10)">
-              {/* Left Eye: Joyful curved arc ^ */}
-              <Path
-                d="M 43,105 Q 49,97 55,105"
-                stroke="#1B3852"
-                strokeWidth="3.2"
-                strokeLinecap="round"
-                fill="none"
-              />
-              {/* Right Eye: Joyful curved arc ^ */}
-              <Path
-                d="M 65,105 Q 71,97 77,105"
-                stroke="#1B3852"
-                strokeWidth="3.2"
-                strokeLinecap="round"
-                fill="none"
-              />
-
-              {/* Rosy Cheeks (Blush) */}
-              <Circle cx="39" cy="113" r="4.5" fill="#FF8BA7" opacity="0.8" />
-              <Circle cx="81" cy="113" r="4.5" fill="#FF8BA7" opacity="0.8" />
-
-              {/* Cheerful Open Smiling Mouth with Tongue */}
-              <Path
-                d="M 49,114 Q 60,132 71,114 Z"
-                fill="#1B3852"
-              />
-              <Path
-                d="M 54,122 Q 60,131 66,122 Z"
-                fill="#FF6B8B"
-              />
+              <Path d="M 44,103 Q 48,107 53,105" stroke="#1C384E" strokeWidth="1.8" strokeLinecap="round" fill="none" opacity="0.85" />
+              <Path d="M 67,105 Q 72,107 76,103" stroke="#1C384E" strokeWidth="1.8" strokeLinecap="round" fill="none" opacity="0.85" />
+              <Circle cx="48" cy="110" r="3" fill="#1C384E" />
+              <Circle cx="72" cy="110" r="3" fill="#1C384E" />
+              <Path d="M 53,124 Q 60,117 67,124" stroke="#1C384E" strokeWidth="2.8" strokeLinecap="round" fill="none" />
+              <Path d="M 76,113 C 74,116 74,119 76,120 C 78,119 78,116 76,113 Z" fill="#64B5F6" opacity="0.9" />
+            </G>
+          ) : clampedPercent < 45 ? (
+            /* Level 1: Reaching Bar 1 (15% - 44%) — Sipping / Neutral */
+            <G transform="translate(0, 8)" opacity="0.75">
+              <Circle cx="48" cy="109" r="3" fill="#1C384E" />
+              <Circle cx="72" cy="109" r="3" fill="#1C384E" />
+              <Line x1="55" y1="120" x2="65" y2="120" stroke="#1C384E" strokeWidth="2.5" strokeLinecap="round" />
+            </G>
+          ) : clampedPercent < 75 ? (
+            /* Level 2: Reaching Bar 2 (45% - 74%) — Content Half-Smile */
+            <G transform="translate(0, 9)">
+              <Circle cx="48" cy="108" r="3.2" fill="#1C384E" />
+              <Circle cx="72" cy="108" r="3.2" fill="#1C384E" />
+              <Circle cx="41" cy="114" r="3.5" fill="#FF8BA7" opacity="0.5" />
+              <Circle cx="79" cy="114" r="3.5" fill="#FF8BA7" opacity="0.5" />
+              <Path d="M 53,118 Q 60,126 67,118" stroke="#1C384E" strokeWidth="2.6" strokeLinecap="round" fill="none" />
+            </G>
+          ) : clampedPercent < 100 ? (
+            /* Level 3: Reaching Bar 3 (75% - 99%) — Big Cheerful Grin */
+            <G transform="translate(0, 9)">
+              <Path d="M 44,106 Q 49,99 54,106" stroke="#0D2E49" strokeWidth="3" strokeLinecap="round" fill="none" />
+              <Path d="M 66,106 Q 71,99 76,106" stroke="#0D2E49" strokeWidth="3" strokeLinecap="round" fill="none" />
+              <Circle cx="40" cy="113" r="4.2" fill="#FF8BA7" opacity="0.75" />
+              <Circle cx="80" cy="113" r="4.2" fill="#FF8BA7" opacity="0.75" />
+              <Path d="M 50,115 Q 60,131 70,115 Z" fill="#0D2E49" />
+              <Path d="M 54,122 Q 60,130 66,122 Z" fill="#FF6B8B" />
+            </G>
+          ) : (
+            /* Level 4: Goal Hit (100%+) — Radiant Ecstatic Smile & Golden Stars */
+            <G transform="translate(0, 9)">
+              <Path d="M 43,105 Q 49,97 55,105" stroke="#0D2E49" strokeWidth="3.6" strokeLinecap="round" fill="none" />
+              <Path d="M 65,105 Q 71,97 77,105" stroke="#0D2E49" strokeWidth="3.6" strokeLinecap="round" fill="none" />
+              <Circle cx="39" cy="113" r="4.8" fill="#FF8BA7" opacity="0.9" />
+              <Circle cx="81" cy="113" r="4.8" fill="#FF8BA7" opacity="0.9" />
+              <Path d="M 48,114 Q 60,134 72,114 Z" fill="#0D2E49" />
+              <Path d="M 53,123 Q 60,133 67,123 Z" fill="#FF6B8B" />
+              <Polygon points="35,32 37,37 42,37 38,40 39,45 35,42 31,45 32,40 28,37 33,37" fill="#FFD166" opacity="0.95" />
+              <Polygon points="85,32 87,37 92,37 88,40 89,45 85,42 81,45 82,40 78,37 83,37" fill="#FFD166" opacity="0.95" />
             </G>
           )}
         </G>
