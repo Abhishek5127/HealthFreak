@@ -11,12 +11,11 @@
       padding: 0;
       user-select: none;
       -webkit-user-select: none;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
     }
 
     body {
       min-height: 100vh;
-      /* Ambient desktop background that highlights glassmorphism blur and refraction */
       background: radial-gradient(circle at 35% 30%, #1a3324 0%, #0d1a12 40%, #060b08 100%);
       display: flex;
       align-items: center;
@@ -25,7 +24,7 @@
       position: relative;
     }
 
-    /* Ambient background accent shapes to showcase glassmorphism frosted effect */
+    /* Ambient background glows */
     .bg-orb-1 {
       position: absolute;
       width: 220px;
@@ -49,22 +48,20 @@
     }
 
     /* ==========================================================
-       ULTRA-PREMIUM GLASSMORPHISM WIDGET BOX
+       FROSTED GLASSMORPHISM WIDGET BOX
        ========================================================== */
     .glass-widget-box {
       width: 142px;
       height: 164px;
-      /* Frosted glass backdrop filter with layered translucency */
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(20, 32, 24, 0.55) 40%, rgba(10, 18, 13, 0.75) 100%);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(20, 32, 24, 0.52) 40%, rgba(10, 18, 13, 0.72) 100%);
       backdrop-filter: blur(28px) saturate(190%);
       -webkit-backdrop-filter: blur(28px) saturate(190%);
       border-radius: 26px;
-      /* Specular edge highlight */
-      border: 1px solid rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       box-shadow: 
         0 20px 45px rgba(0, 0, 0, 0.65),
         0 4px 12px rgba(0, 0, 0, 0.35),
-        inset 0 1px 1px rgba(255, 255, 255, 0.3),
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.25),
         inset 0 -1px 1px rgba(0, 0, 0, 0.3);
       display: flex;
       align-items: center;
@@ -79,12 +76,12 @@
       border-color: rgba(122, 230, 158, 0.35);
       box-shadow: 
         0 24px 52px rgba(0, 0, 0, 0.7),
-        0 0 20px rgba(74, 184, 122, 0.15),
-        inset 0 1px 1.5px rgba(255, 255, 255, 0.4);
+        0 0 22px rgba(74, 184, 122, 0.18),
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.35);
     }
 
     .glass-widget-box:active {
-      transform: scale(0.95);
+      transform: scale(0.96);
     }
 
     .glass-widget-box.goal-met {
@@ -92,7 +89,7 @@
       box-shadow: 
         0 22px 50px rgba(0, 0, 0, 0.65),
         0 0 30px rgba(74, 184, 122, 0.3),
-        inset 0 1px 2px rgba(255, 255, 255, 0.5);
+        inset 0 1px 2px rgba(255, 255, 255, 0.45);
     }
 
     /* Bottle Container */
@@ -113,21 +110,21 @@
       filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45));
     }
 
-    /* Squish & Bounce upon clicking */
     .squish {
-      animation: bottleBounce 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+      animation: bottleBounce 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
     @keyframes bottleBounce {
       0% { transform: scale(1, 1); }
-      30% { transform: scale(1.08, 0.88); }
-      60% { transform: scale(0.94, 1.06); }
-      80% { transform: scale(1.02, 0.98); }
+      30% { transform: scale(1.06, 0.9); }
+      60% { transform: scale(0.96, 1.04); }
+      80% { transform: scale(1.01, 0.99); }
       100% { transform: scale(1, 1); }
     }
 
     /* ==========================================================
-       ANIMATED & STYLISH +150ML FLOATING POPUP PILLS
+       SMOOTH & AESTHETIC FLOATING TEXT (+150ml)
+       Pure, clean typography with soft luminous vapor fade
        ========================================================== */
     .popup-container {
       position: absolute;
@@ -139,83 +136,52 @@
       overflow: visible;
     }
 
-    .floating-popup {
+    .floating-text {
       position: absolute;
       top: 48%;
       left: 50%;
       transform: translate(-50%, -50%);
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      background: linear-gradient(135deg, rgba(74, 184, 250, 0.95) 0%, rgba(32, 122, 212, 0.95) 100%);
       color: #FFFFFF;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.3px;
-      padding: 5px 11px;
-      border-radius: 20px;
-      border: 1px solid rgba(255, 255, 255, 0.5);
-      box-shadow: 
-        0 8px 24px rgba(24, 119, 214, 0.5),
-        0 2px 6px rgba(0, 0, 0, 0.3),
-        inset 0 1px 1px rgba(255, 255, 255, 0.6);
+      font-size: 13.5px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+      /* Refined specular luminous glow */
+      text-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.7),
+        0 0 16px rgba(122, 211, 250, 0.65),
+        0 0 4px rgba(255, 255, 255, 0.8);
       pointer-events: none;
-      animation: floatBurst 0.75s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+      white-space: nowrap;
+      animation: smoothFloat 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       z-index: 10;
     }
 
-    .floating-popup .drop-icon {
-      font-size: 12px;
-      line-height: 1;
-    }
-
-    @keyframes floatBurst {
+    @keyframes smoothFloat {
       0% {
         opacity: 0;
-        transform: translate(-50%, -30%) scale(0.65) rotate(var(--rot, 0deg));
+        transform: translate(-50%, -20%) scale(0.88);
+        filter: blur(2px);
       }
-      22% {
+      18% {
         opacity: 1;
-        transform: translate(-50%, -65%) scale(1.08) rotate(var(--rot, 0deg));
+        transform: translate(-50%, -45%) scale(1);
+        filter: blur(0px);
       }
       70% {
-        opacity: 0.9;
-        transform: translate(-50%, -115%) scale(1) rotate(var(--rot, 0deg));
+        opacity: 0.95;
+        transform: translate(-50%, -85%) scale(1);
+        filter: blur(0px);
       }
       100% {
         opacity: 0;
-        transform: translate(-50%, -150%) scale(0.9) rotate(var(--rot, 0deg));
-      }
-    }
-
-    /* Small particle splash droplet */
-    .splash-particle {
-      position: absolute;
-      width: 5px;
-      height: 5px;
-      background: #7AD3FA;
-      border-radius: 50%;
-      box-shadow: 0 0 6px #7AD3FA;
-      pointer-events: none;
-      animation: particleFly 0.55s ease-out forwards;
-      z-index: 9;
-    }
-
-    @keyframes particleFly {
-      0% {
-        opacity: 1;
-        transform: translate(0, 0) scale(1);
-      }
-      100% {
-        opacity: 0;
-        transform: translate(var(--tx), var(--ty)) scale(0.2);
+        transform: translate(-50%, -115%) scale(0.96);
+        filter: blur(1.5px);
       }
     }
   </style>
 </head>
 <body>
 
-  <!-- Ambient background glow elements -->
   <div class="bg-orb-1"></div>
   <div class="bg-orb-2"></div>
 
@@ -226,21 +192,21 @@
   </div>
 
   <script>
-    let waterLoggedMl = 0; // Starts empty so user sees the sad expression!
-    const addAmountMl = 150; // Default 150ml per click (configurable via app)
-    const targetMl = 3000;   // 3000ml goal (20 sips = 100%)
+    let waterLoggedMl = 0; // Starts empty with sad expression
+    const addAmountMl = 150; // Default 150ml per click
+    const targetMl = 3000;   // Target goal
 
     const widgetBox = document.getElementById('widgetBox');
     const bottleContainer = document.getElementById('bottleContainer');
     const popupContainer = document.getElementById('popupContainer');
 
     /**
-     * Generates dynamic SVG with expression evolving at each graduation bar:
-     * 1. Empty (<15%): Sad, droopy dehydrated face with tiny tear droplet
-     * 2. Bar 1 (~15% - 45%): Pouty / focused neutral hydrating face
-     * 3. Bar 2 (~45% - 75%): Gentle, content half-smile with soft blush
-     * 4. Bar 3 (~75% - 99%): Big cheerful grin with rosy cheeks & curved eyes
-     * 5. Full Goal (>= 100%): Radiant ecstatic beaming smile with sparkles!
+     * Generates dynamic bottle SVG with facial expressions evolving at each bar:
+     * - < 15%: Sad / Dehydrated 🥺
+     * - Bar 1 (~15% - 44%): Neutral / Sipping 😐
+     * - Bar 2 (~45% - 74%): Gentle Half-Smile 🙂
+     * - Bar 3 (~75% - 99%): Big Cheerful Grin 😄
+     * - 100%+ Goal Bar: Radiant Ecstatic Smile 🥰✨
      */
     function generateBottleSvg(fillPercentage) {
       const isGoalReached = fillPercentage >= 100;
@@ -270,7 +236,6 @@
         Z
       `;
 
-      // Dynamic Face Expression based on Water Level Bars
       let faceSvg = '';
 
       if (clampedPercent < 15) {
@@ -290,64 +255,54 @@
           </g>
         `;
       } else if (clampedPercent < 45) {
-        // --- LEVEL 1: REACHING BAR 1 (15% - 44%) — Neutral / Relieved sipping ---
+        // --- LEVEL 1: REACHING BAR 1 (15% - 44%) ---
         faceSvg = `
           <g id="faceNeutral" transform="translate(0, 8)" opacity="0.75">
             <circle cx="48" cy="109" r="3" fill="#1C384E" />
             <circle cx="72" cy="109" r="3" fill="#1C384E" />
-            <!-- Flat / attentive sipping mouth -->
             <line x1="55" y1="120" x2="65" y2="120" stroke="#1C384E" stroke-width="2.5" stroke-linecap="round" />
           </g>
         `;
       } else if (clampedPercent < 75) {
-        // --- LEVEL 2: REACHING BAR 2 (45% - 74%) — Pleasant Content Half-Smile ---
+        // --- LEVEL 2: REACHING BAR 2 (45% - 74%) ---
         faceSvg = `
           <g id="faceHalfSmile" transform="translate(0, 9)">
             <circle cx="48" cy="108" r="3.2" fill="#1C384E" />
             <circle cx="72" cy="108" r="3.2" fill="#1C384E" />
-            <!-- Soft blush cheeks -->
             <circle cx="41" cy="114" r="3.5" fill="#FF8BA7" opacity="0.5" />
             <circle cx="79" cy="114" r="3.5" fill="#FF8BA7" opacity="0.5" />
-            <!-- Gentle curved smile -->
             <path d="M 53,118 Q 60,126 67,118" stroke="#1C384E" stroke-width="2.6" stroke-linecap="round" fill="none" />
           </g>
         `;
       } else if (clampedPercent < 100) {
-        // --- LEVEL 3: REACHING BAR 3 (75% - 99%) — Big Cheerful Grin ---
+        // --- LEVEL 3: REACHING BAR 3 (75% - 99%) ---
         faceSvg = `
           <g id="faceBigGrin" transform="translate(0, 9)">
-            <!-- Curved happy eyes ^ ^ -->
             <path d="M 44,106 Q 49,99 54,106" stroke="#0D2E49" stroke-width="3" stroke-linecap="round" fill="none" />
             <path d="M 66,106 Q 71,99 76,106" stroke="#0D2E49" stroke-width="3" stroke-linecap="round" fill="none" />
-            <!-- Rosy pink blush cheeks -->
             <circle cx="40" cy="113" r="4.2" fill="#FF8BA7" opacity="0.75" />
             <circle cx="80" cy="113" r="4.2" fill="#FF8BA7" opacity="0.75" />
-            <!-- Big open cheerful smile -->
             <path d="M 50,115 Q 60,131 70,115 Z" fill="#0D2E49" />
             <path d="M 54,122 Q 60,130 66,122 Z" fill="#FF6B8B" />
           </g>
         `;
       } else {
-        // --- LEVEL 4: GOAL ACHIEVED (100%+) — Radiant Ecstatic Beaming Smile ---
+        // --- LEVEL 4: GOAL ACHIEVED (100%+) ---
         faceSvg = `
           <g id="faceEcstatic" transform="translate(0, 9)">
-            <!-- Joyful curved arc eyes ^ ^ -->
             <path d="M 43,105 Q 49,97 55,105" stroke="#0D2E49" stroke-width="3.6" stroke-linecap="round" fill="none" />
             <path d="M 65,105 Q 71,97 77,105" stroke="#0D2E49" stroke-width="3.6" stroke-linecap="round" fill="none" />
-            <!-- Radiant rosy blush cheeks -->
             <circle cx="39" cy="113" r="4.8" fill="#FF8BA7" opacity="0.9" />
             <circle cx="81" cy="113" r="4.8" fill="#FF8BA7" opacity="0.9" />
-            <!-- Wide beaming smile with tongue -->
             <path d="M 48,114 Q 60,134 72,114 Z" fill="#0D2E49" />
             <path d="M 53,123 Q 60,133 67,123 Z" fill="#FF6B8B" />
-            <!-- Celebration golden stars around the cap -->
             <polygon points="35,32 37,37 42,37 38,40 39,45 35,42 31,45 32,40 28,37 33,37" fill="#FFD166" opacity="0.95" />
             <polygon points="85,32 87,37 92,37 88,40 89,45 85,42 81,45 82,40 78,37 83,37" fill="#FFD166" opacity="0.95" />
           </g>
         `;
       }
 
-      // Fluid wave at the liquid surface
+      // Dynamic surface wave
       const wave = clampedPercent > 0 && clampedPercent < 100
         ? `
           <path d="
@@ -415,37 +370,18 @@
     }
 
     /**
-     * Spawns an animated, stylish +150ml floating popup pill with slight dynamic angle
+     * Spawns a smooth, aesthetic floating text element (no clunky pill box, no emojis).
+     * Floats upward smoothly with cubic-bezier easing and graceful vapor fade.
      */
-    function spawnPopup(amount) {
-      const popup = document.createElement('div');
-      popup.className = 'floating-popup';
-      
-      // Random subtle rotation between -7deg and +7deg for dynamic playfulness
-      const randomAngle = (Math.random() * 14 - 7).toFixed(1);
-      popup.style.setProperty('--rot', `${randomAngle}deg`);
+    function spawnAestheticText(amount) {
+      const textElem = document.createElement('div');
+      textElem.className = 'floating-text';
+      textElem.textContent = `+${amount}ml`;
+      popupContainer.appendChild(textElem);
 
-      popup.innerHTML = `<span class="drop-icon">💧</span><span>+${amount}ml</span>`;
-      popupContainer.appendChild(popup);
-
-      // Spawn a couple of miniature water sparkle droplets
-      for (let i = 0; i < 4; i++) {
-        const drop = document.createElement('div');
-        drop.className = 'splash-particle';
-        drop.style.left = `${45 + Math.random() * 10}%`;
-        drop.style.top = `38%`;
-        const tx = (Math.random() * 50 - 25).toFixed(0) + 'px';
-        const ty = (-20 - Math.random() * 35).toFixed(0) + 'px';
-        drop.style.setProperty('--tx', tx);
-        drop.style.setProperty('--ty', ty);
-        popupContainer.appendChild(drop);
-        setTimeout(() => drop.remove(), 600);
-      }
-
-      // Self-destruct after animation completes
       setTimeout(() => {
-        popup.remove();
-      }, 750);
+        textElem.remove();
+      }, 700);
     }
 
     function triggerSquish() {
@@ -457,11 +393,11 @@
       }
     }
 
-    // Left-Click: Add 150ml, squish bottle, spawn stylish popup, update expression
+    // Left-Click: Add 150ml, squish bottle, float aesthetic text, update expression
     widgetBox.addEventListener('click', () => {
       waterLoggedMl += addAmountMl;
       triggerSquish();
-      spawnPopup(addAmountMl);
+      spawnAestheticText(addAmountMl);
       render();
     });
 
@@ -473,7 +409,7 @@
       render();
     });
 
-    // Initial render: starts empty with the sad expression!
+    // Initial render
     render();
   </script>
 </body>
