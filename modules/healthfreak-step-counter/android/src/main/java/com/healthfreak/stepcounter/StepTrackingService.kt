@@ -153,3 +153,4 @@ class StepTrackingService : Service(), SensorEventListener {
       .build()
   }
 }
+

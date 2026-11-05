@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HealthFreak - Native Water Bottle Widget Preview</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at 50% 20%, #152219 0%, #0a0e0b 100%);
+      color: #E2ECE5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .preview-header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .preview-header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #FFFFFF;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .preview-header p {
+      font-size: 13px;
+      color: #8BA192;
+    }
+
+    /* --- Android Device Shell Simulation --- */
+    .device-stage {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 32px;
+    }
+
+    .home-screen-card {
+      width: 360px;
+      height: 260px;
+      background: linear-gradient(145deg, #18261e 0%, #0d1510 100%);
+      border-radius: 36px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Ambient glow */
+    .home-screen-card::before {
+      content: '';
+      position: absolute;
+      top: -30%;
+      left: 10%;
+      width: 80%;
+      height: 80%;
+      background: radial-gradient(circle, rgba(74, 184, 122, 0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .widget-tag {
+      position: absolute;
+      top: 12px;
+      left: 20px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #6C8273;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    /* ========================================================
+       EXACT ANDROID HOME SCREEN WIDGET (3x2 Cells)
+       Exact dimensions & styling from WaterBottleWidget.tsx
+       ======================================================== */
+    .android-widget {
+      width: 310px;
+      height: 155px;
+      background-color: #121915;
+      border-radius: 22px;
+      border: 2px solid #2A3C30;
+      padding: 12px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      transition: border-color 0.4s ease, box-shadow 0.4s ease;
+      user-select: none;
+      position: relative;
+      z-index: 2;
+    }
+
+    .android-widget.goal-reached {
+      border-color: #386644;
+      box-shadow: 0 8px 28px rgba(74, 184, 122, 0.22);
+    }
+
+    /* Left Section: Bottle Vector */
+    .widget-left {
+      width: 75px;
+      height: 125px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 12px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .widget-left svg {
+      width: 75px;
+      height: 125px;
+      display: block;
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .widget-left:hover svg {
+      transform: scale(1.04);
+    }
+
+    /* Right Section: Metrics & Action */
+    .widget-right {
+      flex: 1;
+      height: 125px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .widget-header-row {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .widget-title {
+      color: #8BA192;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+    }
+
+    .progress-badge {
+      background-color: #1C313E;
+      padding: 2px 8px;
+      border-radius: 8px;
+      border: 1px solid #2B4A5C;
+      font-size: 11px;
+      font-weight: 700;
+      color: #7AD3FA;
+      transition: all 0.3s ease;
+    }
+
+    .progress-badge.goal-reached {
+      background-color: #1B3D26;
+      border-color: #347248;
+      color: #7AE69E;
+    }
+
+    .metric-block {
+      display: flex;
+      flex-direction: column;
+      margin: 2px 0;
+    }
+
+    .metric-volume {
+      color: #FFFFFF;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+
+    .metric-subtext {
+      color: #7EA089;
+      font-size: 10px;
+      margin-top: 1px;
+      transition: color 0.3s ease;
+    }
+
+    .metric-subtext.goal-reached {
+      color: #7AE69E;
+      font-weight: 600;
+    }
+
+    /* One-tap +100ml button */
+    .widget-button {
+      background-color: #2677B4;
+      border-radius: 12px;
+      padding: 7px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFFFFF;
+      font-size: 12px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      outline: none;
+      transition: transform 0.12s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 4px 12px rgba(38, 119, 180, 0.35);
+    }
+
+    .widget-button:hover {
+      background-color: #3188cc;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(38, 119, 180, 0.45);
+    }
+
+    .widget-button:active {
+      transform: scale(0.96);
+      background-color: #1f6499;
+    }
+
+    /* --- Interactive Simulator Controls --- */
+    .controls-card {
+      width: 360px;
+      background: #141B16;
+      border: 1px solid #233027;
+      border-radius: 20px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .controls-header {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #8BA192;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #6C8273;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: #233027;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #4AB87A;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(74, 184, 122, 0.5);
+    }
+
+    .presets-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .preset-btn {
+      background: #1E2922;
+      border: 1px solid #2F4035;
+      color: #B2C4B7;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 8px 4px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: center;
+    }
+
+    .preset-btn:hover {
+      background: #28372D;
+      border-color: #4AB87A;
+      color: #FFFFFF;
+    }
+
+    .preset-btn.highlight {
+      background: #1E3B27;
+      border-color: #4AB87A;
+      color: #7AE69E;
+    }
+
+    .action-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .secondary-btn {
+      flex: 1;
+      background: transparent;
+      border: 1px solid #334438;
+      color: #8EA393;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 8px 0;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .secondary-btn:hover {
+      border-color: #556B5C;
+      color: #FFFFFF;
+    }
+
+    .splash-toast {
+      position: absolute;
+      bottom: 24px;
+      background: rgba(38, 119, 180, 0.95);
+      color: #FFFFFF;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 20px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .splash-toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="preview-header">
+    <h1>💧 HealthFreak Native Widget Preview</h1>
+    <p>Exact 1:1 scale simulation of the Android Home Screen Water Bottle Widget (3x2 Cells)</p>
+  </div>
+
+  <!-- Android Stage / Preview Area -->
+  <div class="device-stage">
+    <div class="home-screen-card">
+      <div class="widget-tag">Android Home Screen (3x2 Cells)</div>
+
+      <!-- THE NATIVE WIDGET COMPONENT -->
+      <div id="widgetContainer" class="android-widget">
+        <!-- Left Column: Bottle SVG Graphic -->
+        <div id="bottleContainer" class="widget-left" title="Tap to Open HealthFreak App">
+          <!-- Rendered dynamically by JavaScript -->
+        </div>
+
+        <!-- Right Column: Hydration Stats & Quick Action -->
+        <div class="widget-right">
+          <div class="widget-header-row">
+            <span class="widget-title">WATER INTAKE</span>
+            <div id="progressBadge" class="progress-badge">0%</div>
+          </div>
+
+          <div class="metric-block">
+            <span id="volumeDisplay" class="metric-volume">0.0L / 3.2L</span>
+            <span id="subtextDisplay" class="metric-subtext">3200 ml left today</span>
+          </div>
+
+          <button id="addWaterBtn" class="widget-button" type="button">
+            +100 ml 💧
+          </button>
+        </div>
+      </div>
+
+      <div id="toast" class="splash-toast">+100 ml logged! 💧</div>
+    </div>
+  </div>
+
+  <!-- Interactive Controls & Simulator Panel -->
+  <div class="controls-card">
+    <div class="controls-header">
+      <span>Interactive Simulator</span>
+      <span id="currentMlLabel" style="color: #7AD3FA; font-weight: bold;">0 ml</span>
+    </div>
+
+    <!-- Hydration Range Slider -->
+    <div class="slider-row">
+      <div class="slider-labels">
+        <span>0 ml (Empty)</span>
+        <span>Goal: 3,200 ml</span>
+        <span>4,000 ml</span>
+      </div>
+      <input type="range" id="volumeSlider" min="0" max="4000" step="50" value="0">
+    </div>
+
+    <!-- Quick Presets -->
+    <div class="presets-grid">
+      <button class="preset-btn" onclick="setVolume(0)">0% (Empty)</button>
+      <button class="preset-btn" onclick="setVolume(800)">25% (800ml)</button>
+      <button class="preset-btn" onclick="setVolume(1600)">50% (1.6L)</button>
+      <button class="preset-btn" onclick="setVolume(2400)">75% (2.4L)</button>
+      <button class="preset-btn highlight" onclick="setVolume(3200)">100% Goal 😊</button>
+      <button class="preset-btn" onclick="setVolume(3600)">112% Extra</button>
+    </div>
+
+    <div class="action-row">
+      <button class="secondary-btn" onclick="resetVolume()">Reset to 0 ml</button>
+      <button class="secondary-btn" onclick="addWater(250)">+250 ml Glass</button>
+    </div>
+  </div>
+
+  <script>
+    // State matching WaterBottleWidgetProps
+    let currentMl = 1400; // start with a nice realistic water level
+    const targetMl = 3200;
+
+    const widgetContainer = document.getElementById('widgetContainer');
+    const bottleContainer = document.getElementById('bottleContainer');
+    const progressBadge = document.getElementById('progressBadge');
+    const volumeDisplay = document.getElementById('volumeDisplay');
+    const subtextDisplay = document.getElementById('subtextDisplay');
+    const addWaterBtn = document.getElementById('addWaterBtn');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const currentMlLabel = document.getElementById('currentMlLabel');
+    const toast = document.getElementById('toast');
+
+    /**
+     * Exact JavaScript port of generateWaterBottleSvg from src/widgets/waterBottleSvg.ts
+     */
+    function generateWaterBottleSvg(fillPercentage, width = 75, height = 125) {
+      const isGoalReached = fillPercentage >= 100;
+      const clampedPercent = Math.min(Math.max(fillPercentage, 0), 100);
+
+      // Geometry for viewBox 0 0 120 200
+      const bottleTopY = 38;
+      const bottleBottomY = 188;
+      const bottleHeight = bottleBottomY - bottleTopY; // 150
+      const liquidHeight = (clampedPercent / 100) * bottleHeight;
+      const liquidTopY = bottleBottomY - liquidHeight;
+
+      const bottleInnerPath = `
+        M 44,38
+        L 76,38
+        C 80,38 84,42 85,47
+        L 94,65
+        C 98,72 98,78 98,85
+        L 98,176
+        C 98,184 91,188 83,188
+        L 37,188
+        C 29,188 22,184 22,176
+        L 22,85
+        C 22,78 22,72 26,65
+        L 35,47
+        C 36,42 40,38 44,38
+        Z
+      `;
+
+      // Big joyful smiling face upon hitting 100% daily goal!
+      const smileFaceElements = isGoalReached
+        ? `
+          <g transform="translate(0, 10)">
+            <!-- Joyful curved arc eyes ^ ^ -->
+            <path d="M 43,105 Q 49,97 55,105" stroke="#0D2E49" stroke-width="3.5" stroke-linecap="round" fill="none" />
+            <path d="M 65,105 Q 71,97 77,105" stroke="#0D2E49" stroke-width="3.5" stroke-linecap="round" fill="none" />
+            <!-- Rosy Cheeks -->
+            <circle cx="39" cy="113" r="4.5" fill="#FF8BA7" opacity="0.85" />
+            <circle cx="81" cy="113" r="4.5" fill="#FF8BA7" opacity="0.85" />
+            <!-- Big Smiling Mouth -->
+            <path d="M 48,114 Q 60,134 72,114 Z" fill="#0D2E49" />
+            <path d="M 53,123 Q 60,133 67,123 Z" fill="#FF6B8B" />
+          </g>
+        `
+        : `
+          <!-- Focused/Determined Neutral Expression before goal -->
+          <g transform="translate(0, 8)" opacity="${clampedPercent > 30 ? '0.75' : '0.4'}">
+            <circle cx="48" cy="108" r="3" fill="#1C384E" />
+            <circle cx="72" cy="108" r="3" fill="#1C384E" />
+            <path d="M 54,118 Q 60,123 66,118" stroke="#1C384E" stroke-width="2.5" stroke-linecap="round" fill="none" />
+          </g>
+        `;
+
+      const wavePath =
+        clampedPercent > 0 && clampedPercent < 100
+          ? `
+            <path d="
+              M 15,${liquidTopY + 2}
+              Q 35,${liquidTopY - 4} 60,${liquidTopY}
+              Q 85,${liquidTopY + 4} 105,${liquidTopY - 1}
+              L 105,${liquidTopY + 12}
+              L 15,${liquidTopY + 12}
+              Z
+            " fill="#98E1FD" opacity="0.85" />
+          `
+          : '';
+
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 120 200">
+        <defs>
+          <linearGradient id="waterGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#7AD3FA" stop-opacity="0.95" />
+            <stop offset="35%" stop-color="#4FA3E2" stop-opacity="0.95" />
+            <stop offset="100%" stop-color="#256EB3" stop-opacity="1" />
+          </linearGradient>
+          <clipPath id="bottleClip">
+            <path d="${bottleInnerPath}" />
+          </clipPath>
+        </defs>
+
+        <!-- Bottle Empty Background -->
+        <path d="${bottleInnerPath}" fill="#142018" stroke="#2D4233" stroke-width="3.5" />
+
+        <!-- Liquid Fill Clipped Inside Bottle -->
+        <g clip-path="url(#bottleClip)">
+          <rect x="10" y="${liquidTopY}" width="100" height="${liquidHeight + 25}" fill="url(#waterGrad)" />
+          ${wavePath}
+          ${smileFaceElements}
+        </g>
+
+        <!-- Cap Collar & Outer Thread -->
+        <rect x="42" y="27" width="36" height="11" rx="3" fill="#3D4B40" stroke="#546558" stroke-width="1.5" />
+        <rect x="47" y="15" width="26" height="12" rx="4" fill="#2B362E" stroke="#546558" stroke-width="1.5" />
+        <!-- Cap Loop Handle -->
+        <path d="M 54,15 C 54,8 66,8 66,15" stroke="#546558" stroke-width="3" fill="none" stroke-linecap="round" />
+
+        <!-- Measurement Graduation Ticks -->
+        <line x1="26" y1="140" x2="35" y2="140" stroke="#FFFFFF" stroke-width="1.5" opacity="0.4" />
+        <line x1="26" y1="100" x2="38" y2="100" stroke="#FFFFFF" stroke-width="2" opacity="0.5" />
+        <line x1="26" y1="65" x2="35" y2="65" stroke="#FFFFFF" stroke-width="1.5" opacity="0.4" />
+      </svg>`;
+    }
+
+    function renderWidget() {
+      const percentage = Math.round((currentMl / targetMl) * 100);
+      const isGoalReached = currentMl >= targetMl;
+      const remainingMl = Math.max(0, targetMl - currentMl);
+
+      const loggedLiters = (currentMl / 1000).toFixed(1);
+      const targetLiters = (targetMl / 1000).toFixed(1);
+
+      // 1. Render Bottle SVG
+      bottleContainer.innerHTML = generateWaterBottleSvg(percentage, 75, 125);
+
+      // 2. Update Progress Badge
+      if (isGoalReached) {
+        progressBadge.textContent = '100% 😊';
+        progressBadge.classList.add('goal-reached');
+        widgetContainer.classList.add('goal-reached');
+      } else {
+        progressBadge.textContent = `${percentage}%`;
+        progressBadge.classList.remove('goal-reached');
+        widgetContainer.classList.remove('goal-reached');
+      }
+
+      // 3. Update Volume Text
+      volumeDisplay.textContent = `${loggedLiters}L / ${targetLiters}L`;
+
+      // 4. Update Subtext
+      if (isGoalReached) {
+        subtextDisplay.textContent = 'Goal Reached! 💧';
+        subtextDisplay.classList.add('goal-reached');
+      } else {
+        subtextDisplay.textContent = `${remainingMl} ml left today`;
+        subtextDisplay.classList.remove('goal-reached');
+      }
+
+      // Sync slider & label
+      volumeSlider.value = currentMl;
+      currentMlLabel.textContent = `${currentMl} ml (${percentage}%)`;
+    }
+
+    function showToast(text) {
+      toast.textContent = text;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 1200);
+    }
+
+    function addWater(amount) {
+      currentMl += amount;
+      renderWidget();
+      showToast(`+${amount} ml logged! 💧`);
+    }
+
+    function setVolume(amount) {
+      currentMl = amount;
+      renderWidget();
+    }
+
+    function resetVolume() {
+      currentMl = 0;
+      renderWidget();
+      showToast('Reset to 0 ml');
+    }
+
+    // Events
+    addWaterBtn.addEventListener('click', () => {
+      addWater(100);
+    });
+
+    bottleContainer.addEventListener('click', () => {
+      showToast('📱 Action: Open HealthFreak App');
+    });
+
+    volumeSlider.addEventListener('input', (e) => {
+      currentMl = parseInt(e.target.value, 10);
+      renderWidget();
+    });
+
+    // Initial render
+    renderWidget();
+  </script>
+</body>
+</html>
