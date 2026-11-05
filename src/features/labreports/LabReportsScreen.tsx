@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -20,6 +19,7 @@ import { useApp } from '../../state/AppContext';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
+import { HealthFreakLogo } from '../../components/common/HealthFreakLogo';
 import { mockRecentLabReport } from '../../mock-data/labReports';
 
 export const LabReportsScreen: React.FC = () => {
@@ -135,7 +135,7 @@ export const LabReportsScreen: React.FC = () => {
         {/* Simulated Processing Banner */}
         {isProcessing && (
           <View style={styles.processingCard}>
-            <ActivityIndicator size="small" color={Colors.coralCTA} />
+            <HealthFreakLogo size={22} animated />
             <Text style={styles.processingText}>{processingStep}</Text>
           </View>
         )}

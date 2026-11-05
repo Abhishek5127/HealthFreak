@@ -12,7 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
-import { DishaLogoEmblem } from '../../components/illustrations/DishaLogo';
+import { HealthFreakLogo } from '../../components/common/HealthFreakLogo';
 import { voiceClient, VoiceSessionState } from '../../services/voiceClient';
 import { useApp } from '../../state/AppContext';
 
@@ -200,7 +200,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
         <Animated.View pointerEvents="none" style={[styles.waveCircle, styles.waveOuter, animatedWave2]} />
         <Animated.View pointerEvents="none" style={[styles.waveCircle, styles.waveMiddle, animatedWave1]} />
         <View style={styles.coreCircle}>
-          <DishaLogoEmblem size={64} />
+          <HealthFreakLogo size={68} animated={true} />
           {sessionState.status === 'speaking' && (
             <View style={styles.speakingIndicator}>
               <Volume2 size={16} color={Colors.coralCTA} />

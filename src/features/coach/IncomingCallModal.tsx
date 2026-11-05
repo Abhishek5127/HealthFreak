@@ -13,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
-import { DishaLogoEmblem } from '../../components/illustrations/DishaLogo';
+import { HealthFreakLogo } from '../../components/common/HealthFreakLogo';
 import { ScheduledAICall, AICallService } from '../../services/aiCallService';
 
 interface IncomingCallModalProps {
@@ -123,7 +123,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
         <Animated.View style={[styles.ring, styles.ringOuter, animatedRing2]} />
         <Animated.View style={[styles.ring, styles.ringInner, animatedRing1]} />
         <Animated.View style={[styles.avatarCircle, animatedPulse]}>
-          <DishaLogoEmblem size={68} />
+          <HealthFreakLogo size={68} animated={true} />
         </Animated.View>
 
         <View style={styles.aiTag}>

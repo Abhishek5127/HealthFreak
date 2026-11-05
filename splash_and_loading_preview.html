@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HealthFreak - Official Logo, Splash & Loading Screen Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #030604;
+      color: #E8EFE9;
+      font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 8px;
+    }
+
+    h1 span {
+      color: #4AB87A;
+    }
+
+    p.subtitle {
+      font-size: 13px;
+      color: #8E9F92;
+      max-width: 480px;
+      line-height: 1.5;
+    }
+
+    /* Tabs Bar */
+    .tabs-bar {
+      display: flex;
+      gap: 8px;
+      background: #0D140F;
+      padding: 6px;
+      border-radius: 14px;
+      border: 1px solid rgba(74, 184, 122, 0.2);
+      margin-bottom: 28px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: #8E9F92;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      font-family: inherit;
+    }
+
+    .tab-btn:hover {
+      color: #FFFFFF;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .tab-btn.active {
+      background: #17241B;
+      color: #4AB87A;
+      box-shadow: 0 0 12px rgba(74, 184, 122, 0.25);
+    }
+
+    /* Phone Shell Simulator */
+    .preview-viewport {
+      width: 375px;
+      height: 680px;
+      background: #050906;
+      border-radius: 44px;
+      border: 3.5px solid #1C271F;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 40px rgba(74, 184, 122, 0.12);
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Phone Dynamic Island / Notch */
+    .phone-notch {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 105px;
+      height: 24px;
+      background: #000000;
+      border-radius: 14px;
+      z-index: 1000;
+    }
+
+    /* Tab 1: Splash Screen View */
+    .view-panel {
+      display: none;
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    .view-panel.active {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Splash Screen Animation Elements */
+    .splash-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      background: #050906;
+    }
+
+    .halo-glow {
+      position: absolute;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(74, 184, 122, 0.28) 0%, rgba(74, 184, 122, 0.05) 55%, transparent 75%);
+      animation: pulseHalo 3.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes pulseHalo {
+      0%, 100% { transform: scale(0.95); opacity: 0.7; }
+      50% { transform: scale(1.3); opacity: 1; }
+    }
+
+    .logo-gif-box {
+      width: 170px;
+      height: 170px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      margin-bottom: 20px;
+      animation: logoEntrance 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .logo-gif-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    @keyframes logoEntrance {
+      0% { transform: scale(0.65); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .wordmark-box {
+      display: flex;
+      align-items: baseline;
+      animation: wordmarkRise 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both;
+    }
+
+    .wordmark-health {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-size: 38px;
+      color: #FFFFFF;
+      letter-spacing: -0.5px;
+    }
+
+    .wordmark-freak {
+      font-size: 38px;
+      font-weight: 800;
+      color: #4AB87A;
+      letter-spacing: -0.5px;
+      margin-left: 8px;
+      text-shadow: 0 2px 14px rgba(74, 184, 122, 0.55);
+    }
+
+    @keyframes wordmarkRise {
+      0% { transform: translateY(28px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+
+    .accent-beam {
+      width: 140px;
+      height: 2px;
+      background: #4AB87A;
+      border-radius: 1px;
+      margin: 14px 0;
+      box-shadow: 0 0 10px #4AB87A;
+      animation: beamExpand 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.65s both;
+    }
+
+    @keyframes beamExpand {
+      0% { width: 0; opacity: 0; }
+      100% { width: 140px; opacity: 1; }
+    }
+
+    .tagline-box {
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 3px;
+      color: #8E9F92;
+      text-transform: uppercase;
+      animation: taglineFade 0.8s ease 0.85s both;
+    }
+
+    @keyframes taglineFade {
+      0% { opacity: 0; transform: translateY(8px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Tab 2: Loading Screen */
+    .loading-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(5, 9, 6, 0.94);
+      position: relative;
+      padding: 32px;
+      text-align: center;
+    }
+
+    .loading-logo-box {
+      width: 120px;
+      height: 120px;
+      position: relative;
+      margin-bottom: 24px;
+    }
+
+    .loading-logo-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .loading-halo {
+      position: absolute;
+      top: -15%;
+      left: -15%;
+      width: 130%;
+      height: 130%;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(74, 184, 122, 0.4) 0%, transparent 70%);
+      animation: pulseHalo 2.4s ease-in-out infinite;
+      z-index: -1;
+    }
+
+    .loading-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 8px;
+      animation: pulseText 2s ease-in-out infinite;
+    }
+
+    @keyframes pulseText {
+      0%, 100% { opacity: 0.65; }
+      50% { opacity: 1; }
+    }
+
+    .loading-subtitle {
+      font-size: 12px;
+      color: #8E9F92;
+      max-width: 250px;
+      line-height: 1.5;
+    }
+
+    .loading-chips {
+      margin-top: 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      max-width: 260px;
+    }
+
+    .loading-chip-btn {
+      background: #101812;
+      border: 1px solid #1D2B20;
+      color: #9EAEA0;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .loading-chip-btn:hover {
+      border-color: #4AB87A;
+      color: #4AB87A;
+      background: #142017;
+    }
+
+    /* Tab 3: App Icon Showcase */
+    .icon-showcase {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: #090E0B;
+    }
+
+    .icon-tile-box {
+      width: 112px;
+      height: 112px;
+      border-radius: 26px;
+      background: #000000;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7), 0 0 24px rgba(74, 184, 122, 0.2);
+      border: 1px solid #233126;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .icon-tile-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .icon-meta-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 4px;
+    }
+
+    .icon-meta-desc {
+      font-size: 11px;
+      color: #8E9F92;
+      text-align: center;
+      max-width: 240px;
+      line-height: 1.4;
+      margin-bottom: 24px;
+    }
+
+    .mockup-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 18px;
+      border-radius: 22px;
+      width: 100%;
+    }
+
+    .mockup-app {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mockup-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: #162019;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .mockup-app.active .mockup-icon {
+      background: #000000;
+      border: 1px solid #4AB87A;
+      box-shadow: 0 0 10px rgba(74, 184, 122, 0.4);
+      overflow: hidden;
+    }
+
+    .mockup-app.active .mockup-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .mockup-label {
+      font-size: 10px;
+      color: #7E8E81;
+      font-weight: 500;
+    }
+
+    .mockup-app.active .mockup-label {
+      color: #4AB87A;
+      font-weight: 700;
+    }
+
+    /* Controls Below Viewport */
+    .controls-row {
+      margin-top: 20px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .replay-btn {
+      background: #17241B;
+      border: 1px solid #4AB87A;
+      color: #4AB87A;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 10px 22px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .replay-btn:hover {
+      background: #4AB87A;
+      color: #050906;
+      box-shadow: 0 0 16px rgba(74, 184, 122, 0.4);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Health<span>Freak</span> Brand Showcase</h1>
+    <p class="subtitle">Official transparent animated GIF logo, startup splash screen with animated typography, and dynamic data fetching screen.</p>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <div class="tabs-bar">
+    <button class="tab-btn active" onclick="switchTab('splash')">🚀 Splash Screen</button>
+    <button class="tab-btn" onclick="switchTab('loading')">⏳ Fetching & Loading</button>
+    <button class="tab-btn" onclick="switchTab('icon')">📱 App Icon</button>
+  </div>
+
+  <!-- Mobile Simulator Viewport -->
+  <div class="preview-viewport">
+    <div class="phone-notch"></div>
+
+    <!-- TAB 1: SPLASH SCREEN -->
+    <div id="panel-splash" class="view-panel active">
+      <div class="splash-container" id="splash-target">
+        <div class="halo-glow"></div>
+        <div class="logo-gif-box">
+          <img src="./assets/logo/HealthFreakLogoTranasparent.gif" alt="HealthFreak Animated Logo">
+        </div>
+        <div class="wordmark-box">
+          <span class="wordmark-health">Health</span>
+          <span class="wordmark-freak">Freak</span>
+        </div>
+        <div class="accent-beam"></div>
+        <div class="tagline-box">Personalized Wellness & Vitality</div>
+      </div>
+    </div>
+
+    <!-- TAB 2: LOADING SCREEN -->
+    <div id="panel-loading" class="view-panel">
+      <div class="loading-container">
+        <div class="loading-logo-box">
+          <div class="loading-halo"></div>
+          <img src="./assets/logo/HealthFreakLogoTranasparent.gif" alt="HealthFreak Loading Logo">
+        </div>
+        <div class="loading-title" id="loading-title-text">Analyzing Meal Nutrients...</div>
+        <div class="loading-subtitle" id="loading-subtitle-text">Gemini Multimodal Vision is identifying ingredients and macros</div>
+
+        <div class="loading-chips">
+          <button class="loading-chip-btn" onclick="setLoadingState('Analyzing Meal Nutrients...', 'Gemini Multimodal Vision is identifying ingredients and macros')">🍱 Meal Scanner</button>
+          <button class="loading-chip-btn" onclick="setLoadingState('Connecting to Coach Alex...', 'Negotiating LiveKit WebRTC audio pipeline')">🎙️ AI Voice Call</button>
+          <button class="loading-chip-btn" onclick="setLoadingState('Parsing Diagnostic Panel...', 'Cross-referencing biomarkers with reference ranges')">🩸 Lab Report</button>
+          <button class="loading-chip-btn" onclick="setLoadingState('Syncing Wellness Memory...', 'Updating 30-day adaptive metabolic plan')">⚡ Health Memory</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: APP ICON -->
+    <div id="panel-icon" class="view-panel">
+      <div class="icon-showcase">
+        <div class="icon-tile-box">
+          <img src="./assets/logo/HealthFreakLogoBlackbg.png" alt="HealthFreak Black Background App Icon">
+        </div>
+        <div class="icon-meta-name">HealthFreak</div>
+        <div class="icon-meta-desc">Official Black Background Adaptive App Icon for Android & iOS Home Screen</div>
+
+        <div class="mockup-grid">
+          <div class="mockup-app active">
+            <div class="mockup-icon">
+              <img src="./assets/logo/HealthFreakLogoBlackbg.png" alt="HealthFreak">
+            </div>
+            <div class="mockup-label">HealthFreak</div>
+          </div>
+          <div class="mockup-app">
+            <div class="mockup-icon">📷</div>
+            <div class="mockup-label">Camera</div>
+          </div>
+          <div class="mockup-app">
+            <div class="mockup-icon">💬</div>
+            <div class="mockup-label">Messages</div>
+          </div>
+          <div class="mockup-app">
+            <div class="mockup-icon">⚙️</div>
+            <div class="mockup-label">Settings</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Replay Button for Splash -->
+  <div class="controls-row">
+    <button class="replay-btn" onclick="replaySplash()">
+      <span>🔄</span> Replay Splash Entrance
+    </button>
+  </div>
+
+  <script>
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
+
+      if (tabId === 'splash') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('panel-splash').classList.add('active');
+      } else if (tabId === 'loading') {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('panel-loading').classList.add('active');
+      } else if (tabId === 'icon') {
+        document.querySelectorAll('.tab-btn')[2].classList.add('active');
+        document.getElementById('panel-icon').classList.add('active');
+      }
+    }
+
+    function replaySplash() {
+      switchTab('splash');
+      const target = document.getElementById('splash-target');
+      const clone = target.cloneNode(true);
+      target.parentNode.replaceChild(clone, target);
+    }
+
+    function setLoadingState(title, subtitle) {
+      document.getElementById('loading-title-text').innerText = title;
+      document.getElementById('loading-subtitle-text').innerText = subtitle;
+    }
+  </script>
+</body>
+</html>

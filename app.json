@@ -5,8 +5,13 @@
     "scheme": "healthfreak",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "icon": "./assets/logo/HealthFreakLogoBlackbg.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/logo/HealthFreakLogoBlackbg.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
     "ios": {
       "bundleIdentifier": "com.healthfreak.app",
       "supportsTablet": true,
@@ -18,10 +23,10 @@
     "android": {
       "package": "com.healthfreak.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#000000",
+        "foregroundImage": "./assets/logo/HealthFreakLogoBlackbg.png",
+        "backgroundImage": "./assets/logo/HealthFreakLogoBlackbg.png",
+        "monochromeImage": "./assets/logo/HealthFreakLogoBlackbg.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [

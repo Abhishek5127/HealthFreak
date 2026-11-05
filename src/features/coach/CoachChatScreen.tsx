@@ -22,7 +22,7 @@ import { useApp } from '../../state/AppContext';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
-import { DishaLogoEmblem } from '../../components/illustrations/DishaLogo';
+import { HealthFreakLogo } from '../../components/common/HealthFreakLogo';
 import { VoiceOverlay } from './VoiceOverlay';
 import { voiceClient } from '../../services/voiceClient';
 
@@ -78,7 +78,7 @@ export const CoachChatScreen: React.FC = () => {
       <View style={[styles.headerRow, { paddingTop: Math.max(insets.top, 14) }]}>
         <View style={styles.coachHeaderProfile}>
           <View style={styles.coachAvatar}>
-            <DishaLogoEmblem size={24} />
+            <HealthFreakLogo size={28} animated={true} />
           </View>
           <View>
             <View style={styles.coachNameRow}>

@@ -38,6 +38,7 @@ import { NutritionResultScreen } from './src/features/scanner/NutritionResultScr
 import { ScheduleCallModal } from './src/features/coach/ScheduleCallModal';
 import { IncomingCallModal } from './src/features/coach/IncomingCallModal';
 import { LiveKitVoiceCallScreen } from './src/features/coach/LiveKitVoiceCallScreen';
+import { LoadingOverlay } from './src/components/common/LoadingScreen';
 
 const MainAppContent: React.FC = () => {
   const {
@@ -51,6 +52,7 @@ const MainAppContent: React.FC = () => {
     acceptIncomingCall,
     declineIncomingCall,
     endActiveLiveKitCall,
+    globalLoading,
   } = useApp();
 
   const renderActiveScreen = () => {
@@ -175,6 +177,13 @@ const MainAppContent: React.FC = () => {
           <ActivityScreen />
         </View>
       )}
+
+      {/* Global HealthFreak Fetching / Loading Screen */}
+      <LoadingOverlay
+        visible={globalLoading.visible}
+        message={globalLoading.message}
+        submessage={globalLoading.submessage}
+      />
     </View>
   );
 };
@@ -217,6 +226,10 @@ export default function App() {
     Manrope_600SemiBold,
     Manrope_700Bold,
   });
+
+  if (!fontsLoaded) {
+    return <SplashScreen onFinish={() => {}} />;
+  }
 
   return (
     <GestureHandlerRootView style={styles.root}>

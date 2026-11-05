@@ -32,7 +32,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { Typography } from '../../theme/typography';
-import { DishaLogoEmblem } from '../../components/illustrations/DishaLogo';
+import { HealthFreakLogo } from '../../components/common/HealthFreakLogo';
 import { voiceClient, VoiceSessionState } from '../../services/voiceClient';
 import { ScheduledAICall, AICallService, LiveKitTokenData } from '../../services/aiCallService';
 
@@ -230,7 +230,7 @@ export const LiveKitVoiceCallScreen: React.FC<LiveKitVoiceCallScreenProps> = ({
           onPress={handleTapToTalkOrInterrupt}
           hitSlop={12}
         >
-          <DishaLogoEmblem size={64} />
+          <HealthFreakLogo size={68} animated={true} />
         </Pressable>
 
         <View style={styles.aiSpeakingBadge}>

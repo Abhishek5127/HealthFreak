@@ -36,6 +36,7 @@ import { useApp } from '../../state/AppContext';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
+import { HealthFreakLogo } from '../../components/common/HealthFreakLogo';
 import { MealScannerService } from '../../services/mealScannerService';
 import { SAMPLE_MEAL_TEMPLATES } from '../../mock-data/sampleMealTemplates';
 
@@ -439,7 +440,7 @@ export const CameraScannerScreen: React.FC = () => {
                 /* Scanning Stages Progress Card */
                 <View style={styles.scanningProgressContainer}>
                   <View style={styles.pulseHeaderRow}>
-                    <ActivityIndicator size="small" color={Colors.forestGreenLight} style={{ marginRight: 10 }} />
+                    <HealthFreakLogo size={28} animated style={{ marginRight: 10 }} />
                     <Text style={styles.scanningHeaderTitle}>Analyzing Meal Composition...</Text>
                   </View>
 

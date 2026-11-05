@@ -19,7 +19,8 @@ import { useAuth } from '../../state/AuthContext';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
-import { DishaLogoEmblem, DishaWordmark } from '../../components/illustrations/DishaLogo';
+import { HealthFreakLogo, HealthFreakWordmark } from '../../components/common/HealthFreakLogo';
+import { LoadingOverlay } from '../../components/common/LoadingScreen';
 import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
 
 export const LoginScreen: React.FC = () => {
@@ -38,12 +39,9 @@ export const LoginScreen: React.FC = () => {
         {/* Brand Emblem & Header */}
         <View style={styles.header}>
           <View style={styles.emblemContainer}>
-            <DishaLogoEmblem size={68} />
+            <HealthFreakLogo size={88} animated withGlow />
           </View>
-          <DishaWordmark size="lg" />
-          <Text style={styles.tagline}>
-            INTELLIGENT LONGEVITY & CLINICAL WELLNESS
-          </Text>
+          <HealthFreakWordmark size="lg" tagline="INTELLIGENT LONGEVITY & CLINICAL WELLNESS" />
         </View>
 
         {/* Hero Value Proposition */}
@@ -133,6 +131,13 @@ export const LoginScreen: React.FC = () => {
           </Text>
         </View>
       </ScrollView>
+
+      {/* HealthFreak Animated Logo Loading Overlay during Auth */}
+      <LoadingOverlay
+        visible={isAuthenticating}
+        message="Connecting to HealthFreak..."
+        submessage="Syncing your personalized AI health sanctuary"
+      />
     </View>
   );
 };

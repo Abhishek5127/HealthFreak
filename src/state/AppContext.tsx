@@ -187,6 +187,11 @@ interface AppContextType {
 
   // Insights Weekly Steps
   weeklySteps: number[];
+
+  // Global HealthFreak Fetching / Loading Screen
+  globalLoading: { visible: boolean; message: string; submessage?: string };
+  showLoading: (message?: string, submessage?: string) => void;
+  hideLoading: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -198,6 +203,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [userProfileState, setUserProfileState] = useState<UserProfile>(initialUserProfile);
   const [waterLoggedMl, setWaterLoggedMl] = useState<number>(0);
   const [waterTargetMl, setWaterTargetMl] = useState<number>(3200);
+  const [globalLoading, setGlobalLoading] = useState<{ visible: boolean; message: string; submessage?: string }>({
+    visible: false,
+    message: 'Fetching health data...',
+  });
+
+  const showLoading = (message: string = 'Fetching health data...', submessage?: string) => {
+    setGlobalLoading({ visible: true, message, submessage });
+  };
+
+  const hideLoading = () => {
+    setGlobalLoading((prev) => ({ ...prev, visible: false }));
+  };
 
   // Synchronize authenticated profile from Supabase Google OAuth without cascading re-renders
   const userProfile: UserProfile = useMemo(() => ({
@@ -885,6 +902,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         startSleep,
         wakeUp,
         weeklySteps,
+        globalLoading,
+        showLoading,
+        hideLoading,
       }}
     >
       {children}
