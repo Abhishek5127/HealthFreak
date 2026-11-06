@@ -84,7 +84,7 @@ export const ProfileScreen: React.FC = () => {
             <Text style={styles.activePillText}>Google Verified</Text>
           </View>
           <Text style={styles.profileSubtext}>
-            • 21-Day Active Streak
+            • {userProfile.streakDays || 0}-Day Active Streak
           </Text>
         </View>
       </View>

@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   Image,
-  ScrollView,
 } from 'react-native';
 import {
   Bell,
@@ -16,14 +15,12 @@ import {
   Dumbbell,
   Sparkles,
   Zap,
-  Salad,
   ChevronRight,
   Camera,
   Utensils,
   History,
   Droplet,
   Sliders,
-  Plus,
   Heart,
   Check,
   Sun,
@@ -36,16 +33,10 @@ import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
 import { ScreenContainer } from '../../components/common/ScreenContainer';
 import { SectionHeader } from '../../components/common/SectionHeader';
-import { HeroCard } from '../../components/cards/HeroCard';
-import { CategoryTile } from '../../components/cards/CategoryTile';
 import { ProgressMetricCard } from '../../components/cards/ProgressMetricCard';
-import { PlanActivityCard } from '../../components/cards/PlanActivityCard';
 import { CheckInCharacterView } from '../../components/illustrations/CheckInCharacters';
 import { SAMPLE_MEAL_TEMPLATES } from '../../mock-data/sampleMealTemplates';
-import { StepCounterCard } from '../activity/components/StepCounterCard';
-import { usePedometer } from '../activity/hooks/usePedometer';
 import { WaterBottleWidget } from './components/WaterBottleWidget';
-import { WaterBottleIcon } from './components/WaterBottleIcon';
 import { WaterTargetModal } from './components/WaterTargetModal';
 
 export const DashboardScreen: React.FC = () => {
@@ -53,7 +44,6 @@ export const DashboardScreen: React.FC = () => {
     userProfile,
     metrics,
     activities,
-    toggleActivityCompletion,
     setActiveModal,
     setActiveTab,
     openMealScanner,
@@ -70,19 +60,11 @@ export const DashboardScreen: React.FC = () => {
 
   const [showWaterTargetModal, setShowWaterTargetModal] = useState<boolean>(false);
 
-  const {
-    todaySteps,
-    stepGoal,
-    distanceMeters,
-    caloriesBurned,
-    activeMinutes,
-    permissionStatus,
-    isAvailable,
-    isTracking,
-    requestPermissions,
-  } = usePedometer();
-
-  const [selectedCategory, setSelectedCategory] = useState<string>('Gym');
+  // Focus workout for Today's Highlight
+  const focusWorkout =
+    activities.find((a) => a.category === 'movement' && !a.completed) ||
+    activities.find((a) => a.category === 'movement') ||
+    activities[0];
 
   // Skincare AM/PM checklist state
   const [skincareMorningDone, setSkincareMorningDone] = useState<boolean>(false);
@@ -164,29 +146,6 @@ export const DashboardScreen: React.FC = () => {
 
   const effectiveTargetMl = waterTargetMl > 0 ? waterTargetMl : Math.round(baseWaterTargetL * 1000);
   const waterTargetL = +(effectiveTargetMl / 1000).toFixed(1);
-  const waterLoggedLiters = +(waterLoggedMl / 1000).toFixed(1);
-  const waterProgressRatio = Math.min(1, waterLoggedMl / effectiveTargetMl);
-
-  const categories = [
-    { label: 'Gym', icon: <Dumbbell size={20} color={selectedCategory === 'Gym' ? '#FFFFFF' : Colors.textSecondary} /> },
-    { label: 'Yoga', icon: <Sparkles size={20} color={selectedCategory === 'Yoga' ? '#FFFFFF' : Colors.textSecondary} /> },
-    { label: 'Fitness', icon: <Zap size={20} color={selectedCategory === 'Fitness' ? '#FFFFFF' : Colors.textSecondary} /> },
-    { label: 'Run', icon: <Footprints size={20} color={selectedCategory === 'Run' ? '#FFFFFF' : Colors.textSecondary} /> },
-    { label: 'Nutrition', icon: <Salad size={20} color={selectedCategory === 'Nutrition' ? '#FFFFFF' : Colors.textSecondary} /> },
-    {
-      label: 'Hydration',
-      icon: (
-        <WaterBottleIcon
-          size={22}
-          color={selectedCategory === 'Hydration' ? '#FFFFFF' : '#4FA3E2'}
-          fillPercentage={waterProgressRatio * 100}
-          isCompleted={waterProgressRatio >= 1}
-        />
-      ),
-      badge: `${Math.round(waterProgressRatio * 100)}%`,
-      progress: waterProgressRatio,
-    },
-  ];
 
   return (
     <ScreenContainer scrollable={true}>
@@ -283,114 +242,33 @@ export const DashboardScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* 3. Hero Card (Forest Green with Sun character) */}
-      <HeroCard
-        titlePrimary="Not sure"
-        italicWord1="what"
-        italicWord2="train"
-        subtitle="Tell us how you feel, we'll recommend workouts matching your energy & mood."
-        buttonLabel="Find my match"
-        onCheckInPress={() => setActiveModal('checkin')}
-      />
-
-      {/* 4. Daily Status & Quick Check-in pill */}
+      {/* 3. Daily Energy & Readiness Check-In */}
       <Pressable
         style={styles.dailyCheckInCard}
         onPress={() => setActiveModal('checkin')}
       >
         <View style={styles.checkInLeft}>
           <View style={styles.checkInMiniAvatar}>
-            <CheckInCharacterView mood={userProfile.currentMood} size={42} animate={false} />
+            <CheckInCharacterView mood={userProfile.currentMood} size={44} animate={false} />
           </View>
-          <View>
-            <Text style={styles.checkInQuestion}>How are you feeling today?</Text>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+              <Sparkles size={12} color={Colors.softYellow} style={{ marginRight: 5 }} />
+              <Text style={styles.checkInPromptLabel}>ENERGY & READINESS</Text>
+            </View>
+            <Text style={styles.checkInQuestion}>
+              Feeling {userProfile.currentMood.charAt(0).toUpperCase() + userProfile.currentMood.slice(1)} Today
+            </Text>
             <Text style={styles.checkInStatus}>
-              Logged as <Text style={styles.checkInStatusHighlight}>{userProfile.currentMood.toUpperCase()}</Text> • {userProfile.lastCheckInTime || 'Today'}
+              {userProfile.lastCheckInTime ? `Calibrated ${userProfile.lastCheckInTime}` : 'Tap to sync workout intensity to your mood'}
             </Text>
           </View>
         </View>
-        <ChevronRight size={18} color={Colors.textSecondary} />
-      </Pressable>
-
-      {/* 5. Categories Section */}
-      <SectionHeader
-        title="Categories"
-        actionText="See all"
-        onActionPress={() => setActiveTab('plan')}
-      />
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoriesScrollContent}
-        style={{ marginBottom: 16 }}
-      >
-        {categories.map((cat) => (
-          <CategoryTile
-            key={cat.label}
-            label={cat.label}
-            icon={cat.icon}
-            badge={cat.badge}
-            progress={cat.progress}
-            isSelected={selectedCategory === cat.label}
-            onPress={() => {
-              setSelectedCategory(cat.label);
-              if (cat.label === 'Nutrition') {
-                openMealScanner();
-              }
-            }}
-          />
-        ))}
-      </ScrollView>
-
-      {/* Hydration Category Spotlight Banner */}
-      {selectedCategory === 'Hydration' && (
-        <View style={styles.hydrationFocusCard}>
-          <View style={styles.hydrationFocusHeader}>
-            <View style={styles.hydrationFocusBadge}>
-              <Droplet size={14} color="#4FA3E2" style={{ marginRight: 4 }} />
-              <Text style={styles.hydrationFocusBadgeText}>HYDRATION FOCUS • ACTIVE</Text>
-            </View>
-            <Pressable
-              onPress={() => setShowWaterTargetModal(true)}
-              style={styles.hydrationAdjustBtn}
-            >
-              <Sliders size={13} color={Colors.textSecondary} style={{ marginRight: 4 }} />
-              <Text style={styles.hydrationAdjustText}>Edit Goal</Text>
-            </Pressable>
-          </View>
-
-          <Text style={styles.hydrationFocusTitle}>Cellular Hydration & Toxin Flush</Text>
-          <Text style={styles.hydrationFocusReason}>
-            Current intake: {waterLoggedLiters}L of {waterTargetL}L goal ({Math.round(waterProgressRatio * 100)}% complete).
-            {waterProgressRatio >= 1
-              ? ' 🎉 Excellent! Minimum daily hydration target met. Your bottle is smiling.'
-              : ` 💧 Drink ${Math.max(0, effectiveTargetMl - waterLoggedMl)} ml more to reach full cellular saturation.`}
-          </Text>
-
-          <View style={styles.hydrationQuickActionsRow}>
-            <Pressable
-              style={styles.hydrationQuickBtn}
-              onPress={() => logWater(100)}
-            >
-              <Plus size={13} color="#FFFFFF" style={{ marginRight: 3 }} />
-              <Text style={styles.hydrationQuickBtnText}>+100ml Sip</Text>
-            </Pressable>
-            <Pressable
-              style={styles.hydrationQuickBtn}
-              onPress={() => logWater(250)}
-            >
-              <Plus size={13} color="#FFFFFF" style={{ marginRight: 3 }} />
-              <Text style={styles.hydrationQuickBtnText}>+250ml Glass</Text>
-            </Pressable>
-            <Pressable
-              style={styles.hydrationQuickBtnOutline}
-              onPress={() => setShowWaterTargetModal(true)}
-            >
-              <Text style={styles.hydrationQuickBtnOutlineText}>Configure Target</Text>
-            </Pressable>
-          </View>
+        <View style={styles.checkInActionPill}>
+          <Text style={styles.checkInActionText}>Recalibrate</Text>
+          <ChevronRight size={14} color={Colors.coralCTA} />
         </View>
-      )}
+      </Pressable>
 
       {/* 6. DAILY NUTRITION & AI MEAL SCANNER (PERSONALIZED MACRO TARGETS) */}
       <SectionHeader
@@ -702,20 +580,6 @@ export const DashboardScreen: React.FC = () => {
         onActionPress={() => setActiveModal('activity_detail')}
       />
 
-      {/* Native Hardware Step Counter Card */}
-      <StepCounterCard
-        todaySteps={todaySteps}
-        stepGoal={stepGoal}
-        distanceMeters={distanceMeters}
-        caloriesBurned={caloriesBurned}
-        activeMinutes={activeMinutes}
-        permissionStatus={permissionStatus}
-        isAvailable={isAvailable}
-        isTracking={isTracking}
-        onPress={() => setActiveModal('activity_detail')}
-        onRequestPermission={requestPermissions}
-      />
-
       <View style={styles.progressCardsRow}>
         {metrics.map((metric) => {
           let IconComponent = Footprints;
@@ -731,34 +595,66 @@ export const DashboardScreen: React.FC = () => {
               percentage={metric.percentage}
               color={metric.color}
               icon={<IconComponent size={18} color={metric.color} />}
-              onPress={() => setActiveTab('progress')}
+              onPress={() => setActiveModal('activity_detail')}
             />
           );
         })}
       </View>
 
-      {/* 10. Today's sessions / Tailored Routine */}
+      {/* 10. Today's Focus Workout */}
       <SectionHeader
-        title="Today's sessions"
-        actionText="See all"
+        title="Today's Focus Workout"
+        actionText="View all in Plan"
         onActionPress={() => setActiveTab('plan')}
       />
-      <View style={styles.sessionsList}>
-        {activities.slice(0, 3).map((activity) => (
-          <PlanActivityCard
-            key={activity.id}
-            activity={activity}
-            onToggleComplete={() => toggleActivityCompletion(activity.id)}
-            onPressDetails={() => {
-              if (activity.category === 'movement') {
-                setActiveModal('activity_session');
-              } else {
-                setActiveTab('plan');
-              }
-            }}
-          />
-        ))}
-      </View>
+      {focusWorkout ? (
+        <View style={styles.focusWorkoutCard}>
+          <View style={styles.focusWorkoutTop}>
+            <View style={styles.focusIconBadge}>
+              <Dumbbell size={22} color={Colors.coralCTA} />
+            </View>
+            <View style={styles.focusInfoCol}>
+              <View style={styles.focusBadgeRow}>
+                <View style={styles.focusCategoryPill}>
+                  <Text style={styles.focusCategoryPillText}>TARGET SESSION</Text>
+                </View>
+                <Text style={styles.focusTimeText}>{focusWorkout.time || '07:30 AM'}</Text>
+              </View>
+              <Text style={styles.focusTitleText}>{focusWorkout.title}</Text>
+              <Text style={styles.focusMetaText}>
+                ⏱️ {focusWorkout.duration || '45 min'}  •  🔥 {focusWorkout.calories || 280} kcal  •  🎯 {focusWorkout.tags?.slice(0, 2).join(' • ') || 'Hypertrophy'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.focusActionsRow}>
+            <Pressable
+              style={styles.focusStartBtn}
+              onPress={() => {
+                if (focusWorkout.category === 'movement') {
+                  setActiveModal('activity_session');
+                } else {
+                  setActiveTab('plan');
+                }
+              }}
+            >
+              <Zap size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.focusStartBtnText}>
+                {focusWorkout.completed ? 'Review Session' : 'Start Workout'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.focusPlanLinkBtn}
+              onPress={() => setActiveTab('plan')}
+            >
+              <Text style={styles.focusPlanLinkText}>
+                All {activities.length} Routines in Plan →
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
       <WaterTargetModal
         visible={showWaterTargetModal}
         currentTargetMl={effectiveTargetMl}
@@ -991,6 +887,26 @@ const styles = StyleSheet.create({
   checkInStatusHighlight: {
     color: Colors.coralCTA,
     fontFamily: Typography.fontFamilies.sansBold,
+  },
+  checkInPromptLabel: {
+    fontFamily: Typography.fontFamilies.sansBold,
+    fontSize: 9,
+    color: Colors.softYellow,
+    letterSpacing: 0.5,
+  },
+  checkInActionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#263128',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+  },
+  checkInActionText: {
+    fontFamily: Typography.fontFamilies.sansBold,
+    fontSize: Typography.fontSizes.xs - 1,
+    color: Colors.coralCTA,
   },
   categoriesRow: {
     flexDirection: 'row',
@@ -1436,98 +1352,94 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSizes.xs - 2,
     color: '#FF715F',
   },
-  sessionsList: {
-    gap: 12,
-    marginBottom: 32,
-  },
-  categoriesScrollContent: {
-    paddingRight: 10,
-    gap: 8,
-  },
-  hydrationFocusCard: {
-    backgroundColor: '#161C18',
+  focusWorkoutCard: {
+    backgroundColor: '#181E1A',
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#242D26',
-    marginBottom: 16,
+    borderColor: '#263329',
+    marginBottom: 24,
   },
-  hydrationFocusHeader: {
+  focusWorkoutTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  focusIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 113, 95, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  focusInfoCol: {
+    flex: 1,
+  },
+  focusBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  hydrationFocusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(79, 163, 226, 0.15)',
+  focusCategoryPill: {
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 8,
+    backgroundColor: 'rgba(75, 119, 97, 0.25)',
   },
-  hydrationFocusBadgeText: {
+  focusCategoryPillText: {
     fontFamily: Typography.fontFamilies.sansBold,
     fontSize: 9,
-    color: '#4FA3E2',
+    color: Colors.forestGreenLight,
     letterSpacing: 0.5,
   },
-  hydrationAdjustBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  hydrationAdjustText: {
+  focusTimeText: {
     fontFamily: Typography.fontFamilies.sansMedium,
     fontSize: Typography.fontSizes.xs - 1,
     color: Colors.textSecondary,
   },
-  hydrationFocusTitle: {
+  focusTitleText: {
     fontFamily: Typography.fontFamilies.sansBold,
-    fontSize: Typography.fontSizes.sm,
+    fontSize: Typography.fontSizes.sm + 1,
     color: Colors.textPrimary,
     marginBottom: 4,
   },
-  hydrationFocusReason: {
+  focusMetaText: {
     fontFamily: Typography.fontFamilies.sansRegular,
     fontSize: Typography.fontSizes.xs,
     color: Colors.textSecondary,
     lineHeight: 18,
-    marginBottom: 12,
   },
-  hydrationQuickActionsRow: {
+  focusActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
   },
-  hydrationQuickBtn: {
+  focusStartBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#256EB3',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
+    backgroundColor: Colors.forestGreenLight,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 12,
   },
-  hydrationQuickBtnText: {
+  focusStartBtnText: {
     fontFamily: Typography.fontFamilies.sansBold,
     fontSize: Typography.fontSizes.xs,
     color: '#FFFFFF',
   },
-  hydrationQuickBtnOutline: {
-    borderWidth: 1,
-    borderColor: Colors.borderSubtle,
-    backgroundColor: 'transparent',
+  focusPlanLinkBtn: {
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
+    paddingVertical: 8,
   },
-  hydrationQuickBtnOutlineText: {
-    fontFamily: Typography.fontFamilies.sansMedium,
-    fontSize: Typography.fontSizes.xs - 1,
-    color: Colors.textSecondary,
+  focusPlanLinkText: {
+    fontFamily: Typography.fontFamilies.sansBold,
+    fontSize: Typography.fontSizes.xs,
+    color: Colors.coralCTA,
   },
-
 });

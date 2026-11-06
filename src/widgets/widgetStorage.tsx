@@ -1,4 +1,5 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requestWidgetUpdate } from 'react-native-android-widget';
 import { WaterBottleWidget } from './WaterBottleWidget';
@@ -85,18 +86,20 @@ export async function syncWidgetStateToHomeScreen(
     ]);
 
     // Request the native Android launcher to redraw the widget
-    requestWidgetUpdate({
-      widgetName: 'WaterBottleWidget',
-      renderWidget: () => (
-        <WaterBottleWidget
-          waterLoggedMl={waterLoggedMl}
-          waterTargetMl={waterTargetMl}
-        />
-      ),
-      widgetNotFound: () => {
-        // Widget is not currently pinned on home screen; safe no-op
-      },
-    });
+    if (Platform.OS === 'android') {
+      requestWidgetUpdate({
+        widgetName: 'WaterBottleWidget',
+        renderWidget: () => (
+          <WaterBottleWidget
+            waterLoggedMl={waterLoggedMl}
+            waterTargetMl={waterTargetMl}
+          />
+        ),
+        widgetNotFound: () => {
+          // Widget is not currently pinned on home screen; safe no-op
+        },
+      });
+    }
   } catch (error: any) {
     // Native modules might be unavailable on web or Expo Go
     console.warn('[WaterWidgetStorage] syncWidgetStateToHomeScreen note:', error?.message || error);

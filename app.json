@@ -7,11 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/logo/HealthFreakLogoBlackbg.png",
     "userInterfaceStyle": "dark",
-    "splash": {
-      "image": "./assets/logo/HealthFreakLogoBlackbg.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#000000"
-    },
     "ios": {
       "bundleIdentifier": "com.healthfreak.app",
       "supportsTablet": true,

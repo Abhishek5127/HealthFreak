@@ -189,20 +189,8 @@ const MainAppContent: React.FC = () => {
 };
 
 const NavigationRoot: React.FC = () => {
-  const { authState, session, profile } = useAuth();
-  const { setActiveModal } = useApp();
+  const { authState, session } = useAuth();
   const [showSplash, setShowSplash] = useState<boolean>(true);
-  const [hasPromptedOnboarding, setHasPromptedOnboarding] = useState<boolean>(false);
-
-  // Trigger Onboarding modal if user is new
-  React.useEffect(() => {
-    if (!session) {
-      setHasPromptedOnboarding(false);
-    } else if (profile && !profile.onboardingCompleted && !hasPromptedOnboarding) {
-      setHasPromptedOnboarding(true);
-      setActiveModal('onboarding');
-    }
-  }, [session, profile, hasPromptedOnboarding, setActiveModal]);
 
   // Show splash screen while initializing or during splash duration
   if (showSplash || authState === 'initializing') {

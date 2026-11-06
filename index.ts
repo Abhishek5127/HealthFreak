@@ -1,11 +1,18 @@
 import 'react-native-gesture-handler';
 import { registerRootComponent } from 'expo';
-import { registerWidgetTaskHandler } from 'react-native-android-widget';
+import { Platform } from 'react-native';
 
 import App from './App';
-import { widgetTaskHandler } from './src/widgets/widgetTaskHandler';
 
 registerRootComponent(App);
 
-// Register the Native Android Home Screen Widget Task Handler
-registerWidgetTaskHandler(widgetTaskHandler);
+// Register the Native Android Home Screen Widget Task Handler on Android only
+if (Platform.OS === 'android') {
+  try {
+    const { registerWidgetTaskHandler } = require('react-native-android-widget');
+    const { widgetTaskHandler } = require('./src/widgets/widgetTaskHandler');
+    registerWidgetTaskHandler(widgetTaskHandler);
+  } catch (e) {
+    console.warn('[Widget] Failed to register Android widget task handler:', e);
+  }
+}
