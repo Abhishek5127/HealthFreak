@@ -123,8 +123,8 @@ export const WaterBottleWidget: React.FC<WaterBottleWidgetProps> = ({
               fillPercentage={fillPercentage}
               currentMl={waterLoggedMl}
               targetMl={waterTargetMl}
-              width={105}
-              height={175}
+              width={70}
+              height={116}
             />
           </Animated.View>
 
@@ -230,11 +230,11 @@ export const WaterBottleWidget: React.FC<WaterBottleWidgetProps> = ({
 const styles = StyleSheet.create({
   cardContainer: {
     backgroundColor: '#161C18',
-    borderRadius: 24,
-    padding: 18,
+    borderRadius: 20,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#242D26',
-    marginVertical: 12,
+    marginVertical: 10,
   },
   headerRow: {
     flexDirection: 'row',
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   bottleTapWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 120,
+    width: 86,
     position: 'relative',
   },
   bottleGraphicWrapper: {
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
   },
   floatingPill: {
     position: 'absolute',
-    top: 40,
+    top: 25,
     backgroundColor: '#2C82C9',
     paddingVertical: 3,
     paddingHorizontal: 8,

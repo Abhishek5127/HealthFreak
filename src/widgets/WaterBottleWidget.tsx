@@ -20,8 +20,8 @@ export function WaterBottleWidget({
   const percentage = Math.round((waterLoggedMl / waterTargetMl) * 100);
   const isGoalReached = waterLoggedMl >= waterTargetMl;
 
-  // Generate the dynamic vector SVG containing the bottle and dynamic facial expression
-  const bottleSvg = generateWaterBottleSvg(percentage, 85, 135);
+  // Generate the dynamic vector SVG containing the bottle and dynamic facial expression (1.5x smaller)
+  const bottleSvg = generateWaterBottleSvg(percentage, 56, 90);
 
   return (
     <FlexWidget
@@ -30,14 +30,14 @@ export function WaterBottleWidget({
         height: 'match_parent',
         width: 'match_parent',
         backgroundColor: '#121915',
-        borderRadius: 24,
+        borderRadius: 18,
         borderColor: isGoalReached ? '#386644' : '#243429',
-        borderWidth: 2,
+        borderWidth: 1.5,
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
-      <SvgWidget svg={bottleSvg} style={{ width: 85, height: 135 }} />
+      <SvgWidget svg={bottleSvg} style={{ width: 56, height: 90 }} />
     </FlexWidget>
   );
 }

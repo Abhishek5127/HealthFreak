@@ -48,20 +48,20 @@
     }
 
     /* ==========================================================
-       FROSTED GLASSMORPHISM WIDGET BOX
+       FROSTED GLASSMORPHISM WIDGET BOX (2x Compact Size)
        ========================================================== */
     .glass-widget-box {
-      width: 142px;
-      height: 164px;
+      width: 72px;
+      height: 98px;
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(20, 32, 24, 0.52) 40%, rgba(10, 18, 13, 0.72) 100%);
-      backdrop-filter: blur(28px) saturate(190%);
-      -webkit-backdrop-filter: blur(28px) saturate(190%);
-      border-radius: 26px;
+      backdrop-filter: blur(24px) saturate(190%);
+      -webkit-backdrop-filter: blur(24px) saturate(190%);
+      border-radius: 18px;
       border: 1px solid rgba(255, 255, 255, 0.15);
       box-shadow: 
-        0 20px 45px rgba(0, 0, 0, 0.65),
-        0 4px 12px rgba(0, 0, 0, 0.35),
-        inset 0 1px 1.5px rgba(255, 255, 255, 0.25),
+        0 14px 32px rgba(0, 0, 0, 0.65),
+        0 3px 8px rgba(0, 0, 0, 0.35),
+        inset 0 1px 1.2px rgba(255, 255, 255, 0.25),
         inset 0 -1px 1px rgba(0, 0, 0, 0.3);
       display: flex;
       align-items: center;
@@ -75,39 +75,39 @@
     .glass-widget-box:hover {
       border-color: rgba(122, 230, 158, 0.35);
       box-shadow: 
-        0 24px 52px rgba(0, 0, 0, 0.7),
-        0 0 22px rgba(74, 184, 122, 0.18),
-        inset 0 1px 1.5px rgba(255, 255, 255, 0.35);
+        0 16px 36px rgba(0, 0, 0, 0.7),
+        0 0 16px rgba(74, 184, 122, 0.18),
+        inset 0 1px 1.2px rgba(255, 255, 255, 0.35);
     }
 
     .glass-widget-box:active {
-      transform: scale(0.96);
+      transform: scale(0.95);
     }
 
     .glass-widget-box.goal-met {
       border-color: rgba(122, 230, 158, 0.5);
       box-shadow: 
-        0 22px 50px rgba(0, 0, 0, 0.65),
-        0 0 30px rgba(74, 184, 122, 0.3),
-        inset 0 1px 2px rgba(255, 255, 255, 0.45);
+        0 14px 32px rgba(0, 0, 0, 0.65),
+        0 0 20px rgba(74, 184, 122, 0.3),
+        inset 0 1px 1.5px rgba(255, 255, 255, 0.45);
     }
 
-    /* Bottle Container */
+    /* Bottle Container (1.5x Smaller: 52px x 81px) */
     .bottle-wrapper {
       position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 78px;
-      height: 122px;
+      width: 52px;
+      height: 81px;
     }
 
     .bottle-svg {
-      width: 78px;
-      height: 122px;
+      width: 52px;
+      height: 81px;
       display: block;
       transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
-      filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45));
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
     }
 
     .squish {
@@ -142,8 +142,8 @@
       left: 50%;
       transform: translate(-50%, -50%);
       color: #FFFFFF;
-      font-size: 13.5px;
-      font-weight: 600;
+      font-size: 11px;
+      font-weight: 700;
       letter-spacing: -0.2px;
       /* Refined specular luminous glow */
       text-shadow: 
