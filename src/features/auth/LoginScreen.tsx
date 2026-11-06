@@ -1,15 +1,29 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withDelay,
+  withRepeat,
+  withSequence,
+  Easing,
+  runOnJS,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import {
-  ShieldCheck,
+  ArrowRight,
   Sparkles,
+  Shield,
+  Zap,
   Camera,
   Activity,
   AlertCircle,
@@ -20,338 +34,519 @@ import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
 import { HealthFreakLogo, HealthFreakWordmark } from '../../components/common/HealthFreakLogo';
-import { LoadingOverlay } from '../../components/common/LoadingScreen';
 import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export const LoginScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { authState, error, signInWithGoogle, signInAsDemoUser, clearError } = useAuth();
-
+  const [isEntering, setIsEntering] = useState(false);
   const isAuthenticating = authState === 'authenticating';
 
-  return (
-    <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        bounces={false}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Brand Emblem & Header */}
-        <View style={styles.header}>
-          <View style={styles.emblemContainer}>
-            <HealthFreakLogo size={88} animated withGlow />
-          </View>
-          <HealthFreakWordmark size="lg" tagline="INTELLIGENT LONGEVITY & CLINICAL WELLNESS" />
-        </View>
+  // --- REANIMATED SHARED VALUES ---
+  // Entrance on mount
+  const screenOpacity = useSharedValue(0);
+  const logoScale = useSharedValue(0.8);
+  const contentTranslateY = useSharedValue(28);
+  const contentOpacity = useSharedValue(0);
 
-        {/* Hero Value Proposition */}
-        <View style={styles.heroBox}>
-          <Text style={styles.heroTitle}>Your Personal AI Health Sanctuary</Text>
-          <Text style={styles.heroSubtitle}>
-            Continuous health memory that learns how you eat, move, and recover across daily voice check-ins, meal scans, and adaptive routines.
+  // Ambient breathing aura behind logo
+  const auraScale = useSharedValue(1);
+  const auraOpacity = useSharedValue(0.25);
+
+  // App Entrance Transition (when user taps to enter)
+  const portalScale = useSharedValue(0.3);
+  const portalOpacity = useSharedValue(0);
+  const exitScale = useSharedValue(1);
+  const exitOpacity = useSharedValue(1);
+  const entranceTextOpacity = useSharedValue(0);
+  const entranceTextScale = useSharedValue(0.9);
+
+  // 1. Mount Entrance Animation
+  useEffect(() => {
+    // Fade in whole screen
+    screenOpacity.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.ease) });
+
+    // Logo spring entrance
+    logoScale.value = withSpring(1, { damping: 14, stiffness: 90 });
+
+    // Content slide & fade
+    contentOpacity.value = withDelay(180, withTiming(1, { duration: 550, easing: Easing.out(Easing.cubic) }));
+    contentTranslateY.value = withDelay(180, withSpring(0, { damping: 16, stiffness: 95 }));
+
+    // Continuous ambient breathing aura
+    auraScale.value = withRepeat(
+      withSequence(
+        withTiming(1.28, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1.0, { duration: 2200, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+    auraOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.45, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.2, { duration: 2200, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  // 2. Trigger Animated Entrance into App
+  const handleEnterApp = () => {
+    if (isEntering || isAuthenticating) return;
+
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    } catch {
+      // Haptics optional
+    }
+
+    setIsEntering(true);
+
+    // Expand radiant energy portal
+    portalOpacity.value = withTiming(0.85, { duration: 200 }, () => {
+      portalOpacity.value = withTiming(0, { duration: 350 });
+    });
+    portalScale.value = withTiming(3.2, { duration: 520, easing: Easing.out(Easing.cubic) });
+
+    // Dissolve standard login content
+    exitOpacity.value = withTiming(0, { duration: 280, easing: Easing.out(Easing.ease) });
+    exitScale.value = withTiming(1.06, { duration: 320 });
+
+    // Reveal energetic welcome text
+    entranceTextOpacity.value = withDelay(120, withTiming(1, { duration: 260 }));
+    entranceTextScale.value = withDelay(120, withSpring(1, { damping: 14, stiffness: 100 }));
+
+    // Seamless handoff to authenticated state after transition
+    setTimeout(() => {
+      runOnJS(signInAsDemoUser)();
+    }, 460);
+  };
+
+  // Animated Styles
+  const animatedRoot = useAnimatedStyle(() => ({
+    opacity: screenOpacity.value,
+  }));
+
+  const animatedLogo = useAnimatedStyle(() => ({
+    transform: [{ scale: logoScale.value }],
+  }));
+
+  const animatedAura = useAnimatedStyle(() => ({
+    opacity: auraOpacity.value,
+    transform: [{ scale: auraScale.value }],
+  }));
+
+  const animatedContent = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value * exitOpacity.value,
+    transform: [
+      { translateY: contentTranslateY.value },
+      { scale: exitScale.value },
+    ],
+  }));
+
+  const animatedPortal = useAnimatedStyle(() => ({
+    opacity: portalOpacity.value,
+    transform: [{ scale: portalScale.value }],
+  }));
+
+  const animatedEntranceText = useAnimatedStyle(() => ({
+    opacity: entranceTextOpacity.value,
+    transform: [{ scale: entranceTextScale.value }],
+  }));
+
+  return (
+    <Animated.View style={[styles.root, animatedRoot]}>
+      {/* Background Ambient Radiance */}
+      <View style={styles.ambientTopGlow} pointerEvents="none" />
+      <View style={styles.ambientBottomGlow} pointerEvents="none" />
+
+      {/* Radiant Portal Wave (Plays on Entrance) */}
+      <Animated.View style={[styles.portalWave, animatedPortal]} pointerEvents="none" />
+
+      {/* Entering App Welcome Reveal */}
+      {isEntering && (
+        <Animated.View style={[styles.enteringOverlay, animatedEntranceText]} pointerEvents="none">
+          <View style={styles.enteringBadge}>
+            <Sparkles size={16} color={Colors.forestGreenLight} />
+            <Text style={styles.enteringBadgeText}>SANCTUARY UNLOCKED</Text>
+          </View>
+          <Text style={styles.enteringTitle}>Welcome to HealthFreak</Text>
+          <Text style={styles.enteringSub}>Preparing your personalized daily engine...</Text>
+        </Animated.View>
+      )}
+
+      {/* Main Login Screen Content */}
+      <Animated.View
+        style={[
+          styles.container,
+          {
+            paddingTop: Math.max(insets.top + 16, 36),
+            paddingBottom: Math.max(insets.bottom + 20, 28),
+          },
+          animatedContent,
+        ]}
+      >
+        {/* Top Hero: Animated Logo & Breathing Aura */}
+        <View style={styles.heroSection}>
+          <View style={styles.logoContainer}>
+            <Animated.View style={[styles.auraCircle, animatedAura]} />
+            <Animated.View style={animatedLogo}>
+              <HealthFreakLogo size={84} animated withGlow />
+            </Animated.View>
+          </View>
+
+          <HealthFreakWordmark
+            size="lg"
+            showTagline={false}
+            style={styles.wordmark}
+          />
+
+          <View style={styles.taglinePill}>
+            <Text style={styles.taglinePillText}>PEAK FITNESS & AI LONGEVITY</Text>
+          </View>
+
+          <Text style={styles.headline}>Unleash Your Vitality.</Text>
+          <Text style={styles.subheadline}>
+            Intelligent workouts, instant nutrition scans & real-time AI coaching tailored to your body.
           </Text>
 
-          {/* Feature Highlights */}
-          <View style={styles.featureList}>
-            <View style={styles.featurePill}>
-              <Camera size={16} color={Colors.coralCTA} />
-              <Text style={styles.featurePillText}>Cal AI-Grade Indian Meal Scanner</Text>
+          {/* Minimal 3-Chip Feature Strip */}
+          <View style={styles.featureRow}>
+            <View style={styles.featureChip}>
+              <Zap size={13} color="#4AB87A" />
+              <Text style={styles.featureChipText}>Gemini AI Coach</Text>
             </View>
-            <View style={styles.featurePill}>
-              <Sparkles size={16} color={Colors.softYellow} />
-              <Text style={styles.featurePillText}>Real-Time Gemini Live Voice Coach</Text>
+            <View style={styles.featureChip}>
+              <Camera size={13} color="#FF6243" />
+              <Text style={styles.featureChipText}>Meal Vision</Text>
             </View>
-            <View style={styles.featurePill}>
-              <Activity size={16} color={Colors.forestGreenLight} />
-              <Text style={styles.featurePillText}>30-Day Adaptive Plan & Memory Engine</Text>
+            <View style={styles.featureChip}>
+              <Activity size={13} color="#68BF7B" />
+              <Text style={styles.featureChipText}>Daily Vitals</Text>
             </View>
           </View>
         </View>
 
-        {/* Error Banner */}
+        {/* Error Notification if any */}
         {error && (
-          <View style={styles.errorBanner}>
-            <AlertCircle size={18} color="#FF6B6B" style={styles.errorIcon} />
-            <Text style={styles.errorText}>{error}</Text>
-            <Pressable onPress={clearError} hitSlop={12} style={styles.errorClose}>
-              <X size={16} color="#FF6B6B" />
+          <View style={styles.errorToast}>
+            <AlertCircle size={16} color="#FF6B6B" />
+            <Text style={styles.errorToastText}>{error}</Text>
+            <Pressable onPress={clearError} hitSlop={10}>
+              <X size={15} color="#FF6B6B" />
             </Pressable>
           </View>
         )}
 
-        {/* Authentication Action Area */}
-        <View style={styles.actionContainer}>
-          {/* Primary One-Tap Demo Account Login */}
+        {/* Action Area */}
+        <View style={styles.actionSection}>
+          {/* Primary High-Impact CTA: Start Journey (Instant 1-Tap Entrance) */}
           <Pressable
-            style={({ pressed }) => [styles.demoCardButton, pressed && styles.demoCardButtonPressed]}
-            onPress={signInAsDemoUser}
+            style={({ pressed }) => [
+              styles.primaryBtn,
+              pressed && styles.primaryBtnPressed,
+            ]}
+            onPress={handleEnterApp}
+            disabled={isEntering || isAuthenticating}
           >
-            <View style={styles.demoIconCircle}>
-              <Sparkles size={20} color="#FFFFFF" />
-            </View>
-            <View style={styles.demoTextCol}>
-              <View style={styles.demoBadgeRow}>
-                <Text style={styles.demoButtonTitle}>Login with Demo Account</Text>
-                <View style={styles.instantBadge}>
-                  <Text style={styles.instantBadgeText}>INSTANT</Text>
-                </View>
+            <View style={styles.primaryBtnRow}>
+              <Sparkles size={18} color="#FFFFFF" style={styles.btnIconLeft} />
+              <Text style={styles.primaryBtnText}>Start Your Journey</Text>
+              <View style={styles.btnArrowCircle}>
+                <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.5} />
               </View>
-              <Text style={styles.demoButtonSub}>
-                1-tap bypass • No Google sign-in needed • Stats stored locally
-              </Text>
             </View>
           </Pressable>
 
-          <View style={styles.orDivider}>
+          <Text style={styles.instantAccessNotice}>
+            Instant 1-tap demo access • No setup required
+          </Text>
+
+          {/* Clean Subtle Divider */}
+          <View style={styles.dividerRow}>
             <View style={styles.dividerLine} />
-            <Text style={styles.orText}>OR LOGIN WITH GOOGLE</Text>
+            <Text style={styles.dividerText}>OR</Text>
             <View style={styles.dividerLine} />
           </View>
 
-          {/* Google OAuth Sign-In */}
+          {/* Secondary Action: Minimal Google OAuth */}
           <GoogleSignInButton
             onPress={signInWithGoogle}
             isLoading={isAuthenticating}
-            disabled={isAuthenticating}
+            disabled={isAuthenticating || isEntering}
           />
 
-          <Text style={styles.oauthNotice}>
-            Demo account works offline with zero setup. All steps, hydration, sleep, and workouts persist locally on this phone.
-          </Text>
-        </View>
-
-        {/* Clinical Privacy Guarantee */}
-        <View style={styles.footer}>
-          <View style={styles.privacyRow}>
-            <ShieldCheck size={16} color={Colors.success} />
-            <Text style={styles.privacyHeading}>Strict Privacy Guarantee</Text>
+          {/* Minimalist Privacy & Security Micro-Footer */}
+          <View style={styles.footerRow}>
+            <Shield size={13} color={Colors.forestGreenLight} />
+            <Text style={styles.footerText}>
+              Private • On-device health memory • Zero data sold
+            </Text>
           </View>
-          <Text style={styles.privacyText}>
-            We only request your basic profile (openid, email, name). Your meal scans enforce zero-image retention, and clinical memory is strictly private to your authenticated identity.
-          </Text>
         </View>
-      </ScrollView>
-
-      {/* HealthFreak Animated Logo Loading Overlay during Auth */}
-      <LoadingOverlay
-        visible={isAuthenticating}
-        message="Connecting to HealthFreak..."
-        submessage="Syncing your personalized AI health sanctuary"
-      />
-    </View>
+      </Animated.View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#090D0A',
+    position: 'relative',
+    overflow: 'hidden',
   },
-  scrollContent: {
-    flexGrow: 1,
+  container: {
+    flex: 1,
     paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.xl,
-    paddingBottom: Spacing.xl,
     justifyContent: 'space-between',
+    zIndex: 10,
   },
-  header: {
+  ambientTopGlow: {
+    position: 'absolute',
+    top: -120,
+    alignSelf: 'center',
+    width: SCREEN_WIDTH * 1.2,
+    height: SCREEN_WIDTH * 1.2,
+    borderRadius: (SCREEN_WIDTH * 1.2) / 2,
+    backgroundColor: 'rgba(74, 184, 122, 0.08)',
+    zIndex: 1,
+  },
+  ambientBottomGlow: {
+    position: 'absolute',
+    bottom: -150,
+    right: -80,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: 'rgba(255, 98, 67, 0.05)',
+    zIndex: 1,
+  },
+  portalWave: {
+    position: 'absolute',
+    top: '42%',
+    alignSelf: 'center',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(74, 184, 122, 0.22)',
+    borderWidth: 2,
+    borderColor: 'rgba(74, 184, 122, 0.65)',
+    zIndex: 50,
+  },
+  enteringOverlay: {
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
-    marginTop: Spacing.lg,
-    marginBottom: Spacing.xl,
+    justifyContent: 'center',
+    zIndex: 60,
+    paddingHorizontal: Spacing.xl,
   },
-  emblemContainer: {
-    marginBottom: Spacing.md,
-    shadowColor: Colors.forestGreenLight,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-  },
-  tagline: {
-    color: Colors.textSecondary,
-    fontSize: 10,
-    letterSpacing: 2.2,
-    fontFamily: Typography.fontFamilies.sansBold,
-    marginTop: Spacing.xs,
-  },
-  heroBox: {
-    backgroundColor: '#19201B',
-    borderRadius: 24,
+  enteringBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(74, 184, 122, 0.16)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#253127',
-    padding: Spacing.xl,
-    marginBottom: Spacing.xl,
+    borderColor: 'rgba(74, 184, 122, 0.35)',
+    marginBottom: Spacing.md,
   },
-  heroTitle: {
-    color: Colors.textPrimary,
-    fontSize: Typography.fontSizes.xl,
+  enteringBadgeText: {
+    color: '#4AB87A',
+    fontSize: 10,
+    fontFamily: Typography.fontFamilies.sansBold,
+    letterSpacing: 1.2,
+  },
+  enteringTitle: {
+    color: '#FFFFFF',
+    fontSize: 28,
     fontFamily: Typography.fontFamilies.serif,
-    marginBottom: Spacing.sm,
-    lineHeight: 28,
+    textAlign: 'center',
+    marginBottom: 8,
   },
-  heroSubtitle: {
-    color: Colors.textSecondary,
+  enteringSub: {
+    color: '#8A998E',
     fontSize: Typography.fontSizes.sm,
     fontFamily: Typography.fontFamilies.sansRegular,
+    textAlign: 'center',
+  },
+  heroSection: {
+    alignItems: 'center',
+    marginTop: Spacing.md,
+  },
+  logoContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  auraCircle: {
+    position: 'absolute',
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: 'rgba(74, 184, 122, 0.2)',
+  },
+  wordmark: {
+    marginBottom: 8,
+  },
+  taglinePill: {
+    backgroundColor: 'rgba(74, 184, 122, 0.12)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(74, 184, 122, 0.25)',
+    marginBottom: Spacing.md,
+  },
+  taglinePillText: {
+    color: '#68BF7B',
+    fontSize: 9.5,
+    fontFamily: Typography.fontFamilies.sansBold,
+    letterSpacing: 1.5,
+  },
+  headline: {
+    color: '#F4F2EC',
+    fontSize: 30,
+    fontFamily: Typography.fontFamilies.serif,
+    textAlign: 'center',
+    letterSpacing: -0.5,
+    marginBottom: 8,
+  },
+  subheadline: {
+    color: '#8A998E',
+    fontSize: 13.5,
+    fontFamily: Typography.fontFamilies.sansRegular,
+    textAlign: 'center',
     lineHeight: 20,
+    paddingHorizontal: Spacing.md,
     marginBottom: Spacing.lg,
   },
-  featureList: {
-    gap: Spacing.sm,
-  },
-  featurePill: {
+  featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#131914',
-    paddingVertical: 10,
-    paddingHorizontal: Spacing.md,
-    borderRadius: 14,
+    justifyContent: 'center',
+    gap: 8,
+  },
+  featureChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#131A15',
+    paddingVertical: 6,
+    paddingHorizontal: 11,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#202A22',
+    borderColor: '#212D24',
   },
-  featurePillText: {
-    color: Colors.textPrimary,
-    fontSize: Typography.fontSizes.xs,
+  featureChipText: {
+    color: '#CFD9D1',
+    fontSize: 11,
     fontFamily: Typography.fontFamilies.sansMedium,
-    marginLeft: Spacing.sm,
   },
-  errorBanner: {
+  errorToast: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 107, 107, 0.12)',
+    backgroundColor: 'rgba(255, 107, 107, 0.14)',
     borderWidth: 1,
     borderColor: 'rgba(255, 107, 107, 0.35)',
-    borderRadius: 16,
-    padding: Spacing.md,
-    marginBottom: Spacing.lg,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginVertical: Spacing.sm,
+    gap: 8,
   },
-  errorIcon: {
-    marginRight: Spacing.sm,
-  },
-  errorText: {
+  errorToastText: {
     flex: 1,
     color: '#FFBABA',
-    fontSize: Typography.fontSizes.xs,
+    fontSize: 12,
     fontFamily: Typography.fontFamilies.sansMedium,
-    lineHeight: 18,
   },
-  errorClose: {
-    marginLeft: Spacing.sm,
-    padding: 4,
+  actionSection: {
+    width: '100%',
+    paddingBottom: Spacing.xs,
   },
-  actionContainer: {
-    marginBottom: Spacing.xl,
+  primaryBtn: {
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FF6243',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.lg,
+    shadowColor: '#FF6243',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 5,
   },
-  orDivider: {
+  primaryBtnPressed: {
+    backgroundColor: '#E65335',
+    transform: [{ scale: 0.985 }],
+  },
+  primaryBtnRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: Spacing.md,
+    justifyContent: 'center',
+  },
+  btnIconLeft: {
+    marginRight: 8,
+  },
+  primaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: Typography.fontFamilies.sansBold,
+    letterSpacing: 0.3,
+  },
+  btnArrowCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 10,
+  },
+  instantAccessNotice: {
+    color: '#6E7A71',
+    fontSize: 11,
+    fontFamily: Typography.fontFamilies.sansRegular,
+    textAlign: 'center',
+    marginTop: 8,
+    marginBottom: Spacing.sm,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#263128',
+    backgroundColor: '#1C251E',
   },
-  orText: {
-    color: Colors.textMuted,
-    fontSize: 11,
+  dividerText: {
+    color: '#526156',
+    fontSize: 10,
     fontFamily: Typography.fontFamilies.sansBold,
     marginHorizontal: Spacing.md,
-    letterSpacing: 1,
+    letterSpacing: 1.2,
   },
-  demoCardButton: {
+  footerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E2B21',
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#3D5A43',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    shadowColor: Colors.forestGreenLight,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  demoCardButtonPressed: {
-    backgroundColor: '#26372A',
-    borderColor: Colors.forestGreenLight,
-    transform: [{ scale: 0.99 }],
-  },
-  demoIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.forestGreenLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
-  },
-  demoTextCol: {
-    flex: 1,
-  },
-  demoBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  demoButtonTitle: {
-    color: '#FFFFFF',
-    fontSize: Typography.fontSizes.sm,
-    fontFamily: Typography.fontFamilies.sansBold,
-  },
-  instantBadge: {
-    backgroundColor: 'rgba(78, 154, 111, 0.25)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(78, 154, 111, 0.4)',
-  },
-  instantBadgeText: {
-    color: Colors.forestGreenLight,
-    fontSize: 9,
-    fontFamily: Typography.fontFamilies.sansBold,
-    letterSpacing: 0.5,
-  },
-  demoButtonSub: {
-    color: Colors.textSecondary,
-    fontSize: Typography.fontSizes.xs - 1,
-    fontFamily: Typography.fontFamilies.sansRegular,
-    marginTop: 3,
-    lineHeight: 16,
-  },
-  oauthNotice: {
-    color: Colors.textMuted,
-    fontSize: 11,
-    fontFamily: Typography.fontFamilies.sansRegular,
-    textAlign: 'center',
+    gap: 6,
     marginTop: Spacing.md,
-    lineHeight: 16,
   },
-  footer: {
-    backgroundColor: '#141A15',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#1F2820',
-    padding: Spacing.md,
-    marginTop: 'auto',
-  },
-  privacyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.xs,
-  },
-  privacyHeading: {
-    color: Colors.success,
-    fontSize: Typography.fontSizes.xs,
-    fontFamily: Typography.fontFamilies.sansBold,
-    marginLeft: Spacing.xs,
-  },
-  privacyText: {
-    color: Colors.textMuted,
+  footerText: {
+    color: '#657368',
     fontSize: 11,
     fontFamily: Typography.fontFamilies.sansRegular,
-    lineHeight: 16,
   },
 });

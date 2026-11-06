@@ -8,7 +8,6 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { GoogleLogo } from '../illustrations/GoogleLogo';
-import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
 
@@ -63,28 +62,23 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    height: 54,
-    backgroundColor: '#1E2520',
-    borderRadius: 27,
-    borderWidth: 1.5,
-    borderColor: '#2F3C31',
+    height: 52,
+    backgroundColor: '#131A15',
+    borderRadius: 26,
+    borderWidth: 1.2,
+    borderColor: '#222E25',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.xl,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
   },
   buttonPressed: {
-    backgroundColor: '#263129',
-    borderColor: Colors.forestGreenLight,
+    backgroundColor: '#1B251E',
+    borderColor: '#38503F',
     transform: [{ scale: 0.985 }],
   },
   buttonDisabled: {
-    opacity: 0.65,
-    borderColor: '#242D26',
+    opacity: 0.5,
+    borderColor: '#1A221C',
   },
   contentRow: {
     flexDirection: 'row',

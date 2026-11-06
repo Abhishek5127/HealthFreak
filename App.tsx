@@ -1,5 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  Easing,
+} from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
@@ -208,6 +215,26 @@ const MainAppContent: React.FC = () => {
   );
 };
 
+const AnimatedAppEntrance: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.96);
+  const translateY = useSharedValue(14);
+
+  useEffect(() => {
+    opacity.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) });
+    scale.value = withSpring(1, { damping: 16, stiffness: 100 });
+    translateY.value = withSpring(0, { damping: 16, stiffness: 100 });
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    flex: 1,
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }, { translateY: translateY.value }],
+  }));
+
+  return <Animated.View style={animatedStyle}>{children}</Animated.View>;
+};
+
 const NavigationRoot: React.FC = () => {
   const { authState, session, profile } = useAuth();
   const { setActiveModal } = useApp();
@@ -234,7 +261,11 @@ const NavigationRoot: React.FC = () => {
     return <LoginScreen />;
   }
 
-  return <MainAppContent />;
+  return (
+    <AnimatedAppEntrance>
+      <MainAppContent />
+    </AnimatedAppEntrance>
+  );
 };
 
 export default function App() {
