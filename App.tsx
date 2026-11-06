@@ -47,6 +47,7 @@ import { NutritionResultScreen } from './src/features/scanner/NutritionResultScr
 import { ScheduleCallModal } from './src/features/coach/ScheduleCallModal';
 import { IncomingCallModal } from './src/features/coach/IncomingCallModal';
 import { LiveKitVoiceCallScreen } from './src/features/coach/LiveKitVoiceCallScreen';
+import { VoiceOverlay } from './src/features/coach/VoiceOverlay';
 import { LoadingOverlay } from './src/components/common/LoadingScreen';
 
 const MainAppContent: React.FC = () => {
@@ -202,6 +203,12 @@ const MainAppContent: React.FC = () => {
       {activeModal === 'calendar_schedule' && (
         <View style={styles.modalOverlay}>
           <CalendarScheduleScreen onClose={() => setActiveModal(null)} />
+        </View>
+      )}
+
+      {activeModal === 'voice_overlay' && (
+        <View style={styles.modalOverlay}>
+          <VoiceOverlay onClose={() => setActiveModal(null)} />
         </View>
       )}
 

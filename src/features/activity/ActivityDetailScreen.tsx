@@ -23,14 +23,28 @@ import { Spacing } from '../../theme/spacing';
 import { PrimaryButton } from '../../components/common/PrimaryButton';
 import { ProgressRing } from '../../components/illustrations/ProgressRing';
 
-export const ActivityDetailScreen: React.FC = () => {
+interface ActivityDetailScreenProps {
+  activityId?: string;
+  onClose?: () => void;
+}
+
+export const ActivityDetailScreen: React.FC<ActivityDetailScreenProps> = ({
+  activityId,
+  onClose,
+}) => {
   const insets = useSafeAreaInsets();
   const {
     featuredWorkout,
     setActiveModal,
     toggleActivityCompletion,
     triggerHaptic,
+    activities,
   } = useApp();
+
+  const handleDismiss = () => {
+    if (onClose) onClose();
+    else setActiveModal(null);
+  };
 
   // Guided workout state
   const [isSessionActive, setIsSessionActive] = useState<boolean>(false);
@@ -74,7 +88,12 @@ export const ActivityDetailScreen: React.FC = () => {
       // Workout completed!
       triggerHaptic('success');
       setIsCompleted(true);
-      toggleActivityCompletion('act_3'); // Mark Strength & Sweat Yoga completed
+      const workoutIdToComplete =
+        activityId ||
+        featuredWorkout.id ||
+        activities.find((a) => a.category === 'movement')?.id ||
+        'act_3';
+      toggleActivityCompletion(workoutIdToComplete);
     }
   };
 
@@ -122,7 +141,7 @@ export const ActivityDetailScreen: React.FC = () => {
             title="Return to Dashboard"
             variant="coral"
             size="lg"
-            onPress={() => setActiveModal(null)}
+            onPress={handleDismiss}
             style={styles.doneBtn}
           />
         </View>
@@ -238,7 +257,7 @@ export const ActivityDetailScreen: React.FC = () => {
         {/* Floating Close Button top-right */}
         <Pressable
           style={styles.trainerCloseBtn}
-          onPress={() => setActiveModal(null)}
+          onPress={handleDismiss}
           hitSlop={12}
         >
           <X size={18} color="#FFFFFF" strokeWidth={2.5} />

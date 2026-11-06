@@ -772,7 +772,8 @@ export class VoiceClientService {
         mimeType,
         'Alex',
         ['patellofemoral_knee_pain'],
-        this.lastCoachReply
+        this.lastCoachReply,
+        this.currentUserId || 'usr_synthetic_alex'
       );
       console.log(`[VoiceClient] Turn response received from backend in ${Date.now() - turnStartTime}ms`);
 

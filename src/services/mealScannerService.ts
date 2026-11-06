@@ -125,7 +125,8 @@ export class MealScannerService {
   public static async analyzeMeal(
     imageUri: string,
     userName: string = 'Alex',
-    healthGoals: string[] = ['Weight management', 'Cardiovascular endurance']
+    healthGoals: string[] = ['Weight management', 'Cardiovascular endurance'],
+    userId: string = 'usr_synthetic_alex'
   ): Promise<MealAnalysisResult> {
     const preprocessed = await this.preprocessImage(imageUri);
     const base64Data = preprocessed.base64;
@@ -148,6 +149,7 @@ export class MealScannerService {
           mimeType: 'image/jpeg',
           userName,
           healthGoals,
+          userId: userId || 'usr_synthetic_alex',
         }),
         signal: controller.signal,
       });
@@ -206,7 +208,7 @@ export class MealScannerService {
         if (rawText) {
           const parsed = JSON.parse(rawText);
           console.log(`[MealScannerService] Real Gemini Vision output: "${parsed.mealName}" with ${parsed.foods?.length} items`);
-          return this.buildClientReport(parsed, preprocessed.uri, userName, healthGoals);
+          return this.buildClientReport(parsed, preprocessed.uri, userName, healthGoals, userId);
         }
       } catch (geminiErr: any) {
         console.error('[MealScannerService] Direct Gemini Vision failed:', geminiErr);
@@ -214,7 +216,7 @@ export class MealScannerService {
     }
 
     // 3. Fallback only if both backend and direct Gemini failed (e.g. airplane mode)
-    return this.generateSmartLocalPlate(preprocessed.uri, userName, healthGoals);
+    return this.generateSmartLocalPlate(preprocessed.uri, userName, healthGoals, userId);
   }
 
   /**
@@ -224,7 +226,8 @@ export class MealScannerService {
     visionData: any,
     imageUri: string,
     userName: string,
-    healthGoals: string[]
+    healthGoals: string[],
+    userId: string = 'usr_synthetic_alex'
   ): MealAnalysisResult {
     const rawFoods = Array.isArray(visionData.foods) && visionData.foods.length > 0
       ? visionData.foods
@@ -263,7 +266,7 @@ export class MealScannerService {
 
     return {
       id: `meal_${Date.now()}`,
-      userId: 'usr_synthetic_alex',
+      userId: userId || 'usr_synthetic_alex',
       mealName: visionData.mealName || 'Scanned Meal',
       mealType,
       timestamp: new Date().toISOString(),
@@ -681,7 +684,8 @@ export class MealScannerService {
   private static generateSmartLocalPlate(
     imageUri: string,
     userName: string,
-    _healthGoals: string[]
+    _healthGoals: string[],
+    userId: string = 'usr_synthetic_alex'
   ): MealAnalysisResult {
     const mealId = `meal_${Date.now()}`;
     const foods: FoodItem[] = [
@@ -711,7 +715,7 @@ export class MealScannerService {
 
     return {
       id: mealId,
-      userId: 'usr_synthetic_alex',
+      userId: userId || 'usr_synthetic_alex',
       mealName: 'Scanned Healthy Bowl (Offline)',
       mealType: 'lunch',
       timestamp: new Date().toISOString(),

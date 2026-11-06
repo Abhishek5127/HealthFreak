@@ -530,19 +530,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setActivities(savedGoalActivities);
             setMetrics(computeProgressMetrics(pedometerService.getState().steps, savedGoalActivities));
 
-            // Restore stored hydration metrics
+            // Restore stored hydration metrics (synchronized with desktop widget storage)
             try {
-              const savedWaterRaw = await expoSecureStoreAdapter.getItem('HEALTHFREAK_WATER_LOGGED');
-              if (savedWaterRaw) {
-                const pWater = parseInt(savedWaterRaw, 10);
-                if (!isNaN(pWater) && pWater >= 0) setWaterLoggedMl(pWater);
+              const widgetState = await getWaterWidgetState();
+              if (typeof widgetState.waterLoggedMl === 'number' && widgetState.waterLoggedMl > 0) {
+                setWaterLoggedMl(widgetState.waterLoggedMl);
+              } else {
+                const savedWaterRaw = await expoSecureStoreAdapter.getItem('HEALTHFREAK_WATER_LOGGED');
+                if (savedWaterRaw) {
+                  const pWater = parseInt(savedWaterRaw, 10);
+                  if (!isNaN(pWater) && pWater >= 0) {
+                    setWaterLoggedMl(pWater);
+                    syncWidgetStateToHomeScreen(pWater, waterTargetMl).catch(() => {});
+                  }
+                }
               }
-              const savedTargetRaw = await expoSecureStoreAdapter.getItem('HEALTHFREAK_WATER_TARGET_ML');
-              if (savedTargetRaw) {
-                const pTarget = parseInt(savedTargetRaw, 10);
-                if (!isNaN(pTarget) && pTarget > 0) setWaterTargetMl(pTarget);
-              } else if (parsed.calculatedPlan.waterLiters) {
-                setWaterTargetMl(Math.round(parsed.calculatedPlan.waterLiters * 1000));
+
+              if (widgetState.waterTargetMl && widgetState.waterTargetMl > 0) {
+                setWaterTargetMl(widgetState.waterTargetMl);
+              } else {
+                const savedTargetRaw = await expoSecureStoreAdapter.getItem('HEALTHFREAK_WATER_TARGET_ML');
+                if (savedTargetRaw) {
+                  const pTarget = parseInt(savedTargetRaw, 10);
+                  if (!isNaN(pTarget) && pTarget > 0) setWaterTargetMl(pTarget);
+                } else if (parsed.calculatedPlan?.waterLiters) {
+                  setWaterTargetMl(Math.round(parsed.calculatedPlan.waterLiters * 1000));
+                }
               }
             } catch {}
           }
@@ -636,7 +649,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           distanceMeters: todaySummary.distanceMeters,
           caloriesBurned: todaySummary.caloriesBurned,
           activeMinutes: todaySummary.activeMinutes,
-        }
+        },
+        userProfile.id || 'usr_synthetic_alex'
       );
 
       const coachMsg: ChatMessage = {

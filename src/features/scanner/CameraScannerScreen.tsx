@@ -30,6 +30,7 @@ import {
   CheckCircle2,
   Utensils,
   ChevronLeft,
+  AlertCircle,
 } from 'lucide-react-native';
 
 import { useApp } from '../../state/AppContext';
@@ -57,6 +58,7 @@ export const CameraScannerScreen: React.FC = () => {
   // Scanning stages: idle -> uploading -> identifying -> estimating -> calculating -> done
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisStage, setAnalysisStage] = useState<number>(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Laser scanner animation
   const [laserAnim] = useState(() => new Animated.Value(0));
@@ -144,27 +146,35 @@ export const CameraScannerScreen: React.FC = () => {
     if (!capturedPhotoUri) return;
 
     triggerHaptic('impact');
+    setErrorMessage(null);
     setIsAnalyzing(true);
 
     try {
       const result = await MealScannerService.analyzeMeal(
         capturedPhotoUri,
         userProfile.name,
-        userProfile.healthConditions || ['Metabolic fitness', 'Weight management']
+        userProfile.healthConditions || ['Metabolic fitness', 'Weight management'],
+        userProfile.id || 'usr_synthetic_alex'
       );
 
       triggerHaptic('success');
       setIsAnalyzing(false);
       openMealResult(result);
-    } catch (err) {
+    } catch (err: any) {
       console.error('[Camera] Analysis failed:', err);
       setIsAnalyzing(false);
+      setErrorMessage(
+        err?.message && !err.message.includes('abort')
+          ? err.message
+          : 'Unable to analyze photo. Please check your network connection and try again.'
+      );
     }
   };
 
   const handleRetake = () => {
     triggerHaptic('selection');
     setCapturedPhotoUri(null);
+    setErrorMessage(null);
     setIsAnalyzing(false);
   };
 
@@ -417,6 +427,13 @@ export const CameraScannerScreen: React.FC = () => {
                   <Text style={styles.previewSubheading}>
                     Gemini Multimodal Vision will identify every visible item and calculate exact nutrients.
                   </Text>
+
+                  {errorMessage ? (
+                    <View style={styles.errorAlertCard}>
+                      <AlertCircle color="#FF6B6B" size={16} style={{ marginRight: 8 }} />
+                      <Text style={styles.errorAlertText}>{errorMessage}</Text>
+                    </View>
+                  ) : null}
 
                   <View style={styles.previewButtonsRow}>
                     <TouchableOpacity
@@ -752,6 +769,24 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     borderTopWidth: 1,
     borderColor: Colors.borderLight,
+  },
+  errorAlertCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 107, 107, 0.12)',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 107, 0.3)',
+  },
+  errorAlertText: {
+    flex: 1,
+    color: '#FF6B6B',
+    fontSize: 12,
+    fontFamily: Typography.fontFamilies.sansMedium,
+    lineHeight: 16,
   },
   previewHeading: {
     fontFamily: Typography.fontFamilies.serif,

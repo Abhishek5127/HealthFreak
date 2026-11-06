@@ -34,6 +34,8 @@ export const ProgressScreen: React.FC = () => {
     startSleep,
     wakeUp,
     setActiveModal,
+    openMealResult,
+    openMealScanner,
   } = useApp();
   const [timeRange, setTimeRange] = useState<'Week' | 'Month'>('Week');
 
@@ -159,7 +161,13 @@ export const ProgressScreen: React.FC = () => {
       <SectionHeader
         title={timeRange === 'Week' ? '7-Day Nutrition Insights' : '30-Day Food Diary & Trends'}
         actionText="Food diary"
-        onActionPress={() => {}}
+        onActionPress={() => {
+          if (hasMeals && recentMeals[0]) {
+            openMealResult(recentMeals[0]);
+          } else {
+            openMealScanner();
+          }
+        }}
       />
       <View style={styles.nutritionTrendCard}>
         <View style={styles.nutritionHeaderRow}>

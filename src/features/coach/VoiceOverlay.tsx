@@ -22,7 +22,7 @@ interface VoiceOverlayProps {
 
 export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
   const insets = useSafeAreaInsets();
-  const { activeScannedMeal } = useApp();
+  const { activeScannedMeal, userProfile } = useApp();
   const [sessionState, setSessionState] = useState<VoiceSessionState>(voiceClient.getState());
   const [typedInput, setTypedInput] = useState<string>('');
 
@@ -32,7 +32,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
   // Subscribe to voice client
   useEffect(() => {
     voiceClient.unlockAudio();
-    voiceClient.startSession('usr_synthetic_alex');
+    voiceClient.startSession(userProfile?.id || 'usr_synthetic_alex');
     const unsubscribe = voiceClient.subscribe((state) => {
       setSessionState(state);
     });
@@ -41,7 +41,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
       unsubscribe();
       voiceClient.endSession();
     };
-  }, []);
+  }, [userProfile?.id]);
 
   // Drive animation based on real conversational states and mic volume
   useEffect(() => {

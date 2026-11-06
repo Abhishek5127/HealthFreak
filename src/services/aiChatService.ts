@@ -27,7 +27,8 @@ export async function askHealthCoachAI(
     distanceMeters?: number;
     caloriesBurned?: number;
     activeMinutes?: number;
-  }
+  },
+  userId: string = 'usr_synthetic_alex'
 ): Promise<{ text: string; suggestions: string[]; audioBase64?: string; audioMime?: string; audioUrl?: string }> {
   // 1. First try local backend server
   try {
@@ -40,7 +41,7 @@ export async function askHealthCoachAI(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message,
-        userId: 'usr_synthetic_alex',
+        userId: userId || 'usr_synthetic_alex',
         generateCloudAudio: true,
         activityContext,
       }),
@@ -259,7 +260,8 @@ export async function transcribeAndReplyAudio(
   mimeType = 'audio/webm',
   userName = 'Alex',
   conditions: string[] = [],
-  lastCoachReply = ''
+  lastCoachReply = '',
+  userId = 'usr_synthetic_alex'
 ): Promise<{ userTranscript: string; coachReply: string; audioBase64?: string; audioMime?: string; audioUrl?: string; isEcho?: boolean }> {
   // 1. First attempt backend server (logs to server terminal in real-time)
   try {
@@ -273,7 +275,7 @@ export async function transcribeAndReplyAudio(
       body: JSON.stringify({
         audioBase64: base64Audio,
         mimeType,
-        userId: 'usr_synthetic_alex',
+        userId: userId || 'usr_synthetic_alex',
         lastCoachReply,
         generateCloudAudio: true,
       }),
