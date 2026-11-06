@@ -148,7 +148,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     } catch (err: any) {
-      console.warn('[AuthContext] Backend profile sync failed or timed out, falling back to session metadata:', err.message);
+      // Backend server optional during offline or web dev mode; fallback gracefully
+      if (__DEV__) {
+        console.log('[AuthContext] Backend profile sync offline, using local session profile:', err?.message || err);
+      }
     }
 
     // Local fallback profile based on Google OAuth metadata
