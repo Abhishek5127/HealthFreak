@@ -1,5 +1,5 @@
 -- ==============================================================================
--- DISHA HEALTH: GOOGLE OAUTH AUTOMATION & ROW LEVEL SECURITY (RLS) POLICIES
+-- HEALTHFREAK: GOOGLE OAUTH AUTOMATION & ROW LEVEL SECURITY (RLS) POLICIES
 -- PostgreSQL / Supabase Migration
 -- ==============================================================================
 
@@ -34,7 +34,7 @@ BEGIN
       new.raw_user_meta_data->>'full_name',
       new.raw_user_meta_data->>'name',
       split_part(new.email, '@', 1),
-      'Disha Member'
+      'HealthFreak Member'
     ),
     new.email,
     COALESCE(

@@ -64,7 +64,7 @@ export const LiveKitVoiceCallScreen: React.FC<LiveKitVoiceCallScreenProps> = ({
 
     const initialGreeting =
       greeting ||
-      'Namaste! I am Disha, your AI health coach from HealthFreak. How is your energy and body feeling today?';
+      'Hello! I am Coach Alex, your AI health coach from HealthFreak. How is your energy and body feeling today?';
 
     voiceClient.startSession(call.userId || 'usr_synthetic_alex', initialGreeting);
 
@@ -269,7 +269,7 @@ export const LiveKitVoiceCallScreen: React.FC<LiveKitVoiceCallScreenProps> = ({
           ) : (
             <>
               <Mic size={16} color="#4AB87A" />
-              <Text style={styles.tapToTalkText}>Tap to Talk to Disha</Text>
+              <Text style={styles.tapToTalkText}>Tap to Talk to Coach</Text>
             </>
           )}
         </Pressable>
@@ -279,11 +279,11 @@ export const LiveKitVoiceCallScreen: React.FC<LiveKitVoiceCallScreenProps> = ({
       <View style={styles.speechCard}>
         <View style={styles.speechHeader}>
           <MessageSquare size={14} color="#4AB87A" />
-          <Text style={styles.speechLabel}>HealthFreak AI (Disha)</Text>
+          <Text style={styles.speechLabel}>HealthFreak AI Coach</Text>
         </View>
         <ScrollView style={styles.speechScroll} showsVerticalScrollIndicator={false}>
           <Text style={styles.speechText}>
-            {`"${sessionState.coachTranscript || greeting || 'Namaste! I am Disha, your AI health coach from HealthFreak. How are you feeling today?'}"`}
+            {`"${sessionState.coachTranscript || greeting || 'Hello! I am Coach Alex, your AI health coach from HealthFreak. How are you feeling today?'}"`}
           </Text>
           {sessionState.userTranscript ? (
             <Text style={styles.userEchoText}>You: {sessionState.userTranscript}</Text>

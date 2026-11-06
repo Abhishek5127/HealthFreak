@@ -17,7 +17,7 @@ export function getBackendBaseUrl(): string {
   return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 }
 
-export async function askDishaAI(
+export async function askHealthCoachAI(
   message: string,
   userName = 'there',
   conditions: string[] = [],
@@ -84,7 +84,7 @@ export async function askDishaAI(
 - Active Minutes: ${activityContext.activeMinutes || 0}m.`
           : '';
 
-      const systemPrompt = `You are Disha, an AI Health and Wellness Coach created by Disha Health.
+      const systemPrompt = `You are Coach Alex, an AI Health and Wellness Coach created by HealthFreak.
 You are speaking directly with ${userName}.
 You understand English, Hindi, and everyday Hinglish.
 ${conditionsStr}
@@ -119,7 +119,7 @@ Rules:
                   role: 'user',
                   parts: [
                     {
-                      text: `${systemPrompt}\n\nUser: "${message}"\nDisha:`,
+                      text: `${systemPrompt}\n\nUser: "${message}"\nCoach:`,
                     },
                   ],
                 },
@@ -133,7 +133,7 @@ Rules:
 
           const data = await res.json();
           if (data.error) {
-            console.warn(`[Disha AI Direct ${modelCandidate} Busy]: ${data.error.message}`);
+            console.warn(`[HealthFreak AI Direct ${modelCandidate} Busy]: ${data.error.message}`);
             continue;
           }
 
@@ -149,11 +149,11 @@ Rules:
             };
           }
         } catch (mErr) {
-          console.warn(`[Disha AI Direct ${modelCandidate} Failed]:`, mErr);
+          console.warn(`[HealthFreak AI Direct ${modelCandidate} Failed]:`, mErr);
         }
       }
     } catch (err) {
-      console.error('[Disha AI] Gemini error:', err);
+      console.error('[HealthFreak AI] Gemini error:', err);
     }
   }
 
@@ -185,15 +185,15 @@ export function isSelfEcho(userText: string, coachText: string): boolean {
   }
 
   const coachIdentityPhrases = [
-    'main disha bol rahi hoon',
-    'main disha bol rahi',
-    'main disha hoon',
-    'disha bol rahi hoon',
-    'disha here',
+    'main alex bol raha hoon',
+    'main alex bol raha',
+    'main alex hoon',
+    'alex bol raha hoon',
+    'coach alex here',
     'aapki ai health coach',
     'aapki health coach',
-    'disha health coach',
-    'ai health coach from disha',
+    'healthfreak coach',
+    'ai health coach from healthfreak',
     'taking a quick wellness check in',
     'time for a peaceful wind down',
   ];
@@ -318,7 +318,7 @@ export async function transcribeAndReplyAudio(
 
       const antiEchoPrompt = lastCoachReply
         ? `CRITICAL ANTI-ECHO GUARD:
-The AI coach (Disha) just finished speaking this exact phrase through the phone loudspeaker:
+The AI coach (Coach Alex) just finished speaking this exact phrase through the phone loudspeaker:
 "${lastCoachReply}"
 If the attached audio recording is just the microphone picking up the coach's own previous words or echo repeating back from the loudspeaker:
 - Set userTranscript: "(Speaker echo)"
@@ -328,17 +328,17 @@ DO NOT reply to your own voice or previous words! Never create a self-conversati
 Otherwise, if a real human user is speaking:`
         : '';
 
-      const instruction = `You are Disha, an AI Health and Wellness Coach created by Disha Health.
+      const instruction = `You are Coach Alex, an AI Health and Wellness Coach created by HealthFreak.
 You are listening directly to a voice note from ${userName}.
 ${conditionsStr}
 ${antiEchoPrompt}
 Listen carefully to the audio.
 1. Transcribe what the user said verbatim (support English, Hindi, Hinglish). If silent or unintelligible, set userTranscript to "(Ambient sound or brief pause)".
-2. As Disha, generate a warm, concise, empathetic 1-2 sentence response guiding their nutrition, movement, or daily health habits.
+2. As Coach Alex, generate a warm, concise, empathetic 1-2 sentence response guiding their nutrition, movement, or daily health habits.
 3. Return STRICTLY a valid JSON object with keys:
 {
   "userTranscript": "<exact words user spoke or (Speaker echo)>",
-  "coachReply": "<your 1-2 sentence response as Disha or empty string if echo>"
+  "coachReply": "<your 1-2 sentence response as Coach Alex or empty string if echo>"
 }`;
 
       const candidateModels = Array.from(
@@ -383,7 +383,7 @@ Listen carefully to the audio.
           if (res.ok) {
             const data = await res.json();
             if (data.error) {
-              console.warn(`[Disha Audio Direct ${modelCandidate} Busy]: ${data.error.message}`);
+              console.warn(`[HealthFreak Audio Direct ${modelCandidate} Busy]: ${data.error.message}`);
               continue;
             }
             const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -457,7 +457,7 @@ Listen carefully to the audio.
             }
           }
         } catch (mErr) {
-          console.warn(`[Disha Audio Direct ${modelCandidate} Failed]:`, mErr);
+          console.warn(`[HealthFreak Audio Direct ${modelCandidate} Failed]:`, mErr);
         }
       }
     } catch (err) {

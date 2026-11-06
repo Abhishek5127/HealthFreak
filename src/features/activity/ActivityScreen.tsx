@@ -24,6 +24,7 @@ import { StepHistoryChart } from './components/StepHistoryChart';
 import { ActivitySummaryCard } from './components/ActivitySummaryCard';
 import { StepGoalModal } from './components/StepGoalModal';
 import { PedometerPermissionModal } from './components/PedometerPermissionModal';
+import { FitnessJourneyScreen } from './FitnessJourneyScreen';
 import { usePedometer } from './hooks/usePedometer';
 import { useApp } from '../../state/AppContext';
 import { Colors } from '../../theme/colors';
@@ -31,7 +32,8 @@ import { Typography } from '../../theme/typography';
 
 export const ActivityScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const { setActiveModal, triggerHaptic } = useApp();
+  const { setActiveModal, setActiveTab, triggerHaptic } = useApp();
+  const [activeTabMode] = useState<'journey' | 'technical'>('journey');
 
   const {
     todaySteps,
@@ -54,6 +56,18 @@ export const ActivityScreen: React.FC = () => {
   const [showGoalModal, setShowGoalModal] = useState<boolean>(false);
   const [showPermissionModal, setShowPermissionModal] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+
+  if (activeTabMode === 'journey') {
+    return (
+      <FitnessJourneyScreen
+        onClose={() => setActiveModal(null)}
+        onNavigateToProgress={() => {
+          setActiveModal(null);
+          setActiveTab('progress');
+        }}
+      />
+    );
+  }
 
   const percentage = stepGoal > 0 ? todaySteps / stepGoal : 0;
   const isGoalReached = todaySteps >= stepGoal && stepGoal > 0;

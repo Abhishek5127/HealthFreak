@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HealthFreak - Calendar & Fitness Journey Screens</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #070B08;
+      color: #E8EFE9;
+      font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #FFFFFF;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+
+    h1 span {
+      color: #FF6243;
+    }
+
+    p.subtitle {
+      font-size: 14px;
+      color: #8E9F92;
+      max-width: 600px;
+      line-height: 1.5;
+    }
+
+    /* Dual Phone Showcase Canvas */
+    .dual-showcase-container {
+      display: flex;
+      gap: 40px;
+      justify-content: center;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      max-width: 950px;
+      width: 100%;
+    }
+
+    /* Phone Shell Simulator */
+    .phone-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .phone-tag {
+      font-size: 13px;
+      font-weight: 700;
+      color: #FF6243;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      background: rgba(255, 98, 67, 0.12);
+      padding: 5px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 98, 67, 0.25);
+    }
+
+    .preview-viewport {
+      width: 375px;
+      height: 760px;
+      background: #0C100D;
+      border-radius: 46px;
+      border: 4px solid #1E2721;
+      box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.9), 0 0 45px rgba(74, 184, 122, 0.08);
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Phone Notch */
+    .phone-notch {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 110px;
+      height: 25px;
+      background: #000000;
+      border-radius: 14px;
+      z-index: 1000;
+    }
+
+    /* Status Bar Mock */
+    .phone-status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 28px 4px 28px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #FFFFFF;
+      z-index: 999;
+    }
+
+    .screen-scrollable {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 18px 90px 18px;
+      scrollbar-width: none;
+    }
+    .screen-scrollable::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* SCREEN 1: CALENDAR */
+    .calendar-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 16px;
+      letter-spacing: -0.3px;
+    }
+
+    .week-strip {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .week-day-pill {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 10px;
+      border-radius: 16px;
+      min-width: 44px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .week-day-pill.active {
+      background: #FF6243;
+      box-shadow: 0 4px 12px rgba(255, 98, 67, 0.4);
+    }
+
+    .week-day-name {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #8A998E;
+      margin-bottom: 4px;
+    }
+    .week-day-pill.active .week-day-name {
+      color: #FFFFFF;
+    }
+
+    .week-day-num {
+      font-size: 15px;
+      font-weight: 700;
+      color: #8A998E;
+    }
+    .week-day-pill.active .week-day-num {
+      color: #FFFFFF;
+    }
+
+    .search-input-box {
+      display: flex;
+      align-items: center;
+      background: #161C18;
+      border: 1px solid #232C25;
+      border-radius: 16px;
+      padding: 12px 14px;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .search-input-box input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #FFFFFF;
+      font-size: 13.5px;
+      font-family: inherit;
+      width: 100%;
+    }
+
+    .search-input-box input::placeholder {
+      color: #7E8F82;
+    }
+
+    .date-heading-row {
+      font-size: 14.5px;
+      font-weight: 600;
+      color: #FFFFFF;
+      margin-bottom: 14px;
+    }
+
+    .session-cards-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .training-card {
+      display: flex;
+      align-items: center;
+      background: #161D19;
+      border: 1px solid #232C25;
+      border-radius: 18px;
+      padding: 14px;
+      gap: 12px;
+      transition: transform 0.15s ease;
+    }
+
+    .training-card:hover {
+      border-color: #334438;
+    }
+
+    .training-icon-badge {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      background: #203226;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .training-details {
+      flex: 1;
+    }
+
+    .training-time {
+      font-size: 11px;
+      color: #8A9B8F;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .training-name {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 2px;
+    }
+
+    .training-instructor {
+      font-size: 12px;
+      color: #8A9B8F;
+    }
+
+    .join-pill-btn {
+      background: #222B25;
+      border: 1px solid #303D34;
+      color: #FFFFFF;
+      border-radius: 20px;
+      padding: 7px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .join-pill-btn:hover {
+      background: #FF6243;
+      border-color: #FF6243;
+    }
+
+    .join-pill-btn.joined {
+      background: #FF6243;
+      border-color: #FF6243;
+    }
+
+    /* Floating Bottom Tab Bar */
+    .floating-nav-bar {
+      position: absolute;
+      bottom: 14px;
+      left: 18px;
+      right: 18px;
+      background: #181C19;
+      border: 1px solid #262D28;
+      border-radius: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 14px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+    }
+
+    .nav-item-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #8A998E;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      transition: all 0.2s ease;
+    }
+
+    .nav-item-btn.active {
+      background: #FF6243;
+      color: #FFFFFF;
+      box-shadow: 0 4px 10px rgba(255, 98, 67, 0.4);
+    }
+
+    /* SCREEN 2: FITNESS JOURNEY */
+    .top-bar-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .nav-icon {
+      color: #FFFFFF;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .journey-title {
+      font-size: 19px;
+      font-weight: 700;
+      color: #FFFFFF;
+      letter-spacing: -0.3px;
+    }
+
+    .segmented-switch {
+      display: flex;
+      background: #161D19;
+      border: 1px solid #222B25;
+      border-radius: 22px;
+      padding: 4px;
+      margin-bottom: 14px;
+    }
+
+    .segment-choice {
+      flex: 1;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-radius: 18px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #8A998E;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .segment-choice.active {
+      background: #37503F;
+      color: #FFFFFF;
+      font-weight: 700;
+    }
+
+    .date-pill-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #161D19;
+      border: 1px solid #232C25;
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-size: 12.5px;
+      color: #FFFFFF;
+      margin-bottom: 16px;
+    }
+
+    /* Steps Card */
+    .steps-card-box {
+      background: #161D19;
+      border: 1px solid #232C25;
+      border-radius: 20px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .steps-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .steps-heading {
+      font-size: 15px;
+      font-weight: 600;
+      color: #FFFFFF;
+    }
+
+    .steps-heading strong {
+      font-weight: 800;
+      color: #FFFFFF;
+    }
+
+    .dot-matrix-wrapper {
+      display: flex;
+      align-items: center;
+      height: 110px;
+      position: relative;
+    }
+
+    .matrix-y-axis {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+      padding: 2px 10px 2px 0;
+      font-size: 11px;
+      color: #6F7F73;
+    }
+
+    .matrix-columns-area {
+      flex: 1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 100%;
+      position: relative;
+      padding: 4px 6px;
+    }
+
+    .matrix-col {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+      align-items: center;
+      z-index: 2;
+    }
+
+    .matrix-dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: #27332B;
+    }
+
+    .matrix-dot.active {
+      background: #FF6243;
+      box-shadow: 0 2px 6px rgba(255, 98, 67, 0.5);
+    }
+
+    .matrix-spline-svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Dual Stats Row */
+    .dual-stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .mini-stat-card {
+      background: #161D19;
+      border: 1px solid #232C25;
+      border-radius: 20px;
+      padding: 14px;
+      min-height: 145px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .mini-stat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .mini-stat-title {
+      font-size: 12.5px;
+      color: #8A998E;
+      font-weight: 500;
+    }
+
+    .workout-big-time {
+      font-size: 16px;
+      font-weight: 800;
+      color: #FFFFFF;
+      margin-top: 2px;
+    }
+
+    .circle-gauge-box {
+      position: relative;
+      width: 95px;
+      height: 95px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .circle-gauge-box svg {
+      transform: rotate(-90deg);
+    }
+
+    .gauge-inside-text {
+      position: absolute;
+      text-align: center;
+    }
+
+    .gauge-val {
+      font-size: 16px;
+      font-weight: 800;
+      color: #FFFFFF;
+      line-height: 1.1;
+    }
+
+    .gauge-lbl {
+      font-size: 10.5px;
+      color: #8A998E;
+    }
+
+    .wave-mountain-container {
+      height: 70px;
+      width: 100%;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    /* Goals Section */
+    .goals-header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .goals-header-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    .add-goal-link {
+      font-size: 12.5px;
+      color: #8A998E;
+      cursor: pointer;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .add-goal-link:hover {
+      color: #FF6243;
+    }
+
+    .goals-items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .goal-item-card {
+      background: #161D19;
+      border: 1px solid #232C25;
+      border-radius: 18px;
+      padding: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .goal-name-text {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 4px;
+    }
+
+    .goal-metadata-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 11px;
+      color: #8A998E;
+    }
+
+    .goal-ring-badge {
+      width: 48px;
+      height: 48px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .goal-ring-badge svg {
+      transform: rotate(-90deg);
+    }
+
+    .goal-ring-val {
+      position: absolute;
+      font-size: 10.5px;
+      font-weight: 800;
+      color: #FFFFFF;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Health<span>Freak</span> Native UI System</h1>
+    <p class="subtitle">Pixel-perfect implementation of the Workout Calendar & Fitness Journey screens integrated into the app navigation.</p>
+  </header>
+
+  <div class="dual-showcase-container">
+
+    <!-- LEFT PHONE: CALENDAR & WORKOUTS SCHEDULE -->
+    <div class="phone-column">
+      <div class="phone-tag">📅 Calendar & Training Sessions</div>
+
+      <div class="preview-viewport">
+        <div class="phone-notch"></div>
+        <div class="phone-status-bar">
+          <span>9:41</span>
+          <span>●●● 5G 100%</span>
+        </div>
+
+        <div class="screen-scrollable">
+          <div class="calendar-title">Calendar</div>
+
+          <!-- Week Day Selector Strip -->
+          <div class="week-strip">
+            <div class="week-day-pill" onclick="selectDate(this, 11)">
+              <span class="week-day-name">Mon</span>
+              <span class="week-day-num">11</span>
+            </div>
+            <div class="week-day-pill active" onclick="selectDate(this, 12)">
+              <span class="week-day-name">Tue</span>
+              <span class="week-day-num">12</span>
+            </div>
+            <div class="week-day-pill" onclick="selectDate(this, 13)">
+              <span class="week-day-name">Wed</span>
+              <span class="week-day-num">13</span>
+            </div>
+            <div class="week-day-pill" onclick="selectDate(this, 14)">
+              <span class="week-day-name">Thu</span>
+              <span class="week-day-num">14</span>
+            </div>
+            <div class="week-day-pill" onclick="selectDate(this, 15)">
+              <span class="week-day-name">Fri</span>
+              <span class="week-day-num">15</span>
+            </div>
+            <div class="week-day-pill" onclick="selectDate(this, 16)">
+              <span class="week-day-name">Sun</span>
+              <span class="week-day-num">16</span>
+            </div>
+          </div>
+
+          <!-- Search Bar -->
+          <div class="search-input-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7E8F82" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" placeholder="Search name or training" id="training-search" oninput="filterSessions(this.value)">
+          </div>
+
+          <!-- Date Subheading -->
+          <div class="date-heading-row" id="selected-date-heading">Tuesday, December 12</div>
+
+          <!-- Training Sessions List -->
+          <div class="session-cards-list" id="sessions-container">
+            <!-- 1. Yoga for Balance -->
+            <div class="training-card" data-title="Yoga for balance">
+              <div class="training-icon-badge">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#72D995" stroke-width="2"><circle cx="12" cy="5" r="2.5"/><path d="M12 8v5M7 11l5 2 5-2M6 18l3-2 3 3 3-3 3 2"/></svg>
+              </div>
+              <div class="training-details">
+                <div class="training-time">07:30 - 08:15</div>
+                <div class="training-name">Yoga for balance</div>
+                <div class="training-instructor">Anna Sedon</div>
+              </div>
+              <button class="join-pill-btn" onclick="toggleJoin(this)">Join</button>
+            </div>
+
+            <!-- 2. Full Body Gym -->
+            <div class="training-card" data-title="Full body gym">
+              <div class="training-icon-badge">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#72D995" stroke-width="2.2"><path d="M6 5v14M18 5v14M3 8v8M21 8v8M6 12h12"/></svg>
+              </div>
+              <div class="training-details">
+                <div class="training-time">12:00 - 13:00</div>
+                <div class="training-name">Full body gym</div>
+                <div class="training-instructor">Daniel Moore</div>
+              </div>
+              <button class="join-pill-btn" onclick="toggleJoin(this)">Join</button>
+            </div>
+
+            <!-- 3. Functional Fitness -->
+            <div class="training-card" data-title="Functional fitness">
+              <div class="training-icon-badge">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#72D995" stroke-width="2"><circle cx="14" cy="5" r="2"/><path d="M10 21l3-5-2-4 4-2 3 3M6 13l3-1 2 3M8 9l3-2"/></svg>
+              </div>
+              <div class="training-details">
+                <div class="training-time">16:00 - 17:00</div>
+                <div class="training-name">Functional fitness</div>
+                <div class="training-instructor">Ryan Cooper</div>
+              </div>
+              <button class="join-pill-btn" onclick="toggleJoin(this)">Join</button>
+            </div>
+
+            <!-- 4. Dance Cardio -->
+            <div class="training-card" data-title="Dance cardio">
+              <div class="training-icon-badge">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#72D995" stroke-width="2"><circle cx="12" cy="4" r="2"/><path d="M7 9l5-2 5 2M12 7v7l-4 6M12 14l4 6"/></svg>
+              </div>
+              <div class="training-details">
+                <div class="training-time">18:30 - 19:15</div>
+                <div class="training-name">Dance cardio</div>
+                <div class="training-instructor">Sophia Martinez</div>
+              </div>
+              <button class="join-pill-btn" onclick="toggleJoin(this)">Join</button>
+            </div>
+
+            <!-- 5. Tennis Training -->
+            <div class="training-card" data-title="Tennis training">
+              <div class="training-icon-badge">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#72D995" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M6.3 6.3a8 8 0 0 1 11.4 11.4M6.3 17.7a8 8 0 0 0 11.4-11.4"/></svg>
+              </div>
+              <div class="training-details">
+                <div class="training-time">19:30 - 20:10</div>
+                <div class="training-name">Tennis training</div>
+                <div class="training-instructor">Alex Johnson</div>
+              </div>
+              <button class="join-pill-btn" onclick="toggleJoin(this)">Join</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Floating Bottom Tab Bar with Calendar Highlighted -->
+        <div class="floating-nav-bar">
+          <button class="nav-item-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></button>
+          <button class="nav-item-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 5v14M18 5v14M3 8v8M21 8v8M6 12h12"/></svg></button>
+          <button class="nav-item-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></button>
+          <button class="nav-item-btn active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
+          <button class="nav-item-btn"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PHONE: MY FITNESS JOURNEY -->
+    <div class="phone-column">
+      <div class="phone-tag">🏃 My Fitness Journey</div>
+
+      <div class="preview-viewport">
+        <div class="phone-notch"></div>
+        <div class="phone-status-bar">
+          <span>9:41</span>
+          <span>●●● 5G 100%</span>
+        </div>
+
+        <div class="screen-scrollable">
+          <!-- Top Bar -->
+          <div class="top-bar-nav">
+            <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></span>
+            <div class="journey-title">My fitness journey</div>
+            <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></span>
+          </div>
+
+          <!-- Segmented Pill -->
+          <div class="segmented-switch">
+            <div class="segment-choice active">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#72D995" stroke-width="2"><circle cx="12" cy="5" r="2"/><path d="M10 21l3-5-2-4 4-2 3 3M6 13l3-1 2 3M8 9l3-2"/></svg>
+              <span>Activity</span>
+            </div>
+            <div class="segment-choice">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              <span>Progress</span>
+            </div>
+          </div>
+
+          <!-- Date Selector -->
+          <div class="date-pill-badge">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A998E" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span>Tue, December 12, 2025</span>
+          </div>
+
+          <!-- Steps Card with Dot Matrix & Orange Spline Curve -->
+          <div class="steps-card-box">
+            <div class="steps-card-header">
+              <div class="steps-heading">Steps: <strong>5,348</strong></div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A998E" stroke-width="2"><circle cx="12" cy="5" r="2"/><path d="M10 21l3-5-2-4 4-2 3 3M6 13l3-1 2 3M8 9l3-2"/></svg>
+            </div>
+
+            <div class="dot-matrix-wrapper">
+              <div class="matrix-y-axis">
+                <span>3k</span>
+                <span>2k</span>
+                <span>1k</span>
+                <span>0</span>
+              </div>
+
+              <div class="matrix-columns-area">
+                <!-- Smooth Bezier Spline Path overlay -->
+                <svg class="matrix-spline-svg" viewBox="0 0 240 100" preserveAspectRatio="none">
+                  <path d="M 15 85 Q 40 70, 55 45 T 90 20 T 130 55 T 165 80 T 200 78 T 225 82" fill="none" stroke="#FF6243" stroke-width="2.8" stroke-linecap="round"/>
+                </svg>
+
+                <!-- 7 Dot Columns -->
+                <div class="matrix-col"><span class="matrix-dot"></span><span class="matrix-dot"></span><span class="matrix-dot"></span><span class="matrix-dot active"></span></div>
+                <div class="matrix-col"><span class="matrix-dot"></span><span class="matrix-dot"></span><span class="matrix-dot active"></span><span class="matrix-dot active"></span></div>
+                <div class="matrix-col"><span class="matrix-dot"></span><span class="matrix-dot active"></span><span class="matrix-dot active"></span><span class="matrix-dot active"></span></div>
+                <div class="matrix-col"><span class="matrix-dot"></span><span class="matrix-dot"></span><span class="matrix-dot active"></span><span class="matrix-dot active"></span></div>
+                <div class="matrix-col"><span class="matrix-dot"></span><span class="matrix-dot"></span><span class="matrix-dot"></span><span class="matrix-dot active"></span></div>
+                <div class="matrix-col"><span class="matrix-dot"></span><span class="matrix-dot"></span><span class="matrix-dot"></span><span class="matrix-dot active"></span></div>
+                <div class="matrix-col"><span class="matrix-dot"></span><span class="matrix-dot"></span><span class="matrix-dot"></span><span class="matrix-dot active"></span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dual Cards: Calories & Workout -->
+          <div class="dual-stats-grid">
+            <!-- Left: Calories -->
+            <div class="mini-stat-card">
+              <div class="mini-stat-header">
+                <span class="mini-stat-title">Calories</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A998E" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+              </div>
+
+              <div class="circle-gauge-box">
+                <svg width="90" height="90" viewBox="0 0 90 90">
+                  <circle cx="45" cy="45" r="34" stroke="#26312A" stroke-width="7" fill="none"/>
+                  <circle cx="45" cy="45" r="34" stroke="#FF6243" stroke-width="7" stroke-dasharray="213" stroke-dashoffset="75" stroke-linecap="round" fill="none"/>
+                </svg>
+                <div class="gauge-inside-text">
+                  <div class="gauge-val">273</div>
+                  <div class="gauge-lbl">kcal</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Workout -->
+            <div class="mini-stat-card">
+              <div class="mini-stat-header">
+                <div>
+                  <div class="mini-stat-title">Workout:</div>
+                  <div class="workout-big-time">1h 5m</div>
+                </div>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8A998E" stroke-width="2"><path d="M6 5v14M18 5v14M3 8v8M21 8v8M6 12h12"/></svg>
+              </div>
+
+              <div class="wave-mountain-container">
+                <svg width="100%" height="70" viewBox="0 0 140 70" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="waveHGrad" x1="0" y1="0" x2="0" y2="1">
+                      <Stop offset="0%" stop-color="#FF6243" stop-opacity="0.6" />
+                      <Stop offset="60%" stop-color="#FF6243" stop-opacity="0.15" />
+                      <Stop offset="100%" stop-color="#FF6243" stop-opacity="0" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M 0 70 Q 25 65, 45 40 T 85 8 T 115 25 T 140 35 L 140 70 Z" fill="url(#waveHGrad)"/>
+                  <path d="M 0 70 Q 25 65, 45 40 T 85 8 T 115 25 T 140 35" fill="none" stroke="#FF6243" stroke-width="2.5" stroke-linecap="round"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- My Goals Section -->
+          <div class="goals-header-bar">
+            <span class="goals-header-title">My goals</span>
+            <a href="#" class="add-goal-link" onclick="quickAddGoal(event)">+ Add goals</a>
+          </div>
+
+          <div class="goals-items-list" id="goals-list-box">
+            <!-- Goal 1 -->
+            <div class="goal-item-card">
+              <div>
+                <div class="goal-name-text">Feel more balanced with yoga</div>
+                <div class="goal-metadata-row">
+                  <span>🕒 3x per week</span>
+                  <span>🚩 Jan 26</span>
+                </div>
+              </div>
+              <div class="goal-ring-badge">
+                <svg width="46" height="46" viewBox="0 0 46 46">
+                  <circle cx="23" cy="23" r="18" stroke="#26312A" stroke-width="3.5" fill="none"/>
+                  <circle cx="23" cy="23" r="18" stroke="#FF6243" stroke-width="3.5" stroke-dasharray="113" stroke-dashoffset="38" stroke-linecap="round" fill="none"/>
+                </svg>
+                <span class="goal-ring-val">2/3</span>
+              </div>
+            </div>
+
+            <!-- Goal 2 -->
+            <div class="goal-item-card">
+              <div>
+                <div class="goal-name-text">5,000 steps per day</div>
+                <div class="goal-metadata-row">
+                  <span>🕒 Every day</span>
+                  <span>🚩 Never</span>
+                </div>
+              </div>
+              <div class="goal-ring-badge">
+                <svg width="46" height="46" viewBox="0 0 46 46">
+                  <circle cx="23" cy="23" r="18" stroke="#26312A" stroke-width="3.5" fill="none"/>
+                  <circle cx="23" cy="23" r="18" stroke="#FF6243" stroke-width="3.5" stroke-dasharray="113" stroke-dashoffset="46" stroke-linecap="round" fill="none"/>
+                </svg>
+                <span class="goal-ring-val">2,971</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function selectDate(el, dateNum) {
+      document.querySelectorAll('.week-day-pill').forEach(pill => pill.classList.remove('active'));
+      el.classList.add('active');
+      const days = { 11: 'Monday, December 11', 12: 'Tuesday, December 12', 13: 'Wednesday, December 13', 14: 'Thursday, December 14', 15: 'Friday, December 15', 16: 'Sunday, December 16' };
+      document.getElementById('selected-date-heading').innerText = days[dateNum] || 'December ' + dateNum;
+    }
+
+    function toggleJoin(btn) {
+      if (btn.classList.contains('joined')) {
+        btn.classList.remove('joined');
+        btn.innerText = 'Join';
+      } else {
+        btn.classList.add('joined');
+        btn.innerText = 'Joined ✓';
+      }
+    }
+
+    function filterSessions(query) {
+      const q = query.toLowerCase();
+      document.querySelectorAll('.training-card').forEach(card => {
+        const title = card.getAttribute('data-title').toLowerCase();
+        card.style.display = title.includes(q) ? 'flex' : 'none';
+      });
+    }
+
+    function quickAddGoal(e) {
+      e.preventDefault();
+      const name = prompt('Enter new goal name (e.g. "Drink 3L water daily"):');
+      if (!name) return;
+      const card = document.createElement('div');
+      card.className = 'goal-item-card';
+      card.innerHTML = `
+        <div>
+          <div class="goal-name-text">${name}</div>
+          <div class="goal-metadata-row">
+            <span>🕒 Daily</span>
+            <span>🚩 Active</span>
+          </div>
+        </div>
+        <div class="goal-ring-badge">
+          <svg width="46" height="46" viewBox="0 0 46 46">
+            <circle cx="23" cy="23" r="18" stroke="#26312A" stroke-width="3.5" fill="none"/>
+            <circle cx="23" cy="23" r="18" stroke="#FF6243" stroke-width="3.5" stroke-dasharray="113" stroke-dashoffset="10" stroke-linecap="round" fill="none"/>
+          </svg>
+          <span class="goal-ring-val">1/1</span>
+        </div>
+      `;
+      document.getElementById('goals-list-box').prepend(card);
+    }
+  </script>
+</body>
+</html>

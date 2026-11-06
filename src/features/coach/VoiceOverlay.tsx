@@ -105,7 +105,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
       case 'connecting':
         return 'Connecting to Live AI Coach...';
       case 'speaking':
-        return 'Disha is speaking (Speak or tap to interrupt)';
+        return 'Coach is speaking (Speak or tap to interrupt)';
       case 'listening':
         return sessionState.audioLevel > 15
           ? '🎙️ Listening... (Voice detected)'
@@ -151,7 +151,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
       </View>
 
       <View style={styles.titleContainer}>
-        <Text style={styles.voiceTitle}>Disha Live Voice</Text>
+        <Text style={styles.voiceTitle}>HealthFreak Live Voice</Text>
         <Text style={styles.callTimer}>{formatDuration(sessionState.callDuration)}</Text>
       </View>
 
@@ -216,14 +216,14 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
 
       <Text style={styles.tapInstruction}>
         {sessionState.status === 'speaking'
-          ? 'Disha is speaking aloud (Tap sphere or speak to interrupt)'
+          ? 'Coach is speaking aloud (Tap sphere or speak to interrupt)'
           : sessionState.status === 'listening'
           ? sessionState.audioLevel > 12
             ? '🎙️ Voice detected... (Pause to send, or tap sphere)'
             : '🎙️ Live — Listening... (Speak naturally or tap below)'
           : sessionState.status === 'connecting'
-          ? '⏳ Disha is generating reply...'
-          : 'Ready — Speak naturally to Disha'}
+          ? '⏳ Coach is generating reply...'
+          : 'Ready — Speak naturally to Coach'}
       </Text>
 
       {/* Manual Turn Control Button */}
@@ -275,7 +275,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
         ) : null}
         <Text style={styles.speechText}>
           {sessionState.status === 'connecting'
-            ? '⏳ Disha is analyzing and speaking...'
+            ? '⏳ Coach is analyzing and speaking...'
             : sessionState.coachTranscript || 'Listening for your voice... Speak now.'}
         </Text>
       </View>
@@ -284,9 +284,9 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
       <View style={styles.quickPromptsRow}>
         <Pressable
           style={styles.quickChip}
-          onPress={() => voiceClient.simulateUserUtterance('How are you Disha?')}
+          onPress={() => voiceClient.simulateUserUtterance('How are you Coach?')}
         >
-          <Text style={styles.quickChipText}>Greet Disha</Text>
+          <Text style={styles.quickChipText}>Greet Coach</Text>
         </Pressable>
         <Pressable
           style={styles.quickChip}
@@ -312,7 +312,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
       <View style={styles.typedInputRow}>
         <TextInput
           style={styles.voiceTextInput}
-          placeholder="Or type here to hear Disha reply aloud..."
+          placeholder="Or type here to hear Coach reply aloud..."
           placeholderTextColor={Colors.textMuted}
           value={typedInput}
           onChangeText={setTypedInput}

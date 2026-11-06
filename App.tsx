@@ -31,6 +31,8 @@ import { ProfileScreen } from './src/features/profile/ProfileScreen';
 import { CheckInFlow } from './src/features/checkin/CheckInFlow';
 import { ActivityDetailScreen } from './src/features/activity/ActivityDetailScreen';
 import { ActivityScreen } from './src/features/activity/ActivityScreen';
+import { FitnessJourneyScreen } from './src/features/activity/FitnessJourneyScreen';
+import { CalendarScheduleScreen } from './src/features/calendar/CalendarScheduleScreen';
 import { LabReportsScreen } from './src/features/labreports/LabReportsScreen';
 import { OnboardingFlow } from './src/features/onboarding/OnboardingFlow';
 import { CameraScannerScreen } from './src/features/scanner/CameraScannerScreen';
@@ -175,6 +177,24 @@ const MainAppContent: React.FC = () => {
       {activeModal === 'activity_detail' && (
         <View style={styles.modalOverlay}>
           <ActivityScreen />
+        </View>
+      )}
+
+      {activeModal === 'fitness_journey' && (
+        <View style={styles.modalOverlay}>
+          <FitnessJourneyScreen
+            onClose={() => setActiveModal(null)}
+            onNavigateToProgress={() => {
+              setActiveModal(null);
+              setActiveTab('progress');
+            }}
+          />
+        </View>
+      )}
+
+      {activeModal === 'calendar_schedule' && (
+        <View style={styles.modalOverlay}>
+          <CalendarScheduleScreen onClose={() => setActiveModal(null)} />
         </View>
       )}
 

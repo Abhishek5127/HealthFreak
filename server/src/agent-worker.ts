@@ -15,7 +15,7 @@ export interface AgentWorkerSession {
   startedAt: number;
 }
 
-export class DishaVoiceAgentWorker {
+export class HealthFreakVoiceAgentWorker {
   private activeSessions: Map<string, AgentWorkerSession> = new Map();
   private maxConcurrency: number;
 
@@ -73,11 +73,11 @@ export class DishaVoiceAgentWorker {
     this.activeSessions.set(sessionId, workerSession);
 
     // Initial greeting (Speaks first)
-    let greeting = `Hello ${user.name.split(' ')[0]}, I'm Disha, your AI health coach from Disha Health. How is your body feeling today?`;
+    let greeting = `Hello ${user.name.split(' ')[0]}, I'm Coach Alex, your AI health coach from HealthFreak. How is your body feeling today?`;
     if (user.languagePreference === 'hinglish') {
-      greeting = `Namaste ${user.name.split(' ')[0]}, main Disha bol rahi hoon, aapki AI health coach from Disha Health. Aaj aap kaisa feel kar rahe hain?`;
+      greeting = `Namaste ${user.name.split(' ')[0]}, main Coach Alex bol raha hoon, aapka AI health coach from HealthFreak. Aaj aap kaisa feel kar rahe hain?`;
     } else if (user.languagePreference === 'hi') {
-      greeting = `नमस्ते ${user.name.split(' ')[0]}, मैं दिशा बोल रही हूँ, आपकी AI हेल्थ कोच दिशा हेल्थ से। आज आप कैसा महसूस कर रहे हैं?`;
+      greeting = `नमस्ते ${user.name.split(' ')[0]}, मैं कोच एलेक्स बोल रहा हूँ, आपका AI हेल्थ कोच HealthFreak से। आज आप कैसा महसूस कर रहे हैं?`;
     }
 
     // Record greeting in call session transcript
@@ -186,5 +186,5 @@ export class DishaVoiceAgentWorker {
   }
 }
 
-export const agentWorker = new DishaVoiceAgentWorker();
+export const agentWorker = new HealthFreakVoiceAgentWorker();
 

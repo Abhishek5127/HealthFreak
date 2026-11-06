@@ -14,11 +14,11 @@ import { aiCallRouter } from './routes/aiCallRoutes.js';
 import { AICallScheduler } from './queue/aiCallScheduler.js';
 
 process.on('uncaughtException', (err) => {
-  console.error('[Disha Server] Uncaught exception:', err.message);
+  console.error('[HealthFreak Server] Uncaught exception:', err.message);
 });
 
 process.on('unhandledRejection', (reason: any) => {
-  console.error('[Disha Server] Unhandled rejection:', reason?.message || reason);
+  console.error('[HealthFreak Server] Unhandled rejection:', reason?.message || reason);
 });
 
 const app = express();
@@ -31,7 +31,7 @@ app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 app.get('/health', (_req, res) => {
   res.json({
     status: 'healthy',
-    service: 'disha-voice-ai-coach',
+    service: 'healthfreak-voice-ai-coach',
     version: '1.0.0',
     provider: config.voiceProvider,
     syntheticMode: config.privacy.syntheticDataMode,
@@ -326,10 +326,10 @@ async function startServer() {
   const host = '0.0.0.0';
 
   const server = app.listen(port, host, () => {
-    console.log(`[Disha Voice Server] Running on http://${host}:${port}`);
-    console.log(`[Disha Voice Server] Selected Voice Provider: ${config.voiceProvider}`);
-    console.log(`[Disha Voice Server] Concurrency limit: ${config.callingLimits.maxConcurrentCalls}`);
-    console.log(`[Disha Voice Server] Synthetic Data Mode: ${config.privacy.syntheticDataMode}`);
+    console.log(`[HealthFreak Voice Server] Running on http://${host}:${port}`);
+    console.log(`[HealthFreak Voice Server] Selected Voice Provider: ${config.voiceProvider}`);
+    console.log(`[HealthFreak Voice Server] Concurrency limit: ${config.callingLimits.maxConcurrentCalls}`);
+    console.log(`[HealthFreak Voice Server] Synthetic Data Mode: ${config.privacy.syntheticDataMode}`);
   });
 
   ScheduledCallQueue.initialize().catch((err) => {

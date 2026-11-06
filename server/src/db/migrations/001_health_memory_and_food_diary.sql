@@ -1,5 +1,5 @@
 -- ==============================================================================
--- DISHA HEALTH: 50-ENTITY HEALTH MEMORY, 30-DAY FOOD DIARY & ADAPTIVE PLAN ENGINE
+-- HEALTHFREAK: 50-ENTITY HEALTH MEMORY, 30-DAY FOOD DIARY & ADAPTIVE PLAN ENGINE
 -- PostgreSQL / Supabase Relational Migration
 -- ==============================================================================
 

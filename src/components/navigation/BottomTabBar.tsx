@@ -3,7 +3,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Home,
-  Dumbbell,
+  Calendar,
   MessageSquare,
   Activity,
   User,
@@ -31,7 +31,7 @@ interface TabItemConfig {
 
 const TABS: TabItemConfig[] = [
   { id: 'home', label: 'Home', icon: Home },
-  { id: 'plan', label: 'Plan', icon: Dumbbell },
+  { id: 'plan', label: 'Calendar', icon: Calendar },
   { id: 'coach', label: 'Coach', icon: MessageSquare },
   { id: 'progress', label: 'Progress', icon: Activity },
   { id: 'profile', label: 'Profile', icon: User },

@@ -62,7 +62,7 @@ export const LabReportsScreen: React.FC = () => {
     }, 1200);
 
     setTimeout(() => {
-      setProcessingStep('Generating personalized Disha metabolic roadmap...');
+      setProcessingStep('Generating personalized HealthFreak metabolic roadmap...');
     }, 2400);
 
     setTimeout(() => {
@@ -144,7 +144,7 @@ export const LabReportsScreen: React.FC = () => {
         <View style={styles.coachSummaryCard}>
           <View style={styles.coachSummaryHeader}>
             <Sparkles size={18} color={Colors.softYellow} />
-            <Text style={styles.coachSummaryTag}>Disha AI Analysis</Text>
+            <Text style={styles.coachSummaryTag}>HealthFreak AI Analysis</Text>
           </View>
           <Text style={styles.coachSummaryTitle}>
             {report.title}

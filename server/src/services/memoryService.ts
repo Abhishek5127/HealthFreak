@@ -113,9 +113,9 @@ export class MemoryService {
       if (extractedFacts['symptom_knee_discomfort']) summaryParts.push(`Reported knee/joint discomfort`);
       if (extractedFacts['recent_sleep_hours']) summaryParts.push(`Sleep logged: ${extractedFacts['recent_sleep_hours']} hours`);
       if (summaryParts.length > 0) {
-        summary = `Disha Health Coaching Check-in: ${summaryParts.join('. ')}.`;
+        summary = `HealthFreak Coaching Check-in: ${summaryParts.join('. ')}.`;
       } else {
-        summary = `Disha Health Coaching Check-in: General routine review completed successfully.`;
+        summary = `HealthFreak Coaching Check-in: General routine review completed successfully.`;
       }
     }
 

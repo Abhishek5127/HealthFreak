@@ -71,7 +71,7 @@ export async function signInWithGoogle(): Promise<GoogleAuthResult> {
     // In standalone / production build, use the registered app scheme
     const redirectTo = isExpoGo ? relayCallbackUrl : nativeSchemeUrl;
 
-    console.log('[Disha Auth] OAuth redirectTo sent to Supabase:', redirectTo);
+    console.log('[HealthFreak Auth] OAuth redirectTo sent to Supabase:', redirectTo);
 
     // 2. Request OAuth authorization URL from Supabase
     const { data, error: oauthError } = await supabase.auth.signInWithOAuth({

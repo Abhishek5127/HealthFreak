@@ -182,11 +182,11 @@ aiCallRouter.post('/:id/accept', async (req: Request, res: Response): Promise<vo
     const firstName = user.name ? user.name.split(' ')[0] : 'there';
     const lang = (session as any).language || 'English';
 
-    let greeting = `Hello ${firstName}! I'm Disha, your AI health coach from HealthFreak. How is your energy and body feeling today?`;
+    let greeting = `Hello ${firstName}! I'm Coach Alex, your AI health coach from HealthFreak. How is your energy and body feeling today?`;
     if (lang === 'Hinglish') {
-      greeting = `Namaste ${firstName}! Main Disha bol rahi hoon, aapki HealthFreak AI coach. Aaj aap kaisa feel kar rahe hain?`;
+      greeting = `Namaste ${firstName}! Main Coach Alex bol raha hoon, aapka HealthFreak AI coach. Aaj aap kaisa feel kar rahe hain?`;
     } else if (lang === 'Hindi') {
-      greeting = `नमस्ते ${firstName}! मैं दिशा बोल रही हूँ, आपकी HealthFreak AI कोच। आज आप कैसा महसूस कर रहे हैं?`;
+      greeting = `नमस्ते ${firstName}! मैं कोच एलेक्स बोल रहा हूँ, आपका HealthFreak AI कोच। आज आप कैसा महसूस कर रहे हैं?`;
     }
 
     db.appendTranscript(callId, 'coach', greeting);
@@ -232,7 +232,7 @@ async function generateCoachVoiceReply(params: {
         const prompt = `${systemPrompt}\n\nRecent context:\n${transcript
           .slice(-4)
           .map((t) => `${t.speaker}: ${t.text}`)
-          .join('\n')}\nUser says: "${message}"\n\nCRITICAL: Respond directly as Disha, personal health coach. Keep response to 1-2 warm, spoken sentences (max 30 words). Directly answer the question in natural conversational tone matching the user's language (Hindi, Hinglish, or English). Never repeat or echo the user's question, provide only your direct answer.`;
+          .join('\n')}\nUser says: "${message}"\n\nCRITICAL: Respond directly as Coach Alex, personal health coach. Keep response to 1-2 warm, spoken sentences (max 30 words). Directly answer the question in natural conversational tone matching the user's language (Hindi, Hinglish, or English). Never repeat or echo the user's question, provide only your direct answer.`;
 
         const resp = await fetch(url, {
           method: 'POST',
@@ -249,7 +249,7 @@ async function generateCoachVoiceReply(params: {
         const data: any = await resp.json();
         let text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
         if (text) {
-          text = text.replace(/^Disha:\s*/i, '').replace(/^AI:\s*/i, '').trim();
+          text = text.replace(/^(Coach|Alex|AI):\s*/i, '').trim();
           console.log(`[AICallRoutes] Generated reply via Gemini (${model}): "${text.slice(0, 60)}..."`);
           return text;
         }

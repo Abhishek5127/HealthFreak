@@ -20,7 +20,7 @@ exports.authRouter.post('/sync-profile', authMiddleware_js_1.authenticateSupabas
         }
         const user = req.user || {};
         const metadata = user.user_metadata || {};
-        const googleName = metadata.full_name || metadata.name || req.body.name || 'Disha Member';
+        const googleName = metadata.full_name || metadata.name || req.body.name || 'HealthFreak Member';
         const googleEmail = user.email || req.body.email || '';
         const googleAvatar = metadata.avatar_url || metadata.picture || req.body.avatarUrl || '';
         const pool = supabaseClient_js_1.SupabaseDb.getPool();

@@ -20,10 +20,10 @@ const scheduledCallQueue_js_1 = require("./queue/scheduledCallQueue.js");
 const aiCallRoutes_js_1 = require("./routes/aiCallRoutes.js");
 const aiCallScheduler_js_1 = require("./queue/aiCallScheduler.js");
 process.on('uncaughtException', (err) => {
-    console.error('[Disha Server] Uncaught exception:', err.message);
+    console.error('[HealthFreak Server] Uncaught exception:', err.message);
 });
 process.on('unhandledRejection', (reason) => {
-    console.error('[Disha Server] Unhandled rejection:', reason?.message || reason);
+    console.error('[HealthFreak Server] Unhandled rejection:', reason?.message || reason);
 });
 const app = (0, express_1.default)();
 exports.app = app;
@@ -34,7 +34,7 @@ app.use(express_1.default.urlencoded({ extended: true, limit: '25mb' }));
 app.get('/health', (_req, res) => {
     res.json({
         status: 'healthy',
-        service: 'disha-voice-ai-coach',
+        service: 'healthfreak-voice-ai-coach',
         version: '1.0.0',
         provider: index_js_1.config.voiceProvider,
         syntheticMode: index_js_1.config.privacy.syntheticDataMode,
@@ -316,10 +316,10 @@ async function startServer() {
     const port = parseInt(process.env.PORT || String(index_js_1.config.port) || '3001', 10);
     const host = '0.0.0.0';
     const server = app.listen(port, host, () => {
-        console.log(`[Disha Voice Server] Running on http://${host}:${port}`);
-        console.log(`[Disha Voice Server] Selected Voice Provider: ${index_js_1.config.voiceProvider}`);
-        console.log(`[Disha Voice Server] Concurrency limit: ${index_js_1.config.callingLimits.maxConcurrentCalls}`);
-        console.log(`[Disha Voice Server] Synthetic Data Mode: ${index_js_1.config.privacy.syntheticDataMode}`);
+        console.log(`[HealthFreak Voice Server] Running on http://${host}:${port}`);
+        console.log(`[HealthFreak Voice Server] Selected Voice Provider: ${index_js_1.config.voiceProvider}`);
+        console.log(`[HealthFreak Voice Server] Concurrency limit: ${index_js_1.config.callingLimits.maxConcurrentCalls}`);
+        console.log(`[HealthFreak Voice Server] Synthetic Data Mode: ${index_js_1.config.privacy.syntheticDataMode}`);
     });
     scheduledCallQueue_js_1.ScheduledCallQueue.initialize().catch((err) => {
         console.warn('[ScheduledCallQueue] Background Redis init note:', err?.message || err);

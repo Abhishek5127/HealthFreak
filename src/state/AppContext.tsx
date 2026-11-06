@@ -19,7 +19,7 @@ import {
 } from '../mock-data/healthData';
 import { getActivitiesForGoal } from '../mock-data/goalActivities';
 import { initialCoachMessages } from '../mock-data/coachChat';
-import { askDishaAI } from '../services/aiChatService';
+import { askHealthCoachAI } from '../services/aiChatService';
 import { voiceClient } from '../services/voiceClient';
 import { MealAnalysisResult } from '../types/meal';
 import { MealScannerService } from '../services/mealScannerService';
@@ -626,7 +626,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       const todaySummary = await pedometerService.getCurrentTodaySummary();
-      const aiResponse = await askDishaAI(
+      const aiResponse = await askHealthCoachAI(
         trimmed,
         userProfile.name.split(' ')[0] || 'friend',
         userProfile.healthConditions || [],

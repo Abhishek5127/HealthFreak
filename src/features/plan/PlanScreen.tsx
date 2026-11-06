@@ -10,6 +10,7 @@ import { ScreenContainer } from '../../components/common/ScreenContainer';
 import { SectionHeader } from '../../components/common/SectionHeader';
 import { PlanActivityCard } from '../../components/cards/PlanActivityCard';
 import { ProgressRing } from '../../components/illustrations/ProgressRing';
+import { CalendarScheduleScreen } from '../calendar/CalendarScheduleScreen';
 
 const DAYS = [
   { dayNumber: 26, dayName: 'M' },
@@ -25,6 +26,11 @@ export const PlanScreen: React.FC = () => {
   const { activities, toggleActivityCompletion, setActiveModal, openMealScanner } = useApp();
   const { todaySteps, stepGoal } = usePedometer();
   const [selectedDay, setSelectedDay] = useState<number>(29);
+  const [planViewMode, setPlanViewMode] = useState<'rhythm' | 'calendar'>('rhythm');
+
+  if (planViewMode === 'calendar') {
+    return <CalendarScheduleScreen onClose={() => setPlanViewMode('rhythm')} />;
+  }
 
   const isGoalReached = todaySteps >= stepGoal && stepGoal > 0;
   const remaining = Math.max(0, stepGoal - todaySteps);
@@ -42,9 +48,13 @@ export const PlanScreen: React.FC = () => {
           <Text style={styles.pageTitle}>Your Plan</Text>
           <Text style={styles.pageSubtitle}>Tailored daily rhythm for metabolic health</Text>
         </View>
-        <View style={styles.calendarIconCircle}>
-          <CalendarIcon size={18} color={Colors.textPrimary} />
-        </View>
+        <Pressable
+          onPress={() => setPlanViewMode('calendar')}
+          style={styles.calendarIconCircle}
+          hitSlop={10}
+        >
+          <CalendarIcon size={18} color="#FF6243" />
+        </Pressable>
       </View>
 
       {/* Adaptive Plan Version Banner */}

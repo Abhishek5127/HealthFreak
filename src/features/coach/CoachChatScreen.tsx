@@ -82,10 +82,10 @@ export const CoachChatScreen: React.FC = () => {
           </View>
           <View>
             <View style={styles.coachNameRow}>
-              <Text style={styles.coachName}>Disha Coach</Text>
+              <Text style={styles.coachName}>Coach Alex</Text>
               <View style={styles.activeDot} />
             </View>
-            <Text style={styles.coachStatus}>Personalized AI Health Partner</Text>
+            <Text style={styles.coachStatus}>HealthFreak AI Partner</Text>
           </View>
         </View>
 
@@ -231,7 +231,7 @@ export const CoachChatScreen: React.FC = () => {
 
         <TextInput
           style={styles.textInput}
-          placeholder="Ask Disha about nutrition, labs, routines..."
+          placeholder="Ask Coach Alex about nutrition, labs, routines..."
           placeholderTextColor={Colors.textMuted}
           value={inputText}
           onChangeText={setInputText}

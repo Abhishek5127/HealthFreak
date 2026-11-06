@@ -412,14 +412,14 @@ export const NutritionResultScreen: React.FC = () => {
           </>
         )}
 
-        {/* 7. Coach Disha Commentary */}
+        {/* 7. Coach Alex Commentary */}
         <View style={styles.coachCard}>
           <View style={styles.coachHeader}>
             <View style={styles.coachAvatar}>
               <Sparkles color={Colors.lightSage} size={20} />
             </View>
             <View>
-              <Text style={styles.coachName}>Disha AI Coach</Text>
+              <Text style={styles.coachName}>HealthFreak AI Coach</Text>
               <Text style={styles.coachTagline}>Personalized to your health profile</Text>
             </View>
           </View>

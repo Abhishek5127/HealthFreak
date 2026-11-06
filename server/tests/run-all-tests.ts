@@ -2,7 +2,7 @@ import { db, User } from '../src/db/index.js';
 import { LiveKitTokenService } from '../src/livekit/tokenService.js';
 import { ExotelSipService } from '../src/sip/exotelSipService.js';
 import { ScheduledCallQueue } from '../src/queue/scheduledCallQueue.js';
-import { DishaVoiceAgentWorker } from '../src/agent-worker.js';
+import { HealthFreakVoiceAgentWorker } from '../src/agent-worker.js';
 import { PlanService } from '../src/services/planService.js';
 import { VoiceProviderFactory } from '../src/providers/VoiceProviderFactory.js';
 import { validateIndianPhoneNumber } from '../src/sip/phoneValidator.js';
@@ -34,7 +34,7 @@ function recordTest(name: string, passed: boolean, details: string, metric?: str
 
 async function runTestSuite() {
   console.log('\n===============================================================');
-  console.log('   DISHA VOICE AI COACH — COMPREHENSIVE VERIFICATION SUITE');
+  console.log('   HEALTHFREAK VOICE AI COACH — COMPREHENSIVE VERIFICATION SUITE');
   console.log('===============================================================\n');
 
   // --------------------------------------------------------------------------
@@ -53,7 +53,7 @@ async function runTestSuite() {
     callType: 'in_app',
   });
 
-  const worker = new DishaVoiceAgentWorker(10);
+  const worker = new HealthFreakVoiceAgentWorker(10);
   const alexJoin = await worker.handleParticipantJoin({
     roomName: alexSession.data!.roomName,
     userId: userAlex.id,
@@ -105,7 +105,7 @@ async function runTestSuite() {
   console.log('\n--- TEST 2: Concurrency & Admission Control Scaling ---');
 
   // A. Free-Tier Admission Limit (Cap at 5)
-  const freeTierWorker = new DishaVoiceAgentWorker(5);
+  const freeTierWorker = new HealthFreakVoiceAgentWorker(5);
   const createdSessions: string[] = [];
 
   // Register synthetic test users if needed
@@ -158,7 +158,7 @@ async function runTestSuite() {
   // B. Scaled Worker Pool Simulation: 10, 25, and 50 simultaneous calls
   const scaleTiers = [10, 25, 50];
   for (const tier of scaleTiers) {
-    const scaledWorker = new DishaVoiceAgentWorker(tier);
+    const scaledWorker = new HealthFreakVoiceAgentWorker(tier);
     const startMs = Date.now();
     let successCount = 0;
 

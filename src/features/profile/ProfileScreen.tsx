@@ -245,7 +245,7 @@ export const ProfileScreen: React.FC = () => {
           <Text style={styles.privacyTitle}>Clinical Privacy Commitment</Text>
         </View>
         <Text style={styles.privacyText}>
-          Your health assessments and biomarker records are strictly confidential and encrypted under Disha Health guidelines.
+          Your health assessments and biomarker records are strictly confidential and encrypted under HealthFreak clinical guidelines.
         </Text>
       </View>
 

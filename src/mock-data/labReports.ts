@@ -4,7 +4,7 @@ export const mockRecentLabReport: LabReport = {
   id: 'report_2026_10',
   title: 'Comprehensive Metabolic & Hormonal Panel',
   date: 'October 18, 2026',
-  labName: 'Disha Wellness Diagnostic Network',
+  labName: 'HealthFreak Diagnostic Network',
   summary: 'Overall strong metabolic profile with optimal glycemic control. Vitamin D3 and Ferritin require mild nutritional reinforcement.',
   coachRecommendation: 'Your HbA1c (5.4%) reflects steady glucose regulation over the last 90 days. Focus on dietary Vitamin D and morning sunlight to optimize cellular recovery.',
   biomarkers: [

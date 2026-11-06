@@ -1,13 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.agentWorker = exports.DishaVoiceAgentWorker = void 0;
+exports.agentWorker = exports.HealthFreakVoiceAgentWorker = void 0;
 const index_js_1 = require("./config/index.js");
 const index_js_2 = require("./db/index.js");
 const VoiceProviderFactory_js_1 = require("./providers/VoiceProviderFactory.js");
 const coachPrompt_js_1 = require("./agent/coachPrompt.js");
 const memoryService_js_1 = require("./services/memoryService.js");
 const costTracker_js_1 = require("./services/costTracker.js");
-class DishaVoiceAgentWorker {
+class HealthFreakVoiceAgentWorker {
     activeSessions = new Map();
     maxConcurrency;
     constructor(maxConcurrency = index_js_1.config.callingLimits.maxConcurrentCalls) {
@@ -50,12 +50,12 @@ class DishaVoiceAgentWorker {
         };
         this.activeSessions.set(sessionId, workerSession);
         // Initial greeting (Speaks first)
-        let greeting = `Hello ${user.name.split(' ')[0]}, I'm Disha, your AI health coach from Disha Health. How is your body feeling today?`;
+        let greeting = `Hello ${user.name.split(' ')[0]}, I'm Coach Alex, your AI health coach from HealthFreak. How is your body feeling today?`;
         if (user.languagePreference === 'hinglish') {
-            greeting = `Namaste ${user.name.split(' ')[0]}, main Disha bol rahi hoon, aapki AI health coach from Disha Health. Aaj aap kaisa feel kar rahe hain?`;
+            greeting = `Namaste ${user.name.split(' ')[0]}, main Coach Alex bol raha hoon, aapka AI health coach from HealthFreak. Aaj aap kaisa feel kar rahe hain?`;
         }
         else if (user.languagePreference === 'hi') {
-            greeting = `नमस्ते ${user.name.split(' ')[0]}, मैं दिशा बोल रही हूँ, आपकी AI हेल्थ कोच दिशा हेल्थ से। आज आप कैसा महसूस कर रहे हैं?`;
+            greeting = `नमस्ते ${user.name.split(' ')[0]}, मैं कोच एलेक्स बोल रहा हूँ, आपका AI हेल्थ कोच HealthFreak से। आज आप कैसा महसूस कर रहे हैं?`;
         }
         // Record greeting in call session transcript
         index_js_2.db.appendTranscript(params.callId, 'coach', greeting);
@@ -132,5 +132,5 @@ class DishaVoiceAgentWorker {
         }
     }
 }
-exports.DishaVoiceAgentWorker = DishaVoiceAgentWorker;
-exports.agentWorker = new DishaVoiceAgentWorker();
+exports.HealthFreakVoiceAgentWorker = HealthFreakVoiceAgentWorker;
+exports.agentWorker = new HealthFreakVoiceAgentWorker();

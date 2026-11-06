@@ -1,5 +1,5 @@
 -- ==============================================================================
--- DISHA HEALTH: DAILY ACTIVITY & PEDOMETER TRACKING
+-- HEALTHFREAK: DAILY ACTIVITY & PEDOMETER TRACKING
 -- PostgreSQL / Supabase Relational Migration
 -- ==============================================================================
 

@@ -157,7 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       name:
         currentSession.user.user_metadata?.full_name ||
         currentSession.user.email?.split('@')[0] ||
-        'Disha Member',
+        'HealthFreak Member',
       email: currentSession.user.email,
       avatarUrl:
         currentSession.user.user_metadata?.avatar_url ||
@@ -189,7 +189,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name:
           newSession.user.user_metadata?.full_name ||
           newSession.user.email?.split('@')[0] ||
-          'Disha Member',
+          'HealthFreak Member',
         email: newSession.user.email,
         avatarUrl:
           newSession.user.user_metadata?.avatar_url ||

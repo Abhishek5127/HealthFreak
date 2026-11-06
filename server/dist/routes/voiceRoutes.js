@@ -322,16 +322,16 @@ exports.voiceRouter.post('/greeting', async (req, res) => {
         const hour = new Date().getHours();
         let greeting = '';
         if (hour >= 5 && hour < 12) {
-            greeting = `Good morning ${name}! Main Disha bol rahi hoon, aapki AI health coach. How did you sleep, and how is your morning energy today?`;
+            greeting = `Good morning ${name}! Coach Alex here, your HealthFreak AI coach. How did you sleep, and how is your morning energy today?`;
         }
         else if (hour >= 12 && hour < 17) {
-            greeting = `Namaste ${name}! Main Disha bol rahi hoon. Taking a quick wellness check-in—how was your lunch and routine so far?`;
+            greeting = `Hello ${name}! Coach Alex here. Taking a quick wellness check-in—how was your lunch and routine so far?`;
         }
         else if (hour >= 17 && hour < 22) {
-            greeting = `Good evening ${name}! Disha here. How are you feeling after today's activities? Any discomfort or meal questions tonight?`;
+            greeting = `Good evening ${name}! Coach Alex here. How are you feeling after today's activities? Any discomfort or meal questions tonight?`;
         }
         else {
-            greeting = `Namaste ${name}! Main Disha bol rahi hoon. Time for a peaceful wind-down. How did your day go overall?`;
+            greeting = `Hello ${name}! Coach Alex here. Time for a peaceful wind-down. How did your day go overall?`;
         }
         const speech = await synthesizeSpeechWithGemini(greeting);
         res.json({
@@ -356,13 +356,13 @@ exports.voiceRouter.post('/chat', async (req, res) => {
         }
         const user = index_js_1.db.getUser(userId) || index_js_1.db.getUser('usr_synthetic_alex');
         const memory = user ? index_js_1.db.getUserMemory(user.id) : {};
-        const systemPrompt = user ? (0, coachPrompt_js_1.buildCoachSystemPrompt)(user, memory) : 'You are Disha, an AI health coach.';
+        const systemPrompt = user ? (0, coachPrompt_js_1.buildCoachSystemPrompt)(user, memory) : 'You are Coach Alex, an AI health coach.';
         console.log('\n============================================================');
         console.log('🎙️  [LIVE INPUT RECEIVED - CHAT/VOICE TURN]');
         console.log(`👤  User: ${user?.name || 'Alex'} (${userId})`);
         console.log(`📝  TRANSCRIPTION / MESSAGE: "${message}"`);
         console.log(`⏳  Querying Gemini AI Coach (${index_js_2.config.gemini.model} with auto-failover)...`);
-        const promptText = `${systemPrompt}\n\nUser says: "${message}"\nRespond directly as Disha in 1 concise, warm, actionable coaching sentence (max 25 words).`;
+        const promptText = `${systemPrompt}\n\nUser says: "${message}"\nRespond directly as Coach Alex in 1 concise, warm, actionable coaching sentence (max 25 words).`;
         const candidateModels = Array.from(new Set([
             index_js_2.config.gemini.model,
             'gemini-3.8-flash',
@@ -415,7 +415,7 @@ exports.voiceRouter.post('/chat', async (req, res) => {
             return;
         }
         const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'I am here with you. How can I support your routine today?';
-        console.log(`🤖  DISHA AI RESPONSE (${selectedModel}): "${replyText.trim()}"`);
+        console.log(`🤖  HEALTHFREAK AI RESPONSE (${selectedModel}): "${replyText.trim()}"`);
         console.log(`⚡  Latency: ${elapsed}ms`);
         console.log('============================================================\n');
         // Progressive memory extraction for symptoms or energy
@@ -473,15 +473,15 @@ function isSelfEcho(userText, coachText) {
         return true;
     }
     const coachIdentityPhrases = [
-        'main disha bol rahi hoon',
-        'main disha bol rahi',
-        'main disha hoon',
-        'disha bol rahi hoon',
-        'disha here',
+        'main alex bol raha hoon',
+        'main alex bol raha',
+        'main alex hoon',
+        'alex bol raha hoon',
+        'coach alex here',
         'aapki ai health coach',
         'aapki health coach',
-        'disha health coach',
-        'ai health coach from disha',
+        'healthfreak coach',
+        'ai health coach from healthfreak',
         'taking a quick wellness check in',
         'time for a peaceful wind down',
     ];
@@ -523,10 +523,10 @@ exports.voiceRouter.post('/audio-turn', async (req, res) => {
             console.log(`🛡️  Last Coach Reply Tracked: "${lastCoachReply.slice(0, 45)}..."`);
         }
         console.log('⏳  Transcribing & analyzing with Gemini Multimodal Audio...');
-        const systemPrompt = user ? (0, coachPrompt_js_1.buildCoachSystemPrompt)(user, memory) : 'You are Disha, an AI health coach.';
+        const systemPrompt = user ? (0, coachPrompt_js_1.buildCoachSystemPrompt)(user, memory) : 'You are Coach Alex, an AI health coach.';
         const antiEchoPrompt = lastCoachReply
             ? `CRITICAL ANTI-ECHO GUARD:
-The AI coach (Disha) just finished speaking this exact phrase aloud through the phone loudspeaker:
+The AI coach (Coach Alex) just finished speaking this exact phrase aloud through the phone loudspeaker:
 "${lastCoachReply}"
 If the attached audio recording is just the microphone picking up the coach's own voice or speaker echo repeating back:
 - Set userTranscript: "(Speaker echo)"
@@ -539,7 +539,7 @@ Otherwise, if a real human user is speaking:`
 Listen carefully to the attached user voice recording.
 ${antiEchoPrompt}
 1. Transcribe what the user said verbatim in English, Hindi, or conversational Hinglish. Be sensitive to soft speech, quick words (e.g. "haan", "nahi", "theek hai", "yes", "hello", "knee pain"), and casual Indian phrasing.
-2. If the user spoke, respond warmly, empathetically, and concisely in 1 coaching sentence (under 20 words) as Disha.
+2. If the user spoke, respond warmly, empathetically, and concisely in 1 coaching sentence (under 20 words) as Coach Alex.
    - If user spoke in Hindi or Hinglish, reply in natural conversational Hinglish with warm Hindi expressions.
    - If user spoke in English, reply in friendly, natural Indian English.
 3. If and only if there is absolutely no vocal sound at all (pure ambient silence):
@@ -547,12 +547,12 @@ ${antiEchoPrompt}
    - coachReply: "Main sun rahi hoon Alex, please go ahead!"
 
 CRITICAL REQUIREMENT:
-'coachReply' must strictly contain ONLY Disha's spoken answer to the user.
+'coachReply' must strictly contain ONLY Coach Alex's spoken answer to the user.
 NEVER repeat, quote, or echo the user's question inside coachReply.
 Return strictly a valid JSON object in this format:
 {
   "userTranscript": "<exact words user spoke or (Speaker echo)>",
-  "coachReply": "<Disha's answer only, never repeating user question>"
+  "coachReply": "<Coach Alex's answer only, never repeating user question>"
 }`;
         let cleanMime = (mimeType || 'audio/webm').split(';')[0].trim().toLowerCase();
         if (cleanMime === 'audio/m4a' || cleanMime === 'audio/x-m4a' || cleanMime.endsWith('m4a')) {
@@ -681,7 +681,7 @@ Return strictly a valid JSON object in this format:
             return;
         }
         console.log(`📝  TRANSCRIPTION: "${userTranscript}"`);
-        console.log(`🤖  DISHA AI RESPONSE (${selectedModel}): "${coachReply}"`);
+        console.log(`🤖  HEALTHFREAK AI RESPONSE (${selectedModel}): "${coachReply}"`);
         console.log(`⚡  Live Turn Latency: ${elapsed}ms`);
         console.log('============================================================\n');
         // Progressive memory extraction for symptoms or energy

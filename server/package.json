@@ -1,7 +1,7 @@
 {
   "name": "healthfreak-voice-server",
   "version": "1.0.0",
-  "description": "Multi-user Voice AI Coach Backend for Disha Health (LiveKit, Gemini Live, Exotel SIP, BullMQ)",
+  "description": "Multi-user Voice AI Coach Backend for HealthFreak (LiveKit, Gemini Live, Exotel SIP, BullMQ)",
   "main": "dist/index.js",
   "scripts": {
     "start": "node dist/index.js",

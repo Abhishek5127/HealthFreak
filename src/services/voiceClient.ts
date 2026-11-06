@@ -11,7 +11,7 @@ import {
   type AudioPlayer,
 } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
-import { askDishaAI, transcribeAndReplyAudio, getBackendBaseUrl, isSelfEcho, cleanCoachReplyOnly } from './aiChatService';
+import { askHealthCoachAI, transcribeAndReplyAudio, getBackendBaseUrl, isSelfEcho, cleanCoachReplyOnly } from './aiChatService';
 
 export type VoiceConnectionStatus =
   | 'idle'
@@ -294,7 +294,7 @@ export class VoiceClientService {
         const fullUrl = audioUrl.startsWith('http') ? audioUrl : `${getBackendBaseUrl()}${audioUrl}`;
         playerSource = fullUrl;
       } else if (audioBase64) {
-        const speechPath = `${FileSystem.cacheDirectory || ''}disha_speech_${Date.now()}.wav`;
+        const speechPath = `${FileSystem.cacheDirectory || ''}healthfreak_speech_${Date.now()}.wav`;
         await FileSystem.writeAsStringAsync(speechPath, audioBase64, {
           encoding: FileSystem.EncodingType.Base64,
         });
@@ -587,7 +587,7 @@ export class VoiceClientService {
         this.recognition.lang = 'en-IN';
 
         this.recognition.onresult = (event: any) => {
-          // Ignore speech recognition feedback while Disha is speaking
+          // Ignore speech recognition feedback while Coach is speaking
           if (this.status === 'speaking') {
             return;
           }
@@ -776,7 +776,7 @@ export class VoiceClientService {
       );
       console.log(`[VoiceClient] Turn response received from backend in ${Date.now() - turnStartTime}ms`);
 
-      // Anti-Echo Guard: If result is an echo of Disha's previous utterance, suppress it!
+      // Anti-Echo Guard: If result is an echo of Coach's previous utterance, suppress it!
       if (
         result.isEcho ||
         !result.coachReply?.trim() ||
@@ -939,7 +939,7 @@ export class VoiceClientService {
           const now = Date.now();
           const totalElapsed = now - turnStartTime;
 
-          // While Disha is speaking, let her complete her entire sentence without auto-stopping!
+          // While Coach is speaking, let them complete the entire sentence without auto-stopping!
           if (this.status === 'speaking') {
             return;
           }
@@ -1115,7 +1115,7 @@ export class VoiceClientService {
   public async handleUserSpokenInput(text: string) {
     if (this.isProcessingTurn) return;
 
-    // Anti-Echo Check: If spoken text matches Disha's own reply, suppress it!
+    // Anti-Echo Check: If spoken text matches Coach's own reply, suppress it!
     if (this.lastCoachReply && isSelfEcho(text, this.lastCoachReply)) {
       console.log(`[VoiceClient] 🔇 Suppressed echo in user input: "${text}"`);
       this.status = 'listening';
@@ -1130,7 +1130,7 @@ export class VoiceClientService {
     this.notify();
 
     try {
-      const aiResponse = await askDishaAI(text, 'Alex', ['patellofemoral_knee_pain']);
+      const aiResponse = await askHealthCoachAI(text, 'Alex', ['patellofemoral_knee_pain']);
       const replyText = aiResponse.text;
 
       this.lastCoachReply = replyText;
@@ -1164,7 +1164,7 @@ export class VoiceClientService {
     this.status = 'connecting';
     this.errorMessage = null;
     this.durationSeconds = 0;
-    this.coachTranscript = 'Connecting to Disha Live Voice...';
+    this.coachTranscript = 'Connecting to HealthFreak Live Voice...';
     this.userTranscript = '';
     this.currentSpeechText = '';
     this.isProcessingTurn = false;
@@ -1206,13 +1206,13 @@ export class VoiceClientService {
     let greeting = customGreeting || '';
     if (!greeting) {
       if (hour >= 5 && hour < 12) {
-        greeting = 'Good morning! Main Disha bol rahi hoon, aapki AI health coach. How did you sleep, and how is your morning energy today?';
+        greeting = 'Good morning! Coach Alex here, your HealthFreak AI coach. How did you sleep, and how is your morning energy today?';
       } else if (hour >= 12 && hour < 17) {
-        greeting = 'Namaste! Disha here. Taking a quick wellness check-in—how was your lunch and routine so far?';
+        greeting = 'Hello! Coach Alex here. Taking a quick wellness check-in—how was your lunch and routine so far?';
       } else if (hour >= 17 && hour < 22) {
-        greeting = 'Good evening! Disha here. How are you feeling after today’s activities? Any discomfort or meal questions tonight?';
+        greeting = 'Good evening! Coach Alex here. How are you feeling after today’s activities? Any discomfort or meal questions tonight?';
       } else {
-        greeting = 'Namaste! Main Disha bol rahi hoon. Time for a peaceful wind-down. How did your day go overall?';
+        greeting = 'Hello! Coach Alex here. Time for a peaceful wind-down. How did your day go overall?';
       }
     }
 
