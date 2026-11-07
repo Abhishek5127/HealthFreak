@@ -286,7 +286,7 @@ export const LoginScreen: React.FC = () => {
               transition={200}
             />
 
-            {/* Subtle bottom vignette for glass controls readability */}
+            {/* Soft bottom vignette keeping doodle wallpaper clearly visible through the glass */}
             <Svg
               style={[styles.bottomVignette, { height: Math.max(insets.bottom + 180, 220) }]}
               width="100%"
@@ -295,9 +295,9 @@ export const LoginScreen: React.FC = () => {
               <Defs>
                 <SvgGradient id={`botGrad_${idx}`} x1="0" y1="0" x2="0" y2="1">
                   <Stop offset="0%" stopColor="#070A08" stopOpacity="0" />
-                  <Stop offset="45%" stopColor="#070A08" stopOpacity="0.45" />
-                  <Stop offset="85%" stopColor="#070A08" stopOpacity="0.85" />
-                  <Stop offset="100%" stopColor="#070A08" stopOpacity="0.95" />
+                  <Stop offset="45%" stopColor="#070A08" stopOpacity="0.12" />
+                  <Stop offset="75%" stopColor="#070A08" stopOpacity="0.28" />
+                  <Stop offset="100%" stopColor="#070A08" stopOpacity="0.48" />
                 </SvgGradient>
               </Defs>
               <Rect width="100%" height="100%" fill={`url(#botGrad_${idx})`} />
@@ -342,30 +342,41 @@ export const LoginScreen: React.FC = () => {
           })}
         </View>
 
-        {/* APPLE CONTROL CENTER STYLE GREEN FROSTED GLASS BUTTON (IMAGE 2) */}
+        {/* TRANSPARENT GLASS BUTTON WITH RICH GLASS TEXTURE */}
         <Animated.View style={[styles.buttonOuterWrapper, animatedButton]}>
-          {/* Subtle diffuse green aura */}
-          <View style={styles.greenGlowAura} />
+          {/* Ambient glass halo aura */}
+          <View style={styles.glassGlowAura} />
 
           <Pressable
             onPress={handleButtonPress}
             disabled={isAuthenticating}
             style={styles.glassButton}
           >
-            {/* Frosted Glass SVG Gradient Fill matching iOS 18 Control Center green */}
+            {/* Transparent Frosted Glass Texture Layers (Background wallpaper shows through) */}
             <Svg
               style={StyleSheet.absoluteFill}
               width={BUTTON_WIDTH}
               height={BUTTON_HEIGHT}
             >
               <Defs>
-                <SvgGradient id="iosGlassGrad" x1="0" y1="0" x2="1" y2="1">
-                  <Stop offset="0%" stopColor="#85B26E" stopOpacity={0.48} />
-                  <Stop offset="35%" stopColor="#6A9755" stopOpacity={0.38} />
-                  <Stop offset="75%" stopColor="#477034" stopOpacity={0.44} />
-                  <Stop offset="100%" stopColor="#28441B" stopOpacity={0.58} />
+                {/* Diagonal Specular Reflection across glass */}
+                <SvgGradient id="glassSpecularGrad" x1="0" y1="0" x2="1" y2="1">
+                  <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.24} />
+                  <Stop offset="25%" stopColor="#FFFFFF" stopOpacity={0.08} />
+                  <Stop offset="50%" stopColor="#FFFFFF" stopOpacity={0.02} />
+                  <Stop offset="75%" stopColor="#FFFFFF" stopOpacity={0.12} />
+                  <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0.04} />
+                </SvgGradient>
+
+                {/* Subtle Translucent #ff715f Shade */}
+                <SvgGradient id="coralGlassTint" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0%" stopColor="#FF8573" stopOpacity={0.18} />
+                  <Stop offset="50%" stopColor="#FF715F" stopOpacity={0.10} />
+                  <Stop offset="100%" stopColor="#D94B38" stopOpacity={0.16} />
                 </SvgGradient>
               </Defs>
+
+              {/* Translucent Base Glass Fill */}
               <Rect
                 x="0"
                 y="0"
@@ -373,7 +384,28 @@ export const LoginScreen: React.FC = () => {
                 height={BUTTON_HEIGHT}
                 rx="31"
                 ry="31"
-                fill="url(#iosGlassGrad)"
+                fill="url(#glassSpecularGrad)"
+              />
+
+              {/* Translucent Tint Fill */}
+              <Rect
+                x="0"
+                y="0"
+                width={BUTTON_WIDTH}
+                height={BUTTON_HEIGHT}
+                rx="31"
+                ry="31"
+                fill="url(#coralGlassTint)"
+              />
+
+              {/* Physical Glass Diagonal Refraction Streaks */}
+              <Path
+                d="M 55 0 L 115 0 L 70 62 L 10 62 Z"
+                fill="rgba(255, 255, 255, 0.09)"
+              />
+              <Path
+                d="M 135 0 L 170 0 L 130 62 L 95 62 Z"
+                fill="rgba(255, 255, 255, 0.05)"
               />
             </Svg>
 
@@ -382,6 +414,9 @@ export const LoginScreen: React.FC = () => {
 
             {/* Upper Glass Specular Surface Reflection */}
             <View style={styles.glassSheenSurface} />
+
+            {/* Bottom Inner Rim Reflection */}
+            <View style={styles.bottomSheenLine} />
 
             {/* Expanding Liquid Circular Ripple */}
             <Animated.View
@@ -398,10 +433,10 @@ export const LoginScreen: React.FC = () => {
                 <Defs>
                   <SvgGradient id="waveCrestGrad" x1="0" y1="0" x2="1" y2="0">
                     <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0} />
-                    <Stop offset="30%" stopColor="#FFFFFF" stopOpacity={0.75} />
-                    <Stop offset="50%" stopColor="#DFF5CE" stopOpacity={0.95} />
-                    <Stop offset="70%" stopColor="#6FA855" stopOpacity={0.80} />
-                    <Stop offset="100%" stopColor="#436F2E" stopOpacity={0} />
+                    <Stop offset="30%" stopColor="#FFFFFF" stopOpacity={0.80} />
+                    <Stop offset="50%" stopColor="#FFE0D9" stopOpacity={0.95} />
+                    <Stop offset="70%" stopColor="#FF715F" stopOpacity={0.80} />
+                    <Stop offset="100%" stopColor="#FF715F" stopOpacity={0} />
                   </SvgGradient>
                 </Defs>
                 <Path
@@ -503,8 +538,8 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     width: 24,
-    backgroundColor: '#6FA855',
-    shadowColor: '#6FA855',
+    backgroundColor: '#FF715F',
+    shadowColor: '#FF715F',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.7,
     shadowRadius: 6,
@@ -520,38 +555,38 @@ const styles = StyleSheet.create({
     borderRadius: 31,
     position: 'relative',
   },
-  greenGlowAura: {
+  glassGlowAura: {
     position: 'absolute',
     top: 4,
     left: 12,
     right: 12,
     bottom: 4,
     borderRadius: 31,
-    backgroundColor: 'rgba(110, 168, 85, 0.28)',
-    shadowColor: '#6FA855',
+    backgroundColor: 'rgba(255, 113, 95, 0.16)',
+    shadowColor: '#FF715F',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.55,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 6,
   },
   glassButton: {
     width: BUTTON_WIDTH,
     height: BUTTON_HEIGHT,
     borderRadius: 31,
-    backgroundColor: 'rgba(20, 36, 18, 0.50)',
-    borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.26)',
-    borderTopColor: 'rgba(255, 255, 255, 0.68)',
-    borderBottomColor: 'rgba(255, 255, 255, 0.14)',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1.4,
+    borderColor: 'rgba(255, 255, 255, 0.32)',
+    borderTopColor: 'rgba(255, 255, 255, 0.85)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.18)',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     position: 'relative',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.42,
-    shadowRadius: 22,
-    elevation: 10,
+    shadowOpacity: 0.32,
+    shadowRadius: 20,
+    elevation: 8,
   },
   topSheenLine: {
     position: 'absolute',
@@ -560,7 +595,7 @@ const styles = StyleSheet.create({
     right: 24,
     height: 1.2,
     borderRadius: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.55)',
+    backgroundColor: 'rgba(255, 255, 255, 0.70)',
     pointerEvents: 'none',
   },
   glassSheenSurface: {
@@ -568,9 +603,19 @@ const styles = StyleSheet.create({
     top: 2,
     left: 16,
     right: 16,
-    height: 20,
+    height: 22,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    pointerEvents: 'none',
+  },
+  bottomSheenLine: {
+    position: 'absolute',
+    bottom: 1.5,
+    left: 28,
+    right: 28,
+    height: 1,
+    borderRadius: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
     pointerEvents: 'none',
   },
   liquidWaveRipple: {
