@@ -19,6 +19,7 @@ import { ScreenContainer } from '../../components/common/ScreenContainer';
 import { SectionHeader } from '../../components/common/SectionHeader';
 import { ProgressRing } from '../../components/illustrations/ProgressRing';
 import { MetricLineChart } from '../../components/illustrations/MetricLineChart';
+import { GlassButton } from '../../components/common/GlassButton';
 
 export const ProgressScreen: React.FC = () => {
   const {
@@ -256,15 +257,27 @@ export const ProgressScreen: React.FC = () => {
           </Text>
 
           {sleepSession.isSleeping ? (
-            <Pressable style={styles.biomarkerActionBtnActive} onPress={wakeUp}>
-              <Sun size={12} color="#FFFFFF" />
-              <Text style={styles.biomarkerActionText}>{"I'm Awake ☀️"}</Text>
-            </Pressable>
+            <GlassButton
+              title="I'm Awake"
+              titleColor="#FF715F"
+              icon={<Sun size={12} color="#FF715F" />}
+              size="xs"
+              height={32}
+              borderRadius={10}
+              onPress={wakeUp}
+              style={{ marginTop: 10 }}
+            />
           ) : (
-            <Pressable style={styles.biomarkerActionBtn} onPress={startSleep}>
-              <Moon size={12} color="#FFFFFF" />
-              <Text style={styles.biomarkerActionText}>Going to Sleep 🌙</Text>
-            </Pressable>
+            <GlassButton
+              title="Going to Sleep"
+              titleColor="#FFFFFF"
+              icon={<Moon size={12} color="#FFFFFF" />}
+              size="xs"
+              height={32}
+              borderRadius={10}
+              onPress={startSleep}
+              style={{ marginTop: 10 }}
+            />
           )}
         </View>
 
@@ -281,10 +294,16 @@ export const ProgressScreen: React.FC = () => {
               : `• ${Math.round((waterLoggedMl / Math.max(1, waterTargetMl)) * 100)}% of ${(waterTargetMl / 1000).toFixed(1)} L`}
           </Text>
 
-          <Pressable style={styles.biomarkerActionBtn} onPress={() => logWater(250)}>
-            <Plus size={12} color="#FFFFFF" />
-            <Text style={styles.biomarkerActionText}>+250 ml Water</Text>
-          </Pressable>
+          <GlassButton
+            title="+250 ml Water"
+            titleColor="#4FA3E2"
+            icon={<Plus size={12} color="#4FA3E2" />}
+            size="xs"
+            height={32}
+            borderRadius={10}
+            onPress={() => logWater(250)}
+            style={{ marginTop: 10 }}
+          />
         </View>
       </View>
 

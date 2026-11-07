@@ -28,6 +28,7 @@ import { LanguagePreference } from '../../types';
 import { CARTOON_AVATARS } from '../../constants/avatars';
 import { AppAvatar } from '../../components/common/AppAvatar';
 import { CartoonAvatarView } from '../../components/illustrations/CartoonAvatar';
+import { GlassButton } from '../../components/common/GlassButton';
 
 export const ProfileScreen: React.FC = () => {
   const {
@@ -178,10 +179,16 @@ export const ProfileScreen: React.FC = () => {
       </Pressable>
 
       {/* Logout Action */}
-      <Pressable style={styles.logoutButton} onPress={handleSignOut}>
-        <LogOut size={16} color="#FF6B6B" style={{ marginRight: 8 }} />
-        <Text style={styles.logoutButtonText}>Sign Out</Text>
-      </Pressable>
+      <GlassButton
+        onPress={handleSignOut}
+        title="Sign Out"
+        titleColor="#FF6B6B"
+        icon={<LogOut size={16} color="#FF6B6B" />}
+        size="md"
+        height={48}
+        borderRadius={14}
+        style={{ marginTop: 10, marginBottom: 10 }}
+      />
 
       {/* Privacy Section */}
       <View style={styles.privacyBox}>

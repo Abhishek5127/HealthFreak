@@ -27,6 +27,7 @@ import {
 } from 'lucide-react-native';
 import { Colors } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
+import { GlassButton } from '../../../components/common/GlassButton';
 import { MealAnalysisResult } from '../../../types/meal';
 
 interface NutritionDetailModalProps {
@@ -233,16 +234,18 @@ export const NutritionDetailModal: React.FC<NutritionDetailModalProps> = ({
                 <Info size={15} color="#F59E0B" />
               </View>
               <Text style={styles.amberAdviceText}>{goalMacroExplainer}</Text>
-              <Pressable
-                style={styles.amberTipsBtn}
+              <GlassButton
                 onPress={() => {
                   onClose();
                   onNavigateCoach();
                 }}
-              >
-                <Text style={styles.amberTipsText}>View Tips</Text>
-                <ArrowRight size={12} color={Colors.coralCTA} style={{ marginLeft: 2 }} />
-              </Pressable>
+                title="View Tips"
+                titleColor={Colors.coralCTA}
+                rightIndicator={<ArrowRight size={12} color={Colors.coralCTA} />}
+                size="xs"
+                height={30}
+                borderRadius={12}
+              />
             </View>
 
             {/* 3. 30-Day Food Diary Card */}
@@ -281,16 +284,18 @@ export const NutritionDetailModal: React.FC<NutritionDetailModalProps> = ({
                     Log your meals to track progress and hit your goals!
                   </Text>
                 </View>
-                <Pressable
-                  style={styles.diaryLogMealBtn}
+                <GlassButton
                   onPress={() => {
                     onClose();
                     onScanMeal();
                   }}
-                >
-                  <Camera size={13} color={Colors.forestGreenLight} style={{ marginRight: 4 }} />
-                  <Text style={styles.diaryLogMealBtnText}>Scan Meal</Text>
-                </Pressable>
+                  title="Scan Meal"
+                  titleColor={Colors.forestGreenLight}
+                  icon={<Camera size={13} color={Colors.forestGreenLight} />}
+                  size="xs"
+                  height={32}
+                  borderRadius={12}
+                />
               </View>
 
               {/* Logged Meals List */}

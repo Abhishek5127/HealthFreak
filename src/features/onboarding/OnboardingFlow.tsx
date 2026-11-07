@@ -1294,7 +1294,7 @@ export const OnboardingFlow: React.FC = () => {
           variant="coral"
           size="lg"
           onPress={handleNext}
-          icon={currentStep < 4 ? <ArrowRight size={18} color="#FFFFFF" /> : <Sparkles size={18} color="#FFFFFF" />}
+          icon={currentStep < 4 ? <ArrowRight size={18} color={Colors.coralCTA} /> : <Sparkles size={18} color={Colors.coralCTA} />}
           iconPosition="right"
           style={styles.fullWidthBtn}
         />

@@ -29,6 +29,7 @@ import { usePedometer } from './hooks/usePedometer';
 import { useApp } from '../../state/AppContext';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
+import { GlassButton } from '../../components/common/GlassButton';
 
 export const ActivityScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -288,26 +289,32 @@ export const ActivityScreen: React.FC = () => {
           {Platform.OS !== 'web' && (
             <View style={styles.controlButtonsRow}>
               {permissionStatus !== 'granted' ? (
-                <Pressable
-                  style={styles.controlPrimaryBtn}
+                <GlassButton
+                  title="Grant Sensor Permission"
+                  titleColor="#FFFFFF"
+                  size="md"
+                  height={46}
+                  borderRadius={14}
                   onPress={() => setShowPermissionModal(true)}
-                >
-                  <Text style={styles.controlPrimaryBtnText}>Grant Sensor Permission</Text>
-                </Pressable>
+                />
               ) : isTracking ? (
-                <Pressable
-                  style={styles.controlSecondaryBtn}
+                <GlassButton
+                  title="Pause Tracking"
+                  titleColor={Colors.lightSage}
+                  size="md"
+                  height={46}
+                  borderRadius={14}
                   onPress={() => stopTracking()}
-                >
-                  <Text style={styles.controlSecondaryBtnText}>Pause Tracking</Text>
-                </Pressable>
+                />
               ) : (
-                <Pressable
-                  style={styles.controlPrimaryBtn}
+                <GlassButton
+                  title="Resume Tracking"
+                  titleColor="#FFFFFF"
+                  size="md"
+                  height={46}
+                  borderRadius={14}
                   onPress={() => startTracking()}
-                >
-                  <Text style={styles.controlPrimaryBtnText}>Resume Tracking</Text>
-                </Pressable>
+                />
               )}
             </View>
           )}

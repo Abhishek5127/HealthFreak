@@ -379,8 +379,6 @@ const styles = StyleSheet.create({
   },
   startTrainingBtn: {
     width: '100%',
-    paddingVertical: 14,
-    backgroundColor: Colors.coralCTA,
   },
   startTrainingBtnText: {
     fontSize: Typography.fontSizes.base,

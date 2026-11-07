@@ -17,6 +17,7 @@ import {
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useApp } from '../../state/AppContext';
 import { Typography } from '../../theme/typography';
+import { GlassButton } from '../../components/common/GlassButton';
 
 export interface TrainingSession {
   id: string;
@@ -290,23 +291,15 @@ export const CalendarScheduleScreen: React.FC<{
               </View>
 
               {/* Join Action Pill */}
-              <Pressable
+              <GlassButton
+                title={session.joined ? 'Joined' : 'Join'}
+                titleColor={session.joined ? '#4AB87A' : '#FFFFFF'}
+                icon={session.joined ? <Check size={14} color="#4AB87A" /> : undefined}
+                size="xs"
+                height={32}
+                borderRadius={16}
                 onPress={() => handleToggleJoin(session.id, session.title)}
-                style={({ pressed }) => [
-                  styles.joinBtn,
-                  session.joined && styles.joinBtnActive,
-                  pressed && { opacity: 0.8 },
-                ]}
-              >
-                {session.joined ? (
-                  <View style={styles.joinedContent}>
-                    <Check size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
-                    <Text style={styles.joinBtnTextActive}>Joined</Text>
-                  </View>
-                ) : (
-                  <Text style={styles.joinBtnText}>Join</Text>
-                )}
-              </Pressable>
+              />
             </View>
           );
         })}

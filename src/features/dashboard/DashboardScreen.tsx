@@ -40,6 +40,7 @@ import { WaterBottleWidget } from './components/WaterBottleWidget';
 import { WaterTargetModal } from './components/WaterTargetModal';
 import { NutritionDetailModal } from './components/NutritionDetailModal';
 import { AppAvatar } from '../../components/common/AppAvatar';
+import { GlassButton } from '../../components/common/GlassButton';
 
 export const DashboardScreen: React.FC = () => {
   const {
@@ -303,13 +304,15 @@ export const DashboardScreen: React.FC = () => {
             </View>
           </View>
 
-          <Pressable
-            style={styles.retakeSurveyBtn}
+          <GlassButton
+            title="Edit Goal"
+            titleColor={Colors.lightSage}
+            icon={<Sliders size={12} color={Colors.lightSage} />}
+            size="xs"
+            height={30}
+            borderRadius={10}
             onPress={() => setActiveModal('onboarding')}
-          >
-            <Sliders size={13} color={Colors.lightSage} style={{ marginRight: 5 }} />
-            <Text style={styles.retakeSurveyBtnText}>Edit Goal</Text>
-          </Pressable>
+          />
         </View>
       </View>
 
@@ -344,13 +347,15 @@ export const DashboardScreen: React.FC = () => {
       {/* 6. DAILY NUTRITION & MACROS (COMPACT GLANCEABLE CARD) */}
       <View style={styles.compactNutritionHeaderRow}>
         <Text style={styles.compactSectionTitle}>Nutrition & Macros</Text>
-        <Pressable
-          style={styles.seeBreakdownBtn}
+        <GlassButton
+          title="View Breakdown"
+          titleColor={Colors.coralCTA}
+          rightIndicator={<ChevronRight size={13} color={Colors.coralCTA} />}
+          size="xs"
+          height={30}
+          borderRadius={10}
           onPress={() => setShowNutritionModal(true)}
-        >
-          <Text style={styles.seeBreakdownText}>View Breakdown</Text>
-          <ChevronRight size={14} color={Colors.coralCTA} />
-        </Pressable>
+        />
       </View>
 
       <Pressable
@@ -744,8 +749,13 @@ export const DashboardScreen: React.FC = () => {
           </View>
 
           <View style={styles.focusActionsRow}>
-            <Pressable
-              style={styles.focusStartBtn}
+            <GlassButton
+              title={focusWorkout.completed ? 'Review Session' : 'Start Workout'}
+              titleColor="#FFFFFF"
+              icon={<Zap size={14} color="#FFFFFF" />}
+              size="sm"
+              height={38}
+              borderRadius={12}
               onPress={() => {
                 if (focusWorkout.category === 'movement') {
                   setActiveModal('activity_session');
@@ -753,12 +763,7 @@ export const DashboardScreen: React.FC = () => {
                   setActiveTab('plan');
                 }
               }}
-            >
-              <Zap size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.focusStartBtnText}>
-                {focusWorkout.completed ? 'Review Session' : 'Start Workout'}
-              </Text>
-            </Pressable>
+            />
 
             <Pressable
               style={styles.focusPlanLinkBtn}

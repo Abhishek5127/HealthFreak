@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
-  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -20,6 +19,7 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Typography } from '../../theme/typography';
+import { GlassButton } from '../../components/common/GlassButton';
 import { AICallService, ScheduledAICall } from '../../services/aiCallService';
 import { useAuth } from '../../state/AuthContext';
 
@@ -248,24 +248,17 @@ export const ScheduleCallModal: React.FC<ScheduleCallModalProps> = ({
             </Text>
           </View>
         ) : (
-          <Pressable
-            style={({ pressed }) => [
-              styles.scheduleBtn,
-              pressed && styles.btnPressed,
-              isLoading && styles.btnDisabled,
-            ]}
+          <GlassButton
+            title="Schedule AI Incoming Call"
+            titleColor="#4AB87A"
+            icon={<PhoneCall size={18} color="#4AB87A" />}
+            size="lg"
+            height={52}
+            borderRadius={24}
             onPress={handleSchedulePress}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#0E1610" />
-            ) : (
-              <>
-                <PhoneCall size={20} color="#0E1610" />
-                <Text style={styles.scheduleBtnText}>Schedule AI Incoming Call</Text>
-              </>
-            )}
-          </Pressable>
+            loading={isLoading}
+            style={{ marginTop: 10 }}
+          />
         )}
 
         {/* Upcoming Scheduled Calls List */}

@@ -69,7 +69,7 @@ export const HeroCard: React.FC<HeroCardProps> = ({
       {/* Subtitle */}
       <Text style={styles.subtitleText}>{subtitle}</Text>
 
-      {/* Primary White Button matching video */}
+      {/* Primary White Glass Button */}
       <View style={styles.buttonWrapper}>
         <PrimaryButton
           title={buttonLabel}
@@ -77,7 +77,6 @@ export const HeroCard: React.FC<HeroCardProps> = ({
           size="md"
           onPress={onCheckInPress}
           style={styles.whiteBtn}
-          textStyle={styles.whiteBtnText}
         />
       </View>
     </AnimatedPressable>
@@ -142,14 +141,6 @@ const styles = StyleSheet.create({
   },
   whiteBtn: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: Spacing.borderRadius.round,
-    paddingVertical: 14,
-  },
-  whiteBtnText: {
-    color: '#161A17',
-    fontSize: Typography.fontSizes.base,
-    fontFamily: Typography.fontFamilies.sansBold,
   },
 });
 

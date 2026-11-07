@@ -38,6 +38,7 @@ import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
 import { HealthFreakLogo } from '../../components/common/HealthFreakLogo';
+import { GlassButton } from '../../components/common/GlassButton';
 import { MealScannerService } from '../../services/mealScannerService';
 import { SAMPLE_MEAL_TEMPLATES } from '../../mock-data/sampleMealTemplates';
 
@@ -208,14 +209,26 @@ export const CameraScannerScreen: React.FC = () => {
             HealthFreak uses your camera to scan meals, recognize distinct dishes, and calculate nutrition in real time.
           </Text>
 
-          <TouchableOpacity style={styles.primaryBtn} onPress={requestPermission}>
-            <Text style={styles.primaryBtnText}>Grant Camera Permission</Text>
-          </TouchableOpacity>
+          <GlassButton
+            title="Grant Camera Permission"
+            titleColor="#FFFFFF"
+            size="md"
+            height={48}
+            borderRadius={14}
+            onPress={requestPermission}
+            style={{ width: '100%', marginBottom: 12 }}
+          />
 
-          <TouchableOpacity style={styles.secondaryBtn} onPress={handlePickFromGallery}>
-            <ImageIcon color={Colors.lightSage} size={18} style={{ marginRight: 8 }} />
-            <Text style={styles.secondaryBtnText}>Choose from Gallery Instead</Text>
-          </TouchableOpacity>
+          <GlassButton
+            title="Choose from Gallery Instead"
+            titleColor={Colors.lightSage}
+            icon={<ImageIcon color={Colors.lightSage} size={18} />}
+            size="md"
+            height={48}
+            borderRadius={14}
+            onPress={handlePickFromGallery}
+            style={{ width: '100%' }}
+          />
 
           <View style={{ marginTop: 24, width: '100%', borderTopWidth: 1, borderTopColor: '#283229', paddingTop: 16 }}>
             <Text style={{ color: Colors.textSecondary, fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 12, textAlign: 'center' }}>
@@ -436,21 +449,27 @@ export const CameraScannerScreen: React.FC = () => {
                   ) : null}
 
                   <View style={styles.previewButtonsRow}>
-                    <TouchableOpacity
-                      style={styles.retakeBtn}
+                    <GlassButton
+                      title="Retake"
+                      titleColor={Colors.lightSage}
+                      icon={<RotateCcw color={Colors.lightSage} size={18} />}
+                      size="md"
+                      height={48}
+                      borderRadius={14}
                       onPress={handleRetake}
-                    >
-                      <RotateCcw color={Colors.textSecondary} size={18} style={{ marginRight: 6 }} />
-                      <Text style={styles.retakeBtnText}>Retake</Text>
-                    </TouchableOpacity>
+                      style={{ flex: 1, marginRight: 8 }}
+                    />
 
-                    <TouchableOpacity
-                      style={styles.analyzeBtn}
+                    <GlassButton
+                      title="Analyze Meal"
+                      titleColor="#FFFFFF"
+                      icon={<Sparkles color="#FFFFFF" size={18} />}
+                      size="md"
+                      height={48}
+                      borderRadius={14}
                       onPress={handleRunAnalysis}
-                    >
-                      <Sparkles color={Colors.textInverted} size={18} style={{ marginRight: 8 }} />
-                      <Text style={styles.analyzeBtnText}>Analyze Meal</Text>
-                    </TouchableOpacity>
+                      style={{ flex: 1.4 }}
+                    />
                   </View>
                 </>
               ) : (

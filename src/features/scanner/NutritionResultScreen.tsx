@@ -33,6 +33,7 @@ import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
 import { FoodItem } from '../../types/meal';
+import { GlassButton } from '../../components/common/GlassButton';
 
 export const NutritionResultScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -54,9 +55,15 @@ export const NutritionResultScreen: React.FC = () => {
     return (
       <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={{ color: Colors.textSecondary }}>No scanned meal available</Text>
-        <TouchableOpacity style={styles.primarySaveBtn} onPress={() => setActiveModal(null)}>
-          <Text style={styles.primarySaveBtnText}>Go Back</Text>
-        </TouchableOpacity>
+        <GlassButton
+          title="Go Back"
+          titleColor="#FFFFFF"
+          size="md"
+          height={48}
+          borderRadius={14}
+          onPress={() => setActiveModal(null)}
+          style={{ marginTop: 16 }}
+        />
       </View>
     );
   }
@@ -429,22 +436,26 @@ export const NutritionResultScreen: React.FC = () => {
 
       {/* 8. Bottom Sticky Floating Actions */}
       <View style={[styles.bottomStickyBar, { paddingBottom: insets.bottom + 12 }]}>
-        <TouchableOpacity
-          style={styles.secondaryVoiceBtn}
+        <GlassButton
           onPress={handleAskCoach}
-          activeOpacity={0.8}
-        >
-          <Mic color={Colors.lightSage} size={20} />
-        </TouchableOpacity>
+          icon={<Mic color={Colors.lightSage} size={20} />}
+          titleColor={Colors.lightSage}
+          size="md"
+          height={52}
+          borderRadius={14}
+          style={{ width: 52, marginRight: 10 }}
+        />
 
-        <TouchableOpacity
-          style={styles.primarySaveBtn}
+        <GlassButton
           onPress={handleSave}
-          activeOpacity={0.8}
-        >
-          <BookmarkCheck color={Colors.textInverted} size={20} style={{ marginRight: 8 }} />
-          <Text style={styles.primarySaveBtnText}>Save to Food Diary</Text>
-        </TouchableOpacity>
+          title="Save to Food Diary"
+          titleColor="#FFFFFF"
+          icon={<BookmarkCheck color="#FFFFFF" size={20} />}
+          size="md"
+          height={52}
+          borderRadius={14}
+          style={{ flex: 1 }}
+        />
       </View>
     </View>
   );

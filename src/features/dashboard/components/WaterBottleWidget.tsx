@@ -23,6 +23,7 @@ import {
 import { WaterBottleGraphic } from './WaterBottleGraphic';
 import { Colors } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
+import { GlassButton } from '../../../components/common/GlassButton';
 
 interface WaterBottleWidgetProps {
   waterLoggedMl: number;
@@ -121,14 +122,15 @@ export const WaterBottleWidget: React.FC<WaterBottleWidgetProps> = ({
           </View>
         </View>
 
-        <Pressable
+        <GlassButton
           onPress={onOpenTargetModal}
-          style={styles.targetSettingBtn}
-          accessibilityLabel="Adjust Water Target"
-        >
-          <Sliders size={15} color={Colors.textSecondary} style={{ marginRight: 5 }} />
-          <Text style={styles.targetSettingText}>{(waterTargetMl / 1000).toFixed(1)}L Goal</Text>
-        </Pressable>
+          title={`${(waterTargetMl / 1000).toFixed(1)}L Goal`}
+          titleColor={Colors.lightSage}
+          icon={<Sliders size={13} color={Colors.lightSage} />}
+          size="xs"
+          height={30}
+          borderRadius={10}
+        />
       </View>
 
       {/* Main Interactive Bottle Section */}
@@ -207,38 +209,49 @@ export const WaterBottleWidget: React.FC<WaterBottleWidgetProps> = ({
 
       {/* Quick Action Logging Buttons */}
       <View style={styles.actionsBar}>
-        <Pressable
-          style={[styles.quickAddBtn, styles.quickAddBtnPrimary]}
+        <GlassButton
           onPress={() => handleQuickAdd(150)}
-        >
-          <Plus size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
-          <Text style={styles.quickAddBtnTextPrimary}>+150ml</Text>
-        </Pressable>
+          title="+150ml"
+          titleColor="#FFFFFF"
+          icon={<Plus size={13} color="#FFFFFF" />}
+          size="xs"
+          height={36}
+          borderRadius={12}
+          style={{ flex: 1 }}
+        />
 
-        <Pressable
-          style={styles.quickAddBtn}
+        <GlassButton
           onPress={() => handleQuickAdd(250)}
-        >
-          <Plus size={14} color="#4FA3E2" style={{ marginRight: 4 }} />
-          <Text style={styles.quickAddBtnText}>+250ml Glass</Text>
-        </Pressable>
+          title="+250ml Glass"
+          titleColor="#4FA3E2"
+          icon={<Plus size={13} color="#4FA3E2" />}
+          size="xs"
+          height={36}
+          borderRadius={12}
+          style={{ flex: 1.25 }}
+        />
 
-        <Pressable
-          style={styles.quickAddBtn}
+        <GlassButton
           onPress={() => handleQuickAdd(500)}
-        >
-          <Plus size={14} color="#4FA3E2" style={{ marginRight: 4 }} />
-          <Text style={styles.quickAddBtnText}>+500ml Bottle</Text>
-        </Pressable>
+          title="+500ml Bottle"
+          titleColor="#4FA3E2"
+          icon={<Plus size={13} color="#4FA3E2" />}
+          size="xs"
+          height={36}
+          borderRadius={12}
+          style={{ flex: 1.3 }}
+        />
 
         {waterLoggedMl > 0 && (
-          <Pressable
-            style={styles.undoBtn}
+          <GlassButton
             onPress={() => handleQuickAdd(-100)}
-            accessibilityLabel="Undo 100ml"
-          >
-            <Minus size={14} color={Colors.textSecondary} />
-          </Pressable>
+            icon={<Minus size={14} color="#FFFFFF" />}
+            titleColor="#FFFFFF"
+            size="xs"
+            height={36}
+            borderRadius={12}
+            style={{ width: 36 }}
+          />
         )}
       </View>
 

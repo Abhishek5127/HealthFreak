@@ -33,6 +33,7 @@ import Svg, {
 import { usePedometer } from './hooks/usePedometer';
 import { useApp } from '../../state/AppContext';
 import { Typography } from '../../theme/typography';
+import { GlassButton } from '../../components/common/GlassButton';
 
 interface FitnessGoal {
   id: string;
@@ -502,10 +503,16 @@ export const FitnessJourneyScreen: React.FC<{
               keyboardType="numeric"
             />
 
-            <Pressable style={styles.saveGoalBtn} onPress={handleAddGoal}>
-              <Check size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.saveGoalBtnText}>Save Goal</Text>
-            </Pressable>
+            <GlassButton
+              title="Save Goal"
+              titleColor="#FFFFFF"
+              icon={<Check size={16} color="#FFFFFF" />}
+              size="md"
+              height={46}
+              borderRadius={14}
+              onPress={handleAddGoal}
+              style={{ marginTop: 20 }}
+            />
           </View>
         </View>
       </Modal>

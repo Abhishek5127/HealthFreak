@@ -13,6 +13,7 @@ import Animated, {
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { HealthFreakLogo } from '../../components/common/HealthFreakLogo';
+import { GlassButton } from '../../components/common/GlassButton';
 import { voiceClient, VoiceSessionState } from '../../services/voiceClient';
 import { useApp } from '../../state/AppContext';
 
@@ -242,16 +243,18 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
             </Text>
           </Pressable>
         ) : sessionState.status === 'speaking' ? (
-          <Pressable
-            style={[styles.manualActionBtn, { backgroundColor: '#2D1F1C', borderColor: Colors.coralCTA }]}
+          <GlassButton
+            title="Interrupt & Speak"
+            titleColor={Colors.coralCTA}
+            icon={<MicOff size={15} color={Colors.coralCTA} />}
+            size="xs"
+            height={34}
+            borderRadius={17}
             onPress={() => {
               voiceClient.unlockAudio();
               voiceClient.interrupt();
             }}
-          >
-            <MicOff size={15} color={Colors.coralCTA} />
-            <Text style={[styles.manualActionBtnText, { color: Colors.coralCTA }]}>Interrupt & Speak</Text>
-          </Pressable>
+          />
         ) : null}
       </View>
 
@@ -351,15 +354,18 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
           )}
         </Pressable>
 
-        <Pressable
-          style={styles.endCallBtn}
+        <GlassButton
+          title="End Conversation"
+          titleColor="#FFFFFF"
+          size="md"
+          height={48}
+          borderRadius={24}
           onPress={() => {
             voiceClient.endSession();
             onClose();
           }}
-        >
-          <Text style={styles.endCallText}>End Conversation</Text>
-        </Pressable>
+          style={{ flex: 1, marginLeft: 12 }}
+        />
       </View>
     </View>
   );
