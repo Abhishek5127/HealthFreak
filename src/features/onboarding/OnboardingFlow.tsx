@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -51,6 +52,8 @@ export const OnboardingFlow: React.FC = () => {
 
   // STEP 1: Goal State
   const [selectedGoal, setSelectedGoal] = useState<WellnessGoal>('weight_gain');
+  const [isNoneSelected, setIsNoneSelected] = useState<boolean>(false);
+  const [customGoalText, setCustomGoalText] = useState<string>('');
 
   // STEP 2: Metrics & Dynamic Sub-Options State
   const [currentWeightKg, setCurrentWeightKg] = useState<number>(65);
@@ -248,6 +251,7 @@ export const OnboardingFlow: React.FC = () => {
       triggerHaptic('success');
       const assessment: UserSurveyAssessment = {
         goal: selectedGoal,
+        customGoal: isNoneSelected && customGoalText.trim().length > 0 ? customGoalText.trim() : undefined,
         currentWeightKg,
         targetWeightKg,
         heightCm,
@@ -332,7 +336,7 @@ export const OnboardingFlow: React.FC = () => {
 
             <View style={styles.goalsList}>
               {goalsList.map((g) => {
-                const isSelected = selectedGoal === g.id;
+                const isSelected = !isNoneSelected && selectedGoal === g.id;
                 return (
                   <Pressable
                     key={g.id}
@@ -342,6 +346,7 @@ export const OnboardingFlow: React.FC = () => {
                     ]}
                     onPress={() => {
                       triggerHaptic('selection');
+                      setIsNoneSelected(false);
                       setSelectedGoal(g.id);
                       // Set smart default target weights based on goal
                       if (g.id === 'weight_gain' && targetWeightKg <= currentWeightKg) {
@@ -375,6 +380,48 @@ export const OnboardingFlow: React.FC = () => {
                   </Pressable>
                 );
               })}
+
+              {/* None of the Above Option */}
+              <Pressable
+                style={[
+                  styles.noneOfTheAboveCard,
+                  isNoneSelected && styles.noneOfTheAboveCardActive,
+                ]}
+                onPress={() => {
+                  triggerHaptic('selection');
+                  setIsNoneSelected(true);
+                }}
+              >
+                <View style={styles.goalHeaderRow}>
+                  <Text
+                    style={[styles.goalCardTitle, isNoneSelected && { color: '#FFFFFF' }]}
+                    numberOfLines={1}
+                  >
+                    None of the above
+                  </Text>
+                  <View style={[styles.radioCircle, isNoneSelected && { borderColor: Colors.forestGreenLight }]}>
+                    {isNoneSelected && <View style={[styles.radioDot, { backgroundColor: Colors.forestGreenLight }]} />}
+                  </View>
+                </View>
+
+                {isNoneSelected && (
+                  <View style={styles.customGoalContainer}>
+                    <Text style={styles.customGoalPrompt}>
+                      What is your personal health or wellness goal?
+                    </Text>
+                    <TextInput
+                      style={styles.customGoalInput}
+                      placeholder="e.g., Posture correction, marathon training, better sleep..."
+                      placeholderTextColor="#5E7064"
+                      value={customGoalText}
+                      onChangeText={setCustomGoalText}
+                      multiline
+                      numberOfLines={2}
+                      autoFocus
+                    />
+                  </View>
+                )}
+              </Pressable>
             </View>
           </View>
         )}
@@ -1348,6 +1395,47 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 14,
+  },
+  noneOfTheAboveCard: {
+    backgroundColor: '#18201B',
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#26342B',
+    padding: 14,
+  },
+  noneOfTheAboveCardActive: {
+    backgroundColor: '#1E2B23',
+    borderColor: Colors.forestGreenLight,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  customGoalContainer: {
+    marginTop: 10,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#28372D',
+  },
+  customGoalPrompt: {
+    fontFamily: Typography.fonts.sansMedium,
+    fontSize: Typography.sizes.caption + 1,
+    color: '#9EAEA2',
+    marginBottom: 8,
+  },
+  customGoalInput: {
+    backgroundColor: '#111713',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2C3E32',
+    color: '#FFFFFF',
+    fontFamily: Typography.fonts.sansRegular,
+    fontSize: Typography.sizes.body,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 52,
+    textAlignVertical: 'top',
   },
   subOptionsContainer: {
     gap: Spacing.lg,

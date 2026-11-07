@@ -446,7 +446,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUserProfileState((prev) => ({
       ...prev,
       selectedGoal: assessment.goal,
-      goalLabel: plan.headline,
+      goalLabel: assessment.customGoal || plan.headline,
       onboardingCompleted: true,
       surveyAssessment: assessment,
     }));
@@ -454,7 +454,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (updateProfileState) {
       updateProfileState({
         selectedGoal: assessment.goal,
-        goalLabel: plan.headline,
+        goalLabel: assessment.customGoal || plan.headline,
         onboardingCompleted: true,
         surveyAssessment: assessment,
       });
@@ -511,7 +511,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setUserProfileState((prev) => ({
               ...prev,
               selectedGoal: parsed.goal,
-              goalLabel: parsed.calculatedPlan.headline,
+              goalLabel: parsed.customGoal || parsed.calculatedPlan.headline,
               onboardingCompleted: true,
               surveyAssessment: parsed,
             }));

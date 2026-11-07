@@ -57,6 +57,7 @@ export interface CalculatedNutritionPlan {
 
 export interface UserSurveyAssessment {
   goal: WellnessGoal;
+  customGoal?: string;
   currentWeightKg: number;
   targetWeightKg: number;
   heightCm: number;
