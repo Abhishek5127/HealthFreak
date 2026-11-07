@@ -26,6 +26,7 @@ import {
 import { useApp } from '../../state/AppContext';
 import { ActivitySyncService } from '../activity/services/activitySyncService';
 import { Colors } from '../../theme/colors';
+import { RemoteAssets } from '../../constants/remoteAssets';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
 import { ScreenContainer } from '../../components/common/ScreenContainer';
@@ -458,7 +459,7 @@ export const DashboardScreen: React.FC = () => {
             accessibilityLabel="Scan Meal"
           >
             <Image
-              source={require('../../../assets/foodScan/foodScan.png')}
+              source={{ uri: RemoteAssets.foodScan }}
               style={styles.compactFoodImage}
               resizeMode="cover"
             />

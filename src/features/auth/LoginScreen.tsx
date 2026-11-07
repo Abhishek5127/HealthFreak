@@ -45,6 +45,7 @@ import {
   IOSControlCenterGlassButton,
   IOSGlassVariant,
 } from '../../components/common/IOSControlCenterGlassButton';
+import { RemoteAssets } from '../../constants/remoteAssets';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BUTTON_WIDTH = Math.min(SCREEN_WIDTH - 44, 380);
@@ -53,19 +54,19 @@ const BUTTON_WIDTH = Math.min(SCREEN_WIDTH - 44, 380);
 const SLIDES = [
   {
     id: 'fitness',
-    image: require('../../../assets/loginUiImages/HealthFreak Fitness Doodle Wallpaper.png'),
+    image: { uri: RemoteAssets.loginUi.fitnessDoodle },
     subtitle: 'Touch grass, Track macros!',
     variant: 'frostedDark' as IOSGlassVariant,
   },
   {
     id: 'nutrition',
-    image: require('../../../assets/loginUiImages/HealthFreak Nutrition Doodle Collage.png'),
+    image: { uri: RemoteAssets.loginUi.nutritionCollage },
     subtitle: 'We scan. You snack!',
     variant: 'frostedOlive' as IOSGlassVariant,
   },
   {
     id: 'call',
-    image: require('../../../assets/loginUiImages/Neon HealthFreak Call Doodle Wallpaper.png'),
+    image: { uri: RemoteAssets.loginUi.neonCallDoodle },
     subtitle: 'Your health, Her headache!',
     variant: 'frostedCoral' as IOSGlassVariant,
   },

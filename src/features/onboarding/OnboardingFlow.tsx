@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Image,
   View,
   Text,
   StyleSheet,
@@ -8,6 +7,10 @@ import {
   ScrollView,
   TextInput,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
+import { RemoteAssets } from '../../constants/remoteAssets';
+
+const LOGO_GIF = require('../../../assets/logo/HealthFreakLogoTranasparent.gif');
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
@@ -52,6 +55,7 @@ export const OnboardingFlow: React.FC = () => {
 
   // STEP 1: Goal State
   const [selectedGoal, setSelectedGoal] = useState<WellnessGoal>('weight_gain');
+  const [isImagesLoading, setIsImagesLoading] = useState<boolean>(true);
   const [isNoneSelected, setIsNoneSelected] = useState<boolean>(false);
   const [customGoalText, setCustomGoalText] = useState<string>('');
 
@@ -113,7 +117,7 @@ export const OnboardingFlow: React.FC = () => {
     badge: string;
     icon: React.ReactNode;
     color: string;
-    image: any;
+    image: { uri: string };
   }[] = [
       {
         id: 'weight_gain',
@@ -122,7 +126,7 @@ export const OnboardingFlow: React.FC = () => {
         badge: 'Surplus & Mass',
         icon: <Dumbbell size={16} color={Colors.forestGreenLight} />,
         color: Colors.forestGreenLight,
-        image: require('../../../assets/primaryGoals/Skinny to Strong Fitness Transformation.png'),
+        image: { uri: RemoteAssets.primaryGoals.skinnyToStrong },
       },
       {
         id: 'weight_loss',
@@ -131,7 +135,7 @@ export const OnboardingFlow: React.FC = () => {
         badge: 'Deficit & Burn',
         icon: <Flame size={16} color={Colors.coralCTA} />,
         color: Colors.coralCTA,
-        image: require('../../../assets/primaryGoals/Healthy Transformation Journey.png'),
+        image: { uri: RemoteAssets.primaryGoals.healthyTransformation },
       },
       {
         id: 'acne_control',
@@ -140,7 +144,7 @@ export const OnboardingFlow: React.FC = () => {
         badge: 'Dermal Clarity',
         icon: <Sparkles size={16} color="#45D09E" />,
         color: '#45D09E',
-        image: require('../../../assets/primaryGoals/Cute Pastel Skincare Routine Duo.png'),
+        image: { uri: RemoteAssets.primaryGoals.cutePastelSkincare },
       },
       {
         id: 'skincare_glow',
@@ -149,7 +153,7 @@ export const OnboardingFlow: React.FC = () => {
         badge: 'Skin Longevity',
         icon: <Heart size={16} color="#F38BA8" />,
         color: '#F38BA8',
-        image: require('../../../assets/primaryGoals/Before-and-After Wellness Glow-Up.png'),
+        image: { uri: RemoteAssets.primaryGoals.beforeAfterWellness },
       },
       {
         id: 'hair_health',
@@ -158,7 +162,7 @@ export const OnboardingFlow: React.FC = () => {
         badge: 'Follicle Health',
         icon: <Droplet size={16} color={Colors.lightSage} />,
         color: Colors.lightSage,
-        image: require('../../../assets/primaryGoals/Hair Loss Worries with a HealthFreak Mirror.png'),
+        image: { uri: RemoteAssets.primaryGoals.hairLossWorries },
       },
       {
         id: 'pcos_pcod',
@@ -167,7 +171,7 @@ export const OnboardingFlow: React.FC = () => {
         badge: 'Hormone Sync',
         icon: <Activity size={16} color="#D48BAA" />,
         color: '#D48BAA',
-        image: require('../../../assets/primaryGoals/Hormone Balance_ Before and After.png'),
+        image: { uri: RemoteAssets.primaryGoals.hormoneBalance },
       },
       {
         id: 'metabolic_fitness',
@@ -176,7 +180,7 @@ export const OnboardingFlow: React.FC = () => {
         badge: 'Vitality',
         icon: <Sun size={16} color={Colors.softYellow} />,
         color: Colors.softYellow,
-        image: require('../../../assets/primaryGoals/Cheerful Chibi Side Stretch Duo.png'),
+        image: { uri: RemoteAssets.primaryGoals.cheerfulChibiStretch },
       },
       {
         id: 'energy_vitality',
@@ -185,7 +189,7 @@ export const OnboardingFlow: React.FC = () => {
         badge: 'Rest & Focus',
         icon: <Zap size={16} color="#818CF8" />,
         color: '#818CF8',
-        image: require('../../../assets/primaryGoals/Mindful Wellness with HealthFreak.png'),
+        image: { uri: RemoteAssets.primaryGoals.mindfulWellness },
       },
       {
         id: 'weight_management',
@@ -194,9 +198,32 @@ export const OnboardingFlow: React.FC = () => {
         badge: 'Gut & Glow',
         icon: <Utensils size={16} color="#38BDF8" />,
         color: '#38BDF8',
-        image: require('../../../assets/primaryGoals/From Gut Pain to Healthy Glow.png'),
+        image: { uri: RemoteAssets.primaryGoals.gutPainToGlow },
       },
     ];
+
+  // Prefetch remote goal images into local cache
+  useEffect(() => {
+    let isMounted = true;
+    const urls = goalsList.map((g) => g.image.uri);
+
+    Promise.allSettled(urls.map((u) => ExpoImage.prefetch(u)))
+      .then(() => {
+        if (isMounted) setIsImagesLoading(false);
+      })
+      .catch(() => {
+        if (isMounted) setIsImagesLoading(false);
+      });
+
+    const timer = setTimeout(() => {
+      if (isMounted) setIsImagesLoading(false);
+    }, 2500);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, []);
 
   const skinConcernsOptions = [
     { id: 'active_acne', label: 'Active Pimples / Breakouts' },
@@ -324,62 +351,76 @@ export const OnboardingFlow: React.FC = () => {
       >
         {/* new comment*/}
         {currentStep === 1 && (
-          <View>
-            <View style={styles.questionHeader}>
-              <Text style={styles.stepQuestion}>
-                What is your <Text style={styles.serifAccent}>primary focus</Text>?
-              </Text>
-              <Text style={styles.stepSubtitle}>
-                Select your core health goal. We’ll calibrate your exact daily calories, protein targets, carbs, and habits accordingly.
-              </Text>
+          isImagesLoading ? (
+            <View style={styles.centerLoadingContainer}>
+              <ExpoImage
+                source={LOGO_GIF}
+                style={styles.loadingLogoGif}
+                contentFit="contain"
+                autoplay
+              />
+              <Text style={styles.loadingBrandTitle}>Health Freak</Text>
+              <Text style={styles.loadingSubtitle}>Personalizing your wellness journey...</Text>
             </View>
+          ) : (
+            <View>
+              <View style={styles.questionHeader}>
+                <Text style={styles.stepQuestion}>
+                  What is your <Text style={styles.serifAccent}>primary focus</Text>?
+                </Text>
+                <Text style={styles.stepSubtitle}>
+                  Select your core health goal. We’ll calibrate your exact daily calories, protein targets, carbs, and habits accordingly.
+                </Text>
+              </View>
 
-            <View style={styles.goalsList}>
-              {goalsList.map((g) => {
-                const isSelected = !isNoneSelected && selectedGoal === g.id;
-                return (
-                  <Pressable
-                    key={g.id}
-                    style={[
-                      styles.goalCard,
-                      isSelected && [styles.goalCardActive, { borderColor: g.color }],
-                    ]}
-                    onPress={() => {
-                      triggerHaptic('selection');
-                      setIsNoneSelected(false);
-                      setSelectedGoal(g.id);
-                      // Set smart default target weights based on goal
-                      if (g.id === 'weight_gain' && targetWeightKg <= currentWeightKg) {
-                        setTargetWeightKg(currentWeightKg + 6);
-                      } else if (g.id === 'weight_loss' && targetWeightKg >= currentWeightKg) {
-                        setTargetWeightKg(Math.max(45, currentWeightKg - 6));
-                      }
-                    }}
-                  >
-                    {/* Header Row: Title on Left, Radio Indicator on Right */}
-                    <View style={styles.goalHeaderRow}>
-                      <Text
-                        style={[styles.goalCardTitle, isSelected && { color: '#FFFFFF' }]}
-                        numberOfLines={1}
-                      >
-                        {g.title}
-                      </Text>
-                      <View style={[styles.radioCircle, isSelected && { borderColor: g.color }]}>
-                        {isSelected && <View style={[styles.radioDot, { backgroundColor: g.color }]} />}
+              <View style={styles.goalsList}>
+                {goalsList.map((g) => {
+                  const isSelected = !isNoneSelected && selectedGoal === g.id;
+                  return (
+                    <Pressable
+                      key={g.id}
+                      style={[
+                        styles.goalCard,
+                        isSelected && [styles.goalCardActive, { borderColor: g.color }],
+                      ]}
+                      onPress={() => {
+                        triggerHaptic('selection');
+                        setIsNoneSelected(false);
+                        setSelectedGoal(g.id);
+                        // Set smart default target weights based on goal
+                        if (g.id === 'weight_gain' && targetWeightKg <= currentWeightKg) {
+                          setTargetWeightKg(currentWeightKg + 6);
+                        } else if (g.id === 'weight_loss' && targetWeightKg >= currentWeightKg) {
+                          setTargetWeightKg(Math.max(45, currentWeightKg - 6));
+                        }
+                      }}
+                    >
+                      {/* Header Row: Title on Left, Radio Indicator on Right */}
+                      <View style={styles.goalHeaderRow}>
+                        <Text
+                          style={[styles.goalCardTitle, isSelected && { color: '#FFFFFF' }]}
+                          numberOfLines={1}
+                        >
+                          {g.title}
+                        </Text>
+                        <View style={[styles.radioCircle, isSelected && { borderColor: g.color }]}>
+                          {isSelected && <View style={[styles.radioDot, { backgroundColor: g.color }]} />}
+                        </View>
                       </View>
-                    </View>
 
-                    {/* Full-width 16:9 Illustration (Full Natural Height) */}
-                    <View style={styles.goalImageContainer}>
-                      <Image
-                        source={g.image}
-                        style={styles.goalImage}
-                        resizeMode="cover"
-                      />
-                    </View>
-                  </Pressable>
-                );
-              })}
+                      {/* Full-width 16:9 Illustration (Full Natural Height) */}
+                      <View style={styles.goalImageContainer}>
+                        <ExpoImage
+                          source={g.image}
+                          style={styles.goalImage}
+                          contentFit="cover"
+                          cachePolicy="memory-disk"
+                          transition={200}
+                        />
+                      </View>
+                    </Pressable>
+                  );
+                })}
 
               {/* None of the Above Option */}
               <Pressable
@@ -424,7 +465,7 @@ export const OnboardingFlow: React.FC = () => {
               </Pressable>
             </View>
           </View>
-        )}
+        ))}
 
         {/* ============================================================== */}
         {/* STEP 2: DYNAMIC SUB-OPTIONS & MEASUREMENTS                    */}
@@ -1339,6 +1380,29 @@ const styles = StyleSheet.create({
   goalsList: {
     gap: 14,
     paddingBottom: 24,
+  },
+  centerLoadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 100,
+    minHeight: 460,
+  },
+  loadingLogoGif: {
+    width: 140,
+    height: 140,
+    marginBottom: 16,
+  },
+  loadingBrandTitle: {
+    fontFamily: Typography.fontFamilies.instrumentSerif,
+    fontSize: 30,
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+    marginBottom: 6,
+  },
+  loadingSubtitle: {
+    fontFamily: Typography.fonts.sansMedium,
+    fontSize: Typography.sizes.body,
+    color: '#8A9E90',
   },
   goalCard: {
     backgroundColor: '#18201B',
