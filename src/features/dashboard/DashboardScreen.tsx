@@ -16,7 +16,6 @@ import {
   Sparkles,
   Zap,
   ChevronRight,
-  Camera,
   Droplet,
   Sliders,
   Heart,
@@ -372,20 +371,9 @@ export const DashboardScreen: React.FC = () => {
               </Text>
             </View>
           </View>
-
-          <Pressable
-            style={styles.compactScanActionBtn}
-            onPress={(e) => {
-              e.stopPropagation();
-              openMealScanner();
-            }}
-          >
-            <Camera size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
-            <Text style={styles.compactScanActionText}>Scan Meal</Text>
-          </Pressable>
         </View>
 
-        {/* Content Row: Parallel Macros on the Left, Food Image on the Right directly under Scan Meal */}
+        {/* Content Row: Parallel Macros on the Left, Food Scan Image on the Right */}
         <View style={styles.compactCardBodyRow}>
           {/* Left: Protein, Carbs, Fats stacked parallel to each other */}
           <View style={styles.compactMacrosCol}>
@@ -456,14 +444,25 @@ export const DashboardScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* Right: Food Image directly below Scan Meal */}
-          <View style={styles.compactFoodImageBox}>
+          {/* Right: Food Scan Image (Tappable: opens meal scanner) */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.compactFoodImageBox,
+              pressed && styles.compactFoodImageBoxPressed,
+            ]}
+            onPress={(e) => {
+              e.stopPropagation();
+              openMealScanner();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Scan Meal"
+          >
             <Image
-              source={require('../../../assets/images/nutrition/healthy_bowl_clean.png')}
+              source={require('../../../assets/foodScan/foodScan.png')}
               style={styles.compactFoodImage}
               resizeMode="cover"
             />
-          </View>
+          </Pressable>
         </View>
       </Pressable>
 
@@ -1106,19 +1105,6 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamilies.sansRegular,
     marginTop: 1,
   },
-  compactScanActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.forestGreenLight,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 16,
-  },
-  compactScanActionText: {
-    color: '#FFFFFF',
-    fontSize: 11.5,
-    fontFamily: Typography.fontFamilies.sansBold,
-  },
   compactCardBodyRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1127,7 +1113,7 @@ const styles = StyleSheet.create({
   },
   compactMacrosCol: {
     flex: 1,
-    marginRight: 14,
+    marginRight: 18,
   },
   compactMacroItem: {
     marginBottom: 6,
@@ -1175,9 +1161,9 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   compactFoodImageBox: {
-    width: 80,
-    height: 80,
-    borderRadius: 14,
+    width: 98,
+    height: 98,
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#161A17',
     borderWidth: 1,
@@ -1185,10 +1171,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  compactFoodImageBoxPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.97 }],
+  },
   compactFoodImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 14,
+    width: 98,
+    height: 98,
+    borderRadius: 16,
   },
 
   goalFeatureCard: {
