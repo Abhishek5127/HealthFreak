@@ -351,31 +351,26 @@ export const OnboardingFlow: React.FC = () => {
                       }
                     }}
                   >
-                    {/* Compact 16:9 Illustration Thumbnail */}
-                    <View style={styles.goalImageContainer}>
-                      <Image
-                        source={g.image}
-                        style={styles.goalImage}
-                        resizeMode="cover"
-                      />
-                    </View>
-
-                    {/* Goal Title & Subtitle */}
-                    <View style={styles.goalTitleCol}>
+                    {/* Header Row: Title on Left, Radio Indicator on Right */}
+                    <View style={styles.goalHeaderRow}>
                       <Text
                         style={[styles.goalCardTitle, isSelected && { color: '#FFFFFF' }]}
                         numberOfLines={1}
                       >
                         {g.title}
                       </Text>
-                      <Text style={styles.goalCardSubtitle} numberOfLines={2}>
-                        {g.subtitle}
-                      </Text>
+                      <View style={[styles.radioCircle, isSelected && { borderColor: g.color }]}>
+                        {isSelected && <View style={[styles.radioDot, { backgroundColor: g.color }]} />}
+                      </View>
                     </View>
 
-                    {/* Radio Indicator */}
-                    <View style={[styles.radioCircle, isSelected && { borderColor: g.color }]}>
-                      {isSelected && <View style={[styles.radioDot, { backgroundColor: g.color }]} />}
+                    {/* Full-width 16:9 Illustration Banner (Short Height) */}
+                    <View style={styles.goalImageContainer}>
+                      <Image
+                        source={g.image}
+                        style={styles.goalImage}
+                        resizeMode="cover"
+                      />
                     </View>
                   </Pressable>
                 );
@@ -1295,55 +1290,38 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   goalsList: {
-    gap: 10,
+    gap: 14,
+    paddingBottom: 24,
   },
   goalCard: {
     backgroundColor: '#18201B',
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1.5,
     borderColor: '#26342B',
-    padding: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 78,
+    padding: 12,
   },
   goalCardActive: {
     backgroundColor: '#1E2B23',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  goalImageContainer: {
-    width: 104,
-    height: 60,
-    borderRadius: 10,
-    overflow: 'hidden',
-    backgroundColor: '#121714',
-  },
-  goalImage: {
-    width: 104,
-    height: 60,
-    borderRadius: 10,
-  },
-  goalTitleCol: {
-    flex: 1,
-    marginHorizontal: 12,
-    justifyContent: 'center',
+  goalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingHorizontal: 2,
   },
   goalCardTitle: {
     fontFamily: Typography.fontFamilies.instrumentSerif,
-    fontSize: 22,
+    fontSize: 23,
     color: '#FFFFFF',
     letterSpacing: 0.2,
-    marginBottom: 2,
-  },
-  goalCardSubtitle: {
-    fontFamily: Typography.fonts.sansRegular,
-    fontSize: 11,
-    color: Colors.textSecondary,
-    lineHeight: 14.5,
+    flex: 1,
+    marginRight: 10,
   },
   radioCircle: {
     width: 20,
@@ -1353,12 +1331,23 @@ const styles = StyleSheet.create({
     borderColor: '#37473D',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 4,
   },
   radioDot: {
     width: 9,
     height: 9,
     borderRadius: 4.5,
+  },
+  goalImageContainer: {
+    width: '100%',
+    height: 130,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#121714',
+  },
+  goalImage: {
+    width: '100%',
+    height: 130,
+    borderRadius: 12,
   },
   subOptionsContainer: {
     gap: Spacing.lg,
