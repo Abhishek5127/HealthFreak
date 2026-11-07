@@ -364,7 +364,7 @@ export const OnboardingFlow: React.FC = () => {
                       </View>
                     </View>
 
-                    {/* Full-width 16:9 Illustration Banner (Short Height) */}
+                    {/* Full-width 16:9 Illustration (Full Natural Height) */}
                     <View style={styles.goalImageContainer}>
                       <Image
                         source={g.image}
@@ -1339,15 +1339,15 @@ const styles = StyleSheet.create({
   },
   goalImageContainer: {
     width: '100%',
-    height: 130,
-    borderRadius: 12,
+    aspectRatio: 1672 / 941,
+    borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: '#121714',
   },
   goalImage: {
     width: '100%',
-    height: 130,
-    borderRadius: 12,
+    height: '100%',
+    borderRadius: 14,
   },
   subOptionsContainer: {
     gap: Spacing.lg,
