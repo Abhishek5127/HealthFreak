@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Pressable,
   Dimensions,
-  ScrollView,
   NativeSyntheticEvent,
   NativeScrollEvent,
   Platform,
@@ -21,6 +20,7 @@ import Animated, {
   withDelay,
   Easing,
   interpolate,
+  useAnimatedScrollHandler,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import Svg, {
@@ -98,6 +98,16 @@ export const LoginScreen: React.FC = () => {
     screenOpacity.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.ease) });
     contentTranslateY.value = withSpring(0, { damping: 16, stiffness: 95 });
   }, [contentTranslateY, screenOpacity]);
+
+  // Scroll Position Shared Value for 60fps/120fps UI-thread synchronization
+  const scrollX = useSharedValue(0);
+
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      'worklet';
+      scrollX.value = event.contentOffset.x;
+    },
+  });
 
   // Handle Carousel Page Scroll (called continuously during drag and on momentum)
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -180,16 +190,6 @@ export const LoginScreen: React.FC = () => {
     }
   };
 
-  // Dynamic Button Label
-  const getButtonLabel = () => {
-    if (activeIndex === 0) return 'Crush Your Goals';
-    if (activeIndex === 1) return 'Know Every Bite';
-    if (activeIndex === 2) {
-      return isTransformedToGoogle ? 'Sign in with google' : 'Your Health Wingman';
-    }
-    return 'Crush Your Goals';
-  };
-
   // Animated Styles
   const animatedRoot = useAnimatedStyle(() => ({
     opacity: screenOpacity.value,
@@ -213,34 +213,101 @@ export const LoginScreen: React.FC = () => {
     transform: [{ scale: waveRippleScale.value }],
   }));
 
-  const animatedButtonText = useAnimatedStyle(() => {
-    if (activeIndex !== 2) {
-      return { opacity: 1 };
-    }
-    if (isTransformedToGoogle) {
-      return { opacity: 0 };
-    }
+  // UI-Thread Smooth Cross-Fade Button Styles (60fps/120fps hardware animated on Android & iOS)
+  const slide0AnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollX.value,
+      [0, SCREEN_WIDTH * 0.65],
+      [1, 0],
+      'clamp'
+    );
+    const translateY = interpolate(
+      scrollX.value,
+      [0, SCREEN_WIDTH * 0.65],
+      [0, -8],
+      'clamp'
+    );
     return {
-      opacity: interpolate(waveProgress.value, [0, 0.45], [1, 0]),
+      opacity,
+      transform: [{ translateY }],
     };
   });
 
-  const animatedGoogleContent = useAnimatedStyle(() => {
-    if (activeIndex !== 2) {
-      return { opacity: 0, transform: [{ scale: 0.85 }] };
-    }
-    if (isTransformedToGoogle) {
-      return { opacity: 1, transform: [{ scale: 1 }] };
-    }
+  const slide1AnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollX.value,
+      [0, SCREEN_WIDTH * 0.65, SCREEN_WIDTH, SCREEN_WIDTH * 1.35, 2 * SCREEN_WIDTH],
+      [0, 0, 1, 0, 0],
+      'clamp'
+    );
+    const translateY = interpolate(
+      scrollX.value,
+      [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH],
+      [8, 0, -8],
+      'clamp'
+    );
     return {
-      opacity: interpolate(waveProgress.value, [0.35, 0.85], [0, 1]),
-      transform: [
-        {
-          scale: interpolate(waveProgress.value, [0.35, 0.85], [0.85, 1]),
-        },
-      ],
+      opacity,
+      transform: [{ translateY }],
     };
   });
+
+  const slide2AnimatedStyle = useAnimatedStyle(() => {
+    const scrollOpacity = interpolate(
+      scrollX.value,
+      [SCREEN_WIDTH * 1.35, 2 * SCREEN_WIDTH],
+      [0, 1],
+      'clamp'
+    );
+    const translateY = interpolate(
+      scrollX.value,
+      [SCREEN_WIDTH * 1.35, 2 * SCREEN_WIDTH],
+      [8, 0],
+      'clamp'
+    );
+    const waveOpacity = isTransformedToGoogle
+      ? 0
+      : interpolate(waveProgress.value, [0, 0.45], [1, 0], 'clamp');
+
+    return {
+      opacity: scrollOpacity * waveOpacity,
+      transform: [{ translateY }],
+    };
+  });
+
+  const googleAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = isTransformedToGoogle
+      ? 1
+      : interpolate(waveProgress.value, [0.35, 0.85], [0, 1], 'clamp');
+    const scale = isTransformedToGoogle
+      ? 1
+      : interpolate(waveProgress.value, [0.35, 0.85], [0.85, 1], 'clamp');
+    return {
+      opacity: activeIndex === 2 ? opacity : 0,
+      transform: [{ scale }],
+    };
+  });
+
+  // UI-Thread Smooth Subtitle Transitions
+  const sub0AnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollX.value, [0, SCREEN_WIDTH * 0.65], [1, 0], 'clamp'),
+    transform: [{ translateY: interpolate(scrollX.value, [0, SCREEN_WIDTH * 0.65], [0, -4], 'clamp') }],
+  }));
+
+  const sub1AnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      scrollX.value,
+      [0, SCREEN_WIDTH * 0.65, SCREEN_WIDTH, SCREEN_WIDTH * 1.35, 2 * SCREEN_WIDTH],
+      [0, 0, 1, 0, 0],
+      'clamp'
+    ),
+    transform: [{ translateY: interpolate(scrollX.value, [0, SCREEN_WIDTH, 2 * SCREEN_WIDTH], [4, 0, -4], 'clamp') }],
+  }));
+
+  const sub2AnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollX.value, [SCREEN_WIDTH * 1.35, 2 * SCREEN_WIDTH], [0, 1], 'clamp'),
+    transform: [{ translateY: interpolate(scrollX.value, [SCREEN_WIDTH * 1.35, 2 * SCREEN_WIDTH], [4, 0], 'clamp') }],
+  }));
 
   const activeVariant: IOSGlassVariant =
     SLIDES[activeIndex]?.variant || 'frostedDark';
@@ -248,13 +315,13 @@ export const LoginScreen: React.FC = () => {
   return (
     <Animated.View style={[styles.root, animatedRoot]}>
       {/* Full-bleed 3-slide artwork carousel (Zero text over photos) */}
-      <ScrollView
+      <Animated.ScrollView
         ref={scrollRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         bounces={false}
-        onScroll={handleScroll}
+        onScroll={scrollHandler}
         onMomentumScrollEnd={handleScroll}
         onScrollEndDrag={handleScroll}
         scrollEventThrottle={16}
@@ -290,14 +357,28 @@ export const LoginScreen: React.FC = () => {
             </Svg>
           </View>
         ))}
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Floating Brand Title & Dynamic Subtitle */}
       <View style={styles.floatingHeaderTitle} pointerEvents="none">
         <Text style={styles.brandTitleText}>Health Freak</Text>
-        <Text style={styles.brandSubtitleText}>
-          {SLIDES[activeIndex]?.subtitle}
-        </Text>
+        <View style={styles.subtitleWrapper}>
+          <Animated.View
+            style={[StyleSheet.absoluteFill, styles.subtitleCenterInner, sub0AnimatedStyle]}
+          >
+            <Text style={styles.brandSubtitleText}>Touch grass, Track macros!</Text>
+          </Animated.View>
+          <Animated.View
+            style={[StyleSheet.absoluteFill, styles.subtitleCenterInner, sub1AnimatedStyle]}
+          >
+            <Text style={styles.brandSubtitleText}>We scan. You snack!</Text>
+          </Animated.View>
+          <Animated.View
+            style={[StyleSheet.absoluteFill, styles.subtitleCenterInner, sub2AnimatedStyle]}
+          >
+            <Text style={styles.brandSubtitleText}>Your health, Her headache!</Text>
+          </Animated.View>
+        </View>
       </View>
 
       {/* Floating Bottom Controls Area */}
@@ -365,70 +446,96 @@ export const LoginScreen: React.FC = () => {
                 activeIndex === 2 && styles.iconPodCoral,
               ]}
             >
-              {activeIndex === 0 ? (
+              <Animated.View
+                style={[StyleSheet.absoluteFill, styles.iconPodCenter, slide0AnimatedStyle]}
+              >
                 <Flame size={19} color="#FFFDF9" strokeWidth={2.4} />
-              ) : activeIndex === 1 ? (
+              </Animated.View>
+              <Animated.View
+                style={[StyleSheet.absoluteFill, styles.iconPodCenter, slide1AnimatedStyle]}
+              >
                 <Apple size={19} color="#FFFDF9" strokeWidth={2.4} />
-              ) : (
-                <View style={styles.iconPodMorphWrapper}>
-                  <Animated.View
-                    style={[StyleSheet.absoluteFill, styles.iconPodCenter, animatedButtonText]}
-                  >
-                    <Sparkles size={19} color="#FFFDF9" strokeWidth={2.4} />
-                  </Animated.View>
-                  <Animated.View
-                    style={[StyleSheet.absoluteFill, styles.iconPodCenter, animatedGoogleContent]}
-                  >
-                    <GoogleLogo size={20} />
-                  </Animated.View>
-                </View>
-              )}
+              </Animated.View>
+              <Animated.View
+                style={[StyleSheet.absoluteFill, styles.iconPodCenter, slide2AnimatedStyle]}
+              >
+                <Sparkles size={19} color="#FFFDF9" strokeWidth={2.4} />
+              </Animated.View>
+              <Animated.View
+                style={[StyleSheet.absoluteFill, styles.iconPodCenter, googleAnimatedStyle]}
+              >
+                <GoogleLogo size={20} />
+              </Animated.View>
             </View>
 
             {/* Centered Typography */}
             <View style={styles.labelCenterWrapper}>
-              {activeIndex === 2 ? (
-                <View style={styles.labelMorphWrapper}>
-                  <Animated.Text
-                    style={[styles.controlCenterLabel, animatedButtonText]}
-                    numberOfLines={1}
-                  >
-                    Your Health Wingman
-                  </Animated.Text>
-                  <Animated.Text
-                    style={[
-                      styles.controlCenterLabel,
-                      StyleSheet.absoluteFill,
-                      animatedGoogleContent,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    Sign in with google
-                  </Animated.Text>
-                </View>
-              ) : (
-                <Animated.Text
-                  style={[styles.controlCenterLabel, animatedButtonText]}
-                  numberOfLines={1}
+              <View style={styles.labelMorphWrapper}>
+                <Animated.View
+                  style={[StyleSheet.absoluteFill, styles.labelCenterInner, slide0AnimatedStyle]}
                 >
-                  {getButtonLabel()}
-                </Animated.Text>
-              )}
+                  <Text style={styles.controlCenterLabel} numberOfLines={1}>
+                    Crush Your Goals
+                  </Text>
+                </Animated.View>
+                <Animated.View
+                  style={[StyleSheet.absoluteFill, styles.labelCenterInner, slide1AnimatedStyle]}
+                >
+                  <Text style={styles.controlCenterLabel} numberOfLines={1}>
+                    Know Every Bite
+                  </Text>
+                </Animated.View>
+                <Animated.View
+                  style={[StyleSheet.absoluteFill, styles.labelCenterInner, slide2AnimatedStyle]}
+                >
+                  <Text style={styles.controlCenterLabel} numberOfLines={1}>
+                    Your Health Wingman
+                  </Text>
+                </Animated.View>
+                <Animated.View
+                  style={[StyleSheet.absoluteFill, styles.labelCenterInner, googleAnimatedStyle]}
+                >
+                  <Text style={styles.controlCenterLabel} numberOfLines={1}>
+                    Sign in with google
+                  </Text>
+                </Animated.View>
+              </View>
             </View>
 
             {/* Right Indicator (iOS Control Center chevrons / arrow) */}
             <View style={styles.rightIndicatorContainer}>
-              {activeIndex === 2 && isTransformedToGoogle ? (
-                <Animated.View style={animatedGoogleContent}>
-                  <ArrowRight size={17} color="#FFFDF9" strokeWidth={2.4} />
-                </Animated.View>
-              ) : (
+              <Animated.View
+                style={[StyleSheet.absoluteFill, styles.iconPodCenter, slide0AnimatedStyle]}
+              >
                 <ChevronsUpDown
                   size={16}
                   color="rgba(255, 255, 255, 0.65)"
                   strokeWidth={2.4}
                 />
-              )}
+              </Animated.View>
+              <Animated.View
+                style={[StyleSheet.absoluteFill, styles.iconPodCenter, slide1AnimatedStyle]}
+              >
+                <ChevronsUpDown
+                  size={16}
+                  color="rgba(255, 255, 255, 0.65)"
+                  strokeWidth={2.4}
+                />
+              </Animated.View>
+              <Animated.View
+                style={[StyleSheet.absoluteFill, styles.iconPodCenter, slide2AnimatedStyle]}
+              >
+                <ChevronsUpDown
+                  size={16}
+                  color="rgba(255, 255, 255, 0.65)"
+                  strokeWidth={2.4}
+                />
+              </Animated.View>
+              <Animated.View
+                style={[StyleSheet.absoluteFill, styles.iconPodCenter, googleAnimatedStyle]}
+              >
+                <ArrowRight size={17} color="#FFFDF9" strokeWidth={2.4} />
+              </Animated.View>
             </View>
           </View>
         </IOSControlCenterGlassButton>
@@ -482,10 +589,21 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 253, 249, 0.88)',
     textAlign: 'center',
     letterSpacing: 0.25,
-    marginTop: 4,
     textShadowColor: 'rgba(0, 0, 0, 0.65)',
     textShadowOffset: { width: 0, height: 1.5 },
     textShadowRadius: 6,
+  },
+  subtitleWrapper: {
+    width: '100%',
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginTop: 4,
+  },
+  subtitleCenterInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   floatingBottomArea: {
     position: 'absolute',
@@ -581,6 +699,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
+  labelCenterInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   controlCenterLabel: {
     fontFamily: Platform.select({
       ios: 'System',
@@ -603,6 +725,8 @@ const styles = StyleSheet.create({
   },
   waveRipple: {
     position: 'absolute',
+    top: (62 - BUTTON_WIDTH) / 2,
+    left: 0,
     width: BUTTON_WIDTH,
     height: BUTTON_WIDTH,
     borderRadius: BUTTON_WIDTH / 2,
@@ -612,10 +736,10 @@ const styles = StyleSheet.create({
   waveSweep: {
     position: 'absolute',
     top: 0,
-    bottom: 0,
-    width: BUTTON_WIDTH * 0.7,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    borderRadius: 30,
+    height: 62,
+    width: BUTTON_WIDTH * 0.75,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: 31,
     zIndex: 14,
   },
   contentWrapper: {
