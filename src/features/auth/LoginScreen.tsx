@@ -110,8 +110,15 @@ export const LoginScreen: React.FC = () => {
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = e.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / SCREEN_WIDTH);
-    if (index >= 0 && index < SLIDES.length && index !== activeIndex) {
-      setActiveIndex(index);
+    if (index >= 0 && index < SLIDES.length) {
+      if (index !== activeIndex) {
+        setActiveIndex(index);
+      }
+      // If user swipes away from slide 3, cleanly reset Google transformed state
+      if (index !== 2 && isTransformedToGoogle) {
+        setIsTransformedToGoogle(false);
+        waveProgress.value = 0;
+      }
     }
   };
 
@@ -120,6 +127,10 @@ export const LoginScreen: React.FC = () => {
       Haptics.selectionAsync();
     } catch {}
     setActiveIndex(index);
+    if (index !== 2 && isTransformedToGoogle) {
+      setIsTransformedToGoogle(false);
+      waveProgress.value = 0;
+    }
     scrollRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
   };
 
@@ -273,15 +284,29 @@ export const LoginScreen: React.FC = () => {
   });
 
   const googleAnimatedStyle = useAnimatedStyle(() => {
-    const opacity = isTransformedToGoogle
+    // Fades strictly with scroll position so it never bleeds into previous slides
+    const scrollOpacity = interpolate(
+      scrollX.value,
+      [SCREEN_WIDTH * 1.35, 2 * SCREEN_WIDTH],
+      [0, 1],
+      'clamp'
+    );
+    const translateY = interpolate(
+      scrollX.value,
+      [SCREEN_WIDTH * 1.35, 2 * SCREEN_WIDTH],
+      [8, 0],
+      'clamp'
+    );
+    const waveOpacity = isTransformedToGoogle
       ? 1
       : interpolate(waveProgress.value, [0.35, 0.85], [0, 1], 'clamp');
     const scale = isTransformedToGoogle
       ? 1
       : interpolate(waveProgress.value, [0.35, 0.85], [0.85, 1], 'clamp');
+
     return {
-      opacity: activeIndex === 2 ? opacity : 0,
-      transform: [{ scale }],
+      opacity: scrollOpacity * waveOpacity,
+      transform: [{ translateY }, { scale }],
     };
   });
 
@@ -444,21 +469,25 @@ export const LoginScreen: React.FC = () => {
               ]}
             >
               <Animated.View
+                pointerEvents="none"
                 style={[StyleSheet.absoluteFill, styles.iconPodCenter, slide0AnimatedStyle]}
               >
                 <Flame size={19} color="#FFFDF9" strokeWidth={2.4} />
               </Animated.View>
               <Animated.View
+                pointerEvents="none"
                 style={[StyleSheet.absoluteFill, styles.iconPodCenter, slide1AnimatedStyle]}
               >
                 <Apple size={19} color="#FFFDF9" strokeWidth={2.4} />
               </Animated.View>
               <Animated.View
+                pointerEvents="none"
                 style={[StyleSheet.absoluteFill, styles.iconPodCenter, slide2AnimatedStyle]}
               >
                 <Sparkles size={19} color="#FFFDF9" strokeWidth={2.4} />
               </Animated.View>
               <Animated.View
+                pointerEvents="none"
                 style={[StyleSheet.absoluteFill, styles.iconPodCenter, googleAnimatedStyle]}
               >
                 <GoogleLogo size={20} />
@@ -469,6 +498,7 @@ export const LoginScreen: React.FC = () => {
             <View style={styles.labelCenterWrapper}>
               <View style={styles.labelMorphWrapper}>
                 <Animated.View
+                  pointerEvents="none"
                   style={[StyleSheet.absoluteFill, styles.labelCenterInner, slide0AnimatedStyle]}
                 >
                   <Text style={styles.controlCenterLabel} numberOfLines={1}>
@@ -476,6 +506,7 @@ export const LoginScreen: React.FC = () => {
                   </Text>
                 </Animated.View>
                 <Animated.View
+                  pointerEvents="none"
                   style={[StyleSheet.absoluteFill, styles.labelCenterInner, slide1AnimatedStyle]}
                 >
                   <Text style={styles.controlCenterLabel} numberOfLines={1}>
@@ -483,6 +514,7 @@ export const LoginScreen: React.FC = () => {
                   </Text>
                 </Animated.View>
                 <Animated.View
+                  pointerEvents="none"
                   style={[StyleSheet.absoluteFill, styles.labelCenterInner, slide2AnimatedStyle]}
                 >
                   <Text style={styles.controlCenterLabel} numberOfLines={1}>
@@ -490,6 +522,7 @@ export const LoginScreen: React.FC = () => {
                   </Text>
                 </Animated.View>
                 <Animated.View
+                  pointerEvents="none"
                   style={[StyleSheet.absoluteFill, styles.labelCenterInner, googleAnimatedStyle]}
                 >
                   <Text style={styles.controlCenterLabel} numberOfLines={1}>
@@ -502,6 +535,7 @@ export const LoginScreen: React.FC = () => {
             {/* Right Indicator (iOS Control Center chevrons / arrow) */}
             <View style={styles.rightIndicatorContainer}>
               <Animated.View
+                pointerEvents="none"
                 style={[StyleSheet.absoluteFill, styles.iconPodCenter, slide0AnimatedStyle]}
               >
                 <ChevronsUpDown
@@ -511,6 +545,7 @@ export const LoginScreen: React.FC = () => {
                 />
               </Animated.View>
               <Animated.View
+                pointerEvents="none"
                 style={[StyleSheet.absoluteFill, styles.iconPodCenter, slide1AnimatedStyle]}
               >
                 <ChevronsUpDown
@@ -520,6 +555,7 @@ export const LoginScreen: React.FC = () => {
                 />
               </Animated.View>
               <Animated.View
+                pointerEvents="none"
                 style={[StyleSheet.absoluteFill, styles.iconPodCenter, slide2AnimatedStyle]}
               >
                 <ChevronsUpDown
@@ -529,6 +565,7 @@ export const LoginScreen: React.FC = () => {
                 />
               </Animated.View>
               <Animated.View
+                pointerEvents="none"
                 style={[StyleSheet.absoluteFill, styles.iconPodCenter, googleAnimatedStyle]}
               >
                 <ArrowRight size={17} color="#FFFDF9" strokeWidth={2.4} />
