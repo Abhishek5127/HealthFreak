@@ -44,16 +44,19 @@ const SLIDES = [
     id: 'fitness',
     image: require('../../../assets/loginUiImages/HealthFreak Fitness Doodle Wallpaper.png'),
     buttonText: 'Crush Your Goals',
+    subtitle: 'Touch grass, Track macros!',
   },
   {
     id: 'nutrition',
     image: require('../../../assets/loginUiImages/HealthFreak Nutrition Doodle Collage.png'),
     buttonText: 'Know Every Bite',
+    subtitle: 'We scan. You snack!',
   },
   {
     id: 'call',
     image: require('../../../assets/loginUiImages/Neon HealthFreak Call Doodle Wallpaper.png'),
     buttonText: 'Your Health Wingman',
+    subtitle: 'Your health, Her headache!',
   },
 ];
 
@@ -308,9 +311,12 @@ export const LoginScreen: React.FC = () => {
         ))}
       </ScrollView>
 
-      {/* Floating Brand Title: "Health Freak" in Instrument Serif */}
+      {/* Floating Brand Title & Dynamic Subtitle */}
       <View style={styles.floatingHeaderTitle} pointerEvents="none">
         <Text style={styles.brandTitleText}>Health Freak</Text>
+        <Text style={styles.brandSubtitleText}>
+          {SLIDES[activeIndex]?.subtitle}
+        </Text>
       </View>
 
       {/* Floating Bottom Controls Area */}
@@ -436,6 +442,20 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.65)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 10,
+  },
+  brandSubtitleText: {
+    fontFamily: Platform.select({
+      ios: 'System',
+      default: Typography.fontFamilies.sansMedium,
+    }),
+    fontSize: 14.5,
+    color: 'rgba(255, 253, 249, 0.88)',
+    textAlign: 'center',
+    letterSpacing: 0.25,
+    marginTop: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.65)',
+    textShadowOffset: { width: 0, height: 1.5 },
+    textShadowRadius: 6,
   },
   floatingBottomArea: {
     position: 'absolute',
