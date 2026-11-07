@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Text, StyleSheet, Pressable } from 'react-native';
+import { Dimensions, Text, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, {
   useSharedValue,
@@ -14,12 +14,15 @@ import { Typography } from '../../theme/typography';
 
 const LOGO_GIF = require('../../../assets/logo/HealthFreakLogoTranasparent.gif');
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const LOGO_CONTAINER_SIZE = Math.min(Math.round(SCREEN_WIDTH * 0.78), 300);
+
 interface SplashScreenProps {
   onFinish: () => void;
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
-  // GIF Logo entrance & scale (3x bigger presentation)
+  // GIF Logo entrance & scale (prominent presentation)
   const logoOpacity = useSharedValue(0);
   const logoScale = useSharedValue(0.85);
 
@@ -92,18 +95,18 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
   return (
     <Animated.View style={[styles.container, animatedContainer]}>
       <Pressable style={styles.pressableArea} onPress={handleFinish}>
-        {/* Mascot GIF (3x Larger, No Background Green Circle) */}
+        {/* Mascot GIF (Prominent size, tightly cropped to character) */}
         <Animated.View style={[styles.logoContainer, animatedLogo]}>
           <Image
             source={LOGO_GIF}
             style={styles.logoImage}
-            contentFit="contain"
+            contentFit="cover"
             autoplay
             cachePolicy="memory-disk"
           />
         </Animated.View>
 
-        {/* "Health Freak" in Instrument Serif Font — Pure White, No Other Text */}
+        {/* "Health Freak" in Instrument Serif Font — Pure White, Snugly Grouped */}
         <Animated.View style={[styles.textContainer, animatedText]}>
           <Text style={styles.brandTitleText}>Health Freak</Text>
         </Animated.View>
@@ -125,15 +128,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   logoContainer: {
-    width: 250,
-    height: 250,
+    width: LOGO_CONTAINER_SIZE,
+    height: LOGO_CONTAINER_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    overflow: 'hidden',
+    marginBottom: -14,
   },
   logoImage: {
-    width: 250,
-    height: 250,
+    width: LOGO_CONTAINER_SIZE,
+    height: LOGO_CONTAINER_SIZE,
   },
   textContainer: {
     alignItems: 'center',
@@ -141,9 +145,9 @@ const styles = StyleSheet.create({
   },
   brandTitleText: {
     fontFamily: Typography.fontFamilies.instrumentSerif,
-    fontSize: 52,
+    fontSize: 54,
     color: '#FFFFFF',
     textAlign: 'center',
-    letterSpacing: 0.4,
+    letterSpacing: 0.5,
   },
 });
