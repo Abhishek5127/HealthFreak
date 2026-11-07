@@ -38,6 +38,7 @@ import { CheckInCharacterView } from '../../components/illustrations/CheckInChar
 import { SAMPLE_MEAL_TEMPLATES } from '../../mock-data/sampleMealTemplates';
 import { WaterBottleWidget } from './components/WaterBottleWidget';
 import { WaterTargetModal } from './components/WaterTargetModal';
+import { getAvatarSource } from '../../constants/avatars';
 
 export const DashboardScreen: React.FC = () => {
   const {
@@ -156,7 +157,7 @@ export const DashboardScreen: React.FC = () => {
           onPress={() => setActiveTab('profile')}
         >
           <Image
-            source={require('../../../assets/images/user_avatar.jpg')}
+            source={getAvatarSource(userProfile.avatarUrl)}
             style={styles.avatarImage}
           />
         </Pressable>
