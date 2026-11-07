@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   Pressable,
   Modal,
   ScrollView,
@@ -12,7 +11,6 @@ import {
   ChevronRight,
   FileText,
   ShieldCheck,
-  RotateCcw,
   Sparkles,
   LogOut,
   Camera,
@@ -27,14 +25,15 @@ import { Spacing } from '../../theme/spacing';
 import { ScreenContainer } from '../../components/common/ScreenContainer';
 import { SectionHeader } from '../../components/common/SectionHeader';
 import { LanguagePreference } from '../../types';
-import { AVATAR_PRESETS, getAvatarSource } from '../../constants/avatars';
+import { CARTOON_AVATARS } from '../../constants/avatars';
+import { AppAvatar } from '../../components/common/AppAvatar';
+import { CartoonAvatarView } from '../../components/illustrations/CartoonAvatar';
 
 export const ProfileScreen: React.FC = () => {
   const {
     userProfile,
     updateUserProfile,
     setActiveModal,
-    resetAll,
     triggerHaptic,
   } = useApp();
   const { signOut, profile: authProfile, user } = useAuth();
@@ -43,10 +42,9 @@ export const ProfileScreen: React.FC = () => {
   const displayName = authProfile?.name || userProfile.name;
   const displayEmail = authProfile?.email || user?.email || 'alex.sharma@healthfreak.com';
 
-  const currentAvatarId = userProfile.avatarUrl || authProfile?.avatarUrl;
-  const currentAvatarSource = getAvatarSource(currentAvatarId);
+  const currentAvatarId = userProfile.avatarUrl || authProfile?.avatarUrl || 'avatar_1';
   const currentPreset =
-    AVATAR_PRESETS.find((p) => p.id === currentAvatarId) || AVATAR_PRESETS[0];
+    CARTOON_AVATARS.find((p) => p.id === currentAvatarId) || CARTOON_AVATARS[0];
 
   const handleSignOut = async () => {
     triggerHaptic('impact');
@@ -68,7 +66,7 @@ export const ProfileScreen: React.FC = () => {
 
   return (
     <ScreenContainer scrollable={true}>
-      {/* Profile Header with Interactive Avatar */}
+      {/* Profile Header with Interactive Cartoon Avatar */}
       <View style={styles.profileHeader}>
         <Pressable
           style={styles.avatarTouchable}
@@ -78,9 +76,11 @@ export const ProfileScreen: React.FC = () => {
           }}
           hitSlop={8}
         >
-          <Image
-            source={currentAvatarSource}
-            style={styles.avatarImage}
+          <AppAvatar
+            avatarId={currentAvatarId}
+            size={84}
+            borderWidth={2.5}
+            borderColor="#52C480"
           />
           <View style={styles.avatarEditBadge}>
             <Camera size={13} color="#FFFFFF" />
@@ -90,12 +90,8 @@ export const ProfileScreen: React.FC = () => {
         <Text style={styles.profileName}>{displayName}</Text>
         <Text style={styles.profileEmailText}>{displayEmail}</Text>
         <View style={styles.badgeRow}>
-          <View style={styles.activePill}>
-            <View style={styles.activeDot} />
-            <Text style={styles.activePillText}>Google Verified</Text>
-          </View>
           <Text style={styles.profileSubtext}>
-            • {userProfile.streakDays || 0}-Day Active Streak
+            {userProfile.streakDays || 0}-Day Active Streak
           </Text>
         </View>
       </View>
@@ -110,12 +106,17 @@ export const ProfileScreen: React.FC = () => {
         }}
       >
         <View style={styles.avatarMiniPreviewFrame}>
-          <Image source={currentAvatarSource} style={styles.avatarMiniImage} />
+          <AppAvatar
+            avatarId={currentAvatarId}
+            size={48}
+            borderWidth={1.5}
+            borderColor="#52C480"
+          />
         </View>
         <View style={styles.avatarSectionInfo}>
           <Text style={styles.avatarSectionTitle}>Choose Your Avatar</Text>
           <Text style={styles.avatarSectionSub}>
-            {currentPreset.name} • 15 Gymrat & God personas available
+            {currentPreset.name} • 15 fictional cartoon characters
           </Text>
         </View>
         <View style={styles.changeAvatarPill}>
@@ -184,12 +185,10 @@ export const ProfileScreen: React.FC = () => {
       {/* Logout Action */}
       <Pressable style={styles.logoutButton} onPress={handleSignOut}>
         <LogOut size={16} color="#FF6B6B" style={{ marginRight: 8 }} />
-        <Text style={styles.logoutButtonText}>
-          {authProfile?.authProvider === 'demo' ? 'Sign Out of Demo Account' : 'Sign Out from Google'}
-        </Text>
+        <Text style={styles.logoutButtonText}>Sign Out</Text>
       </Pressable>
 
-      {/* Privacy & Reset Section */}
+      {/* Privacy Section */}
       <View style={styles.privacyBox}>
         <View style={styles.privacyHeader}>
           <ShieldCheck size={16} color={Colors.success} />
@@ -200,12 +199,7 @@ export const ProfileScreen: React.FC = () => {
         </Text>
       </View>
 
-      <Pressable style={styles.resetButton} onPress={resetAll}>
-        <RotateCcw size={16} color={Colors.textMuted} />
-        <Text style={styles.resetText}>Reset Prototype State</Text>
-      </Pressable>
-
-      {/* Bottom Sheet Modal: 15 Stylized Avatars */}
+      {/* Bottom Sheet Modal: 15 Fictional Cartoon Mascots */}
       <Modal
         visible={isAvatarPickerOpen}
         transparent={true}
@@ -222,9 +216,9 @@ export const ProfileScreen: React.FC = () => {
 
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeaderLeft}>
-                <Text style={styles.sheetTitle}>Choose Profile Avatar</Text>
+                <Text style={styles.sheetTitle}>Choose Cartoon Avatar</Text>
                 <Text style={styles.sheetSub}>
-                  Select an avatar that matches your grind and aesthetic
+                  Select your favorite fictional wellness character
                 </Text>
               </View>
               <Pressable
@@ -241,10 +235,8 @@ export const ProfileScreen: React.FC = () => {
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.avatarGrid}>
-                {AVATAR_PRESETS.map((avatar) => {
-                  const isSelected =
-                    currentAvatarId === avatar.id ||
-                    (!currentAvatarId && avatar.id === 'avatar_1');
+                {CARTOON_AVATARS.map((avatar) => {
+                  const isSelected = currentAvatarId === avatar.id;
                   return (
                     <Pressable
                       key={avatar.id}
@@ -255,9 +247,10 @@ export const ProfileScreen: React.FC = () => {
                       onPress={() => handleSelectAvatar(avatar.id)}
                     >
                       <View style={styles.avatarFrame}>
-                        <Image
-                          source={avatar.source}
-                          style={styles.avatarCardImage}
+                        <CartoonAvatarView
+                          id={avatar.id}
+                          size={58}
+                          bgColor="#355544"
                         />
                         {isSelected && (
                           <View style={styles.selectedCheckBadge}>
@@ -301,13 +294,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginBottom: 12,
   },
-  avatarImage: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
-    borderWidth: 2.2,
-    borderColor: '#52C480',
-  },
   avatarEditBadge: {
     position: 'absolute',
     bottom: 0,
@@ -338,28 +324,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  activePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(74, 184, 122, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(74, 184, 122, 0.3)',
-  },
-  activeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.success,
-    marginRight: 5,
-  },
-  activePillText: {
-    color: Colors.success,
-    fontSize: 10,
-    fontFamily: Typography.fontFamilies.sansBold,
-  },
   profileSubtext: {
     color: Colors.textSecondary,
     fontSize: Typography.fontSizes.xs,
@@ -378,17 +342,7 @@ const styles = StyleSheet.create({
     borderColor: '#243427',
   },
   avatarMiniPreviewFrame: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1.8,
-    borderColor: '#52C480',
-    overflow: 'hidden',
     marginRight: 14,
-  },
-  avatarMiniImage: {
-    width: '100%',
-    height: '100%',
   },
   avatarSectionInfo: {
     flex: 1,
@@ -531,19 +485,6 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamilies.sansRegular,
     lineHeight: 16,
   },
-  resetButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 14,
-    marginBottom: 20,
-  },
-  resetText: {
-    color: Colors.textMuted,
-    fontSize: Typography.fontSizes.xs + 1,
-    fontFamily: Typography.fontFamilies.sansMedium,
-  },
 
   // Modal / Bottom Sheet Styles
   modalOverlay: {
@@ -639,12 +580,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#2C3E30',
-  },
-  avatarCardImage: {
-    width: '100%',
-    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   selectedCheckBadge: {
     position: 'absolute',
