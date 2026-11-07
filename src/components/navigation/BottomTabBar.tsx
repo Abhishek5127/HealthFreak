@@ -58,58 +58,62 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
 
   return (
     <View style={[styles.wrapper, { bottom: bottomPadding }]}>
-      <View style={styles.glassContainer}>
-        {/* 1. Underlying Native Frosted Blur (expo-blur) */}
-        <View style={StyleSheet.absoluteFill}>
-          <BlurView
-            intensity={Platform.OS === 'ios' ? 70 : 50}
-            tint="dark"
-            style={StyleSheet.absoluteFill}
-          />
-          {/* Neutral Dark Substrate Tint (Zero color added) */}
-          <View style={[StyleSheet.absoluteFill, styles.neutralDarkTint]} />
-        </View>
+      {/* Outer Shadow Container (Prevents Android elevation clipping issues) */}
+      <View style={styles.shadowContainer}>
+        {/* Inner Glass Capsule */}
+        <View style={styles.glassContainer}>
+          {/* 1. Underlying Native Frosted Blur (expo-blur) */}
+          <View style={[StyleSheet.absoluteFill, styles.blurWrapper]}>
+            <BlurView
+              intensity={Platform.OS === 'ios' ? 70 : 50}
+              tint="dark"
+              style={StyleSheet.absoluteFill}
+            />
+            {/* Neutral Dark Substrate Tint (Zero color added) */}
+            <View style={[StyleSheet.absoluteFill, styles.neutralDarkTint]} />
+          </View>
 
-        {/* 2. Micro-etched Sandblasted Glass Grain Noise */}
-        <Image
-          source={GRAIN_TEXTURE}
-          style={[StyleSheet.absoluteFill, styles.grainTexture]}
-          contentFit="cover"
-          pointerEvents="none"
-        />
-
-        {/* 3. Inset 3D Specular Curvature Caps from physical liquid glass lens maps */}
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.specularWrapper]}>
+          {/* 2. Micro-etched Sandblasted Glass Grain Noise */}
           <Image
-            source={SPECULAR_LEFT}
-            style={styles.specularCap}
-            contentFit="fill"
+            source={GRAIN_TEXTURE}
+            style={[StyleSheet.absoluteFill, styles.grainTexture]}
+            contentFit="cover"
+            pointerEvents="none"
           />
-          <View style={styles.specularFlexSpacer} />
-          <Image
-            source={SPECULAR_RIGHT}
-            style={styles.specularCap}
-            contentFit="fill"
-          />
-        </View>
 
-        {/* 4. Top Specular Sheen Line (Incidence Light) */}
-        <View pointerEvents="none" style={styles.topSheenLine} />
+          {/* 3. Inset 3D Specular Curvature Caps from physical liquid glass lens maps */}
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.specularWrapper]}>
+            <Image
+              source={SPECULAR_LEFT}
+              style={styles.specularCap}
+              contentFit="fill"
+            />
+            <View style={styles.specularFlexSpacer} />
+            <Image
+              source={SPECULAR_RIGHT}
+              style={styles.specularCap}
+              contentFit="fill"
+            />
+          </View>
 
-        {/* 5. Interactive Tab Buttons */}
-        <View style={styles.tabBarInner}>
-          {TABS.map((tab) => {
-            const isActive = activeTab === tab.id;
+          {/* 4. Top Specular Sheen Line (Incidence Light) */}
+          <View pointerEvents="none" style={styles.topSheenLine} />
 
-            return (
-              <TabButton
-                key={tab.id}
-                tab={tab}
-                isActive={isActive}
-                onPress={() => handleTabSelect(tab.id)}
-              />
-            );
-          })}
+          {/* 5. Interactive Tab Buttons */}
+          <View style={styles.tabBarInner}>
+            {TABS.map((tab) => {
+              const isActive = activeTab === tab.id;
+
+              return (
+                <TabButton
+                  key={tab.id}
+                  tab={tab}
+                  isActive={isActive}
+                  onPress={() => handleTabSelect(tab.id)}
+                />
+              );
+            })}
+          </View>
         </View>
       </View>
     </View>
@@ -154,10 +158,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 9999,
   },
+  shadowContainer: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 32,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 22,
+    elevation: 12,
+  },
   // Authentic Apple iOS Control Center Glass Capsule Container (Zero Color)
   glassContainer: {
     width: '100%',
-    maxWidth: 380,
     height: 64,
     borderRadius: 32,
     overflow: 'hidden',
@@ -166,24 +179,33 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.28)',
     borderTopColor: 'rgba(255, 255, 255, 0.68)',
     borderBottomColor: 'rgba(255, 255, 255, 0.16)',
-    backgroundColor: 'rgba(18, 22, 20, 0.35)',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.48,
-    shadowRadius: 22,
-    elevation: 12,
+    backgroundColor: Platform.select({
+      ios: 'rgba(18, 22, 20, 0.35)',
+      android: 'rgba(20, 26, 22, 0.88)',
+      default: 'rgba(18, 22, 20, 0.45)',
+    }),
+  },
+  blurWrapper: {
+    borderRadius: 32,
+    overflow: 'hidden',
   },
   neutralDarkTint: {
-    backgroundColor: 'rgba(14, 18, 16, 0.55)',
+    backgroundColor: Platform.select({
+      ios: 'rgba(14, 18, 16, 0.55)',
+      android: 'rgba(18, 24, 20, 0.82)',
+      default: 'rgba(14, 18, 16, 0.60)',
+    }),
   },
   grainTexture: {
     opacity: 0.055,
+    borderRadius: 32,
   },
   specularWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     opacity: 0.22,
+    borderRadius: 32,
   },
   specularCap: {
     width: 32,
