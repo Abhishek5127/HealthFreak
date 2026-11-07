@@ -53,8 +53,12 @@ class HealthfreakStepCounterModule : Module() {
         return@AsyncFunction
       }
 
+      // Flush batched hardware events immediately so current step count is real-time
+      StepTrackingService.flush()
+
       val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
-      val stepSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+      val stepSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER, true)
+        ?: sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
       if (sensorManager == null || stepSensor == null) {
         promise.resolve(StepStorage.getTodaySteps(context).toDouble())
         return@AsyncFunction
@@ -70,7 +74,8 @@ class HealthfreakStepCounterModule : Module() {
               } catch (_: Exception) {}
               val raw = event.values[0].toLong()
               val steps = StepStorage.onRawSensorReading(context, raw)
-              promise.resolve(steps.toDouble())
+              val currentMax = StepStorage.getTodaySteps(context)
+              promise.resolve(maxOf(currentMax, steps).toDouble())
             }
           }
         }

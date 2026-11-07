@@ -66,7 +66,9 @@ object StepStorage {
     }
 
     val delta = if (rawSteps >= baselineRaw) (rawSteps - baselineRaw) else 0L
-    val computedSteps = delta + rebootOffset
+    val storedSteps = prefs.getLong(KEY_TODAY_STEPS, 0L)
+    // Strictly monotonic: steps for the same calendar date can never decrease
+    val computedSteps = maxOf(storedSteps, delta + rebootOffset)
 
     prefs.edit()
       .putLong(KEY_TODAY_BASELINE_RAW, baselineRaw)

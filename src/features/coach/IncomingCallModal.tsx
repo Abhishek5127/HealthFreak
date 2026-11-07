@@ -15,6 +15,7 @@ import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { HealthFreakLogo } from '../../components/common/HealthFreakLogo';
 import { ScheduledAICall, AICallService } from '../../services/aiCallService';
+import { ringtoneService } from '../../services/ringtoneService';
 
 interface IncomingCallModalProps {
   call: ScheduledAICall;
@@ -62,6 +63,9 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
       true
     );
 
+    // Start realistic phone call ringtone & tune
+    ringtoneService.start();
+
     // Haptic ringing interval
     const hapticInterval = setInterval(() => {
       try {
@@ -70,6 +74,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
     }, 1800);
 
     return () => {
+      ringtoneService.stop();
       clearInterval(hapticInterval);
     };
   }, [pulseScale, ringOpacity1, ringOpacity2]);
@@ -92,6 +97,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     } catch {}
+    await ringtoneService.stop();
     onAccept(call);
   };
 
@@ -99,6 +105,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
+    await ringtoneService.stop();
     await AICallService.declineCall(call.id);
     onDecline(call.id);
   };

@@ -42,6 +42,8 @@ export class PedometerService {
   private lastHardwareTimestamp: number = 0;
   private persistTimer: any = null;
   private isInitialized: boolean = false;
+  private maxStepsSeenToday: number = 0;
+  private isNativeTrackingActive: boolean = false;
 
   private userHeightCm: number = 170;
   private userWeightKg: number = 70;
@@ -83,9 +85,11 @@ export class PedometerService {
    * Returns current synchronous snapshot of PedometerState.
    */
   public getState(): PedometerState {
-    const totalSteps = this.currentSession
+    const rawTotal = this.currentSession
       ? (this.currentSession.accumulatedSteps || 0) + (this.currentSession.sessionSteps || 0)
       : 0;
+    this.maxStepsSeenToday = Math.max(this.maxStepsSeenToday, rawTotal);
+    const totalSteps = this.maxStepsSeenToday;
     const distance = calculateDistanceMeters(totalSteps, this.userHeightCm, this.userSex);
     const calories = calculateActiveCalories(totalSteps, this.userWeightKg) || 0;
     const activeMins = calculateActiveMinutes(totalSteps);
@@ -224,42 +228,57 @@ export class PedometerService {
     }
 
     // Reconcile with native hardware step counter (accounts for any steps walked while app was closed!)
-    try {
-      const nativeSteps = await NativeStepCounter.getTodaySteps();
-      if (nativeSteps > 0 && this.currentSession) {
-        this.currentSession.accumulatedSteps = Math.max(
-          this.currentSession.accumulatedSteps || 0,
-          nativeSteps
-        );
-        this.currentSession.sessionSteps = 0;
-        await StepPersistenceService.saveCurrentSession(this.currentSession);
-      }
-      // Ensure persistent native background service is running so steps continue counting when app is closed
-      await NativeStepCounter.startBackgroundService();
-    } catch (err) {
-      console.warn('[PedometerService] Native step catch-up error:', err);
-    }
-
-    // Attach native step listener for live updates from background service
-    if (!this.nativeListenerSubscription) {
-      this.nativeListenerSubscription = NativeStepCounter.addStepListener(async (event) => {
-        if (this.currentSession && typeof event.steps === 'number' && event.steps > 0) {
-          this.currentSession.accumulatedSteps = event.steps;
+    let nativeActive = false;
+    if (Platform.OS === 'android') {
+      try {
+        const available = await NativeStepCounter.isSensorAvailable();
+        const nativeSteps = await NativeStepCounter.getTodaySteps();
+        if (this.currentSession) {
+          this.maxStepsSeenToday = Math.max(
+            this.maxStepsSeenToday,
+            this.currentSession.accumulatedSteps || 0,
+            nativeSteps
+          );
+          this.currentSession.accumulatedSteps = this.maxStepsSeenToday;
           this.currentSession.sessionSteps = 0;
-          this.currentSession.lastUpdated = new Date().toISOString();
-
-          const summary = await this.getCurrentTodaySummary();
-          this.notifyListeners(summary);
-          this.persistDebounced(this.currentSession, summary);
+          await StepPersistenceService.saveCurrentSession(this.currentSession);
         }
-      });
+        await NativeStepCounter.startBackgroundService();
+        nativeActive = true;
+        this.isNativeTrackingActive = true;
+        this.trackingEngine = 'hardware';
+      } catch (err) {
+        console.warn('[PedometerService] Native step catch-up error:', err);
+      }
+
+      // Attach native step listener for live updates from foreground service
+      if (!this.nativeListenerSubscription) {
+        this.nativeListenerSubscription = NativeStepCounter.addStepListener(async (event) => {
+          if (this.currentSession && typeof event.steps === 'number') {
+            const parsed = Math.max(0, Math.round(event.steps));
+            this.maxStepsSeenToday = Math.max(
+              this.maxStepsSeenToday,
+              this.currentSession.accumulatedSteps || 0,
+              parsed
+            );
+            this.currentSession.accumulatedSteps = this.maxStepsSeenToday;
+            this.currentSession.sessionSteps = 0;
+            this.currentSession.lastUpdated = new Date().toISOString();
+
+            const summary = await this.getCurrentTodaySummary();
+            this.notifyListeners(summary);
+            this.persistDebounced(this.currentSession, summary);
+          }
+        });
+      }
     }
 
-    // Register active real-time step counter listener
-    this.registerHardwareListener();
-
-    // Register real-time accelerometer step detector as zero-latency fallback
-    this.startAccelerometerTracking();
+    // Only register expo-sensors hardware/accelerometer listener if native foreground service is NOT active
+    // (This eliminates the erratic oscillation bug between NativeStepCounter total steps and watchStepCount delta steps!)
+    if (!nativeActive) {
+      this.registerHardwareListener();
+      this.startAccelerometerTracking();
+    }
 
     // Broadcast current state to all subscribers
     const currentSummary = await this.getCurrentTodaySummary();
@@ -273,6 +292,7 @@ export class PedometerService {
    */
   public async stopTracking(): Promise<void> {
     this.isTrackingActive = false;
+    this.isNativeTrackingActive = false;
     this.trackingEngine = 'idle';
 
     if (this.subscription) {
@@ -308,8 +328,10 @@ export class PedometerService {
       this.currentSession = await StepPersistenceService.getOrCreateTodaySession();
     }
 
-    const totalSteps =
+    const rawTotal =
       (this.currentSession.accumulatedSteps || 0) + (this.currentSession.sessionSteps || 0);
+    this.maxStepsSeenToday = Math.max(this.maxStepsSeenToday, rawTotal);
+    const totalSteps = this.maxStepsSeenToday;
     const goal = await StepPersistenceService.getStepGoal();
 
     const distance = calculateDistanceMeters(totalSteps, this.userHeightCm, this.userSex);
@@ -431,6 +453,7 @@ export class PedometerService {
     if (!this.currentSession || this.currentSession.date !== today) {
       this.currentSession = await StepPersistenceService.getOrCreateTodaySession();
     }
+    this.maxStepsSeenToday = 0;
     this.currentSession.accumulatedSteps = 0;
     this.currentSession.sessionSteps = 0;
     this.currentSession.lastUpdated = new Date().toISOString();
@@ -675,15 +698,21 @@ export class PedometerService {
 
   private async handleMidnightRollover(): Promise<void> {
     await this.persistCurrentState();
+    this.maxStepsSeenToday = 0;
     this.currentSession = await StepPersistenceService.getOrCreateTodaySession();
-    // Restart hardware listener to clear delta offsets cleanly
-    this.registerHardwareListener();
+    // Only restart hardware listener if not on Android native service
+    if (!this.isNativeTrackingActive && Platform.OS !== 'android') {
+      this.registerHardwareListener();
+    }
   }
 
   private async persistCurrentState(): Promise<void> {
     if (this.currentSession) {
-      this.currentSession.accumulatedSteps =
-        (this.currentSession.accumulatedSteps || 0) + (this.currentSession.sessionSteps || 0);
+      this.maxStepsSeenToday = Math.max(
+        this.maxStepsSeenToday,
+        (this.currentSession.accumulatedSteps || 0) + (this.currentSession.sessionSteps || 0)
+      );
+      this.currentSession.accumulatedSteps = this.maxStepsSeenToday;
       this.currentSession.sessionSteps = 0;
       await StepPersistenceService.saveCurrentSession(this.currentSession);
 
@@ -709,10 +738,12 @@ export class PedometerService {
           try {
             const closedSteps = await NativeStepCounter.getTodaySteps();
             if (closedSteps > 0 && this.currentSession) {
-              this.currentSession.accumulatedSteps = Math.max(
+              this.maxStepsSeenToday = Math.max(
+                this.maxStepsSeenToday,
                 this.currentSession.accumulatedSteps || 0,
                 closedSteps
               );
+              this.currentSession.accumulatedSteps = this.maxStepsSeenToday;
               this.currentSession.sessionSteps = 0;
               await StepPersistenceService.saveCurrentSession(this.currentSession);
             }

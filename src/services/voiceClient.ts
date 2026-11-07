@@ -1175,22 +1175,28 @@ export class VoiceClientService {
     await this.initMicrophone();
     await this.initAvailableVoices();
 
-    try {
-      const backendUrl = getBackendBaseUrl();
-      const res = await fetch(`${backendUrl}/api/voice/session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }),
-      });
+    const backendUrl = getBackendBaseUrl();
+    const isLocalhostOnNative =
+      Platform.OS !== 'web' &&
+      (backendUrl.includes('localhost') || backendUrl.includes('127.0.0.1'));
 
-      if (res.ok) {
-        const data = await res.json();
-        this.callId = data.callId;
-        this.provider = data.provider || 'gemini';
-        this.isSynthetic = data.isSynthetic ?? true;
+    if (!isLocalhostOnNative) {
+      try {
+        const res = await fetch(`${backendUrl}/api/voice/session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          this.callId = data.callId;
+          this.provider = data.provider || 'gemini';
+          this.isSynthetic = data.isSynthetic ?? true;
+        }
+      } catch {
+        // Local mode
       }
-    } catch {
-      // Local mode
     }
 
     this.status = 'connected';
@@ -1217,12 +1223,11 @@ export class VoiceClientService {
       }
     }
 
-    // Only fetch default neural greeting if no custom greeting was provided
-    if (!customGreeting) {
+    // Only fetch default neural greeting if no custom greeting was provided and backend is reachable
+    if (!customGreeting && !isLocalhostOnNative) {
       try {
-        const backendUrl = getBackendBaseUrl();
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 6000);
+        const timeout = setTimeout(() => controller.abort(), 4000);
         const greetRes = await fetch(`${backendUrl}/api/voice/greeting`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

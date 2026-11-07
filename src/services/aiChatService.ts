@@ -30,46 +30,52 @@ export async function askHealthCoachAI(
   },
   userId: string = 'usr_synthetic_alex'
 ): Promise<{ text: string; suggestions: string[]; audioBase64?: string; audioMime?: string; audioUrl?: string }> {
-  // 1. First try local backend server
-  try {
-    const backendUrl = getBackendBaseUrl();
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+  // 1. First try local backend server if running in web or remote network
+  const backendUrl = getBackendBaseUrl();
+  const isLocalhostOnNative =
+    Platform.OS !== 'web' &&
+    (backendUrl.includes('localhost') || backendUrl.includes('127.0.0.1'));
 
-    const res = await fetch(`${backendUrl}/api/voice/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message,
-        userId: userId || 'usr_synthetic_alex',
-        generateCloudAudio: true,
-        activityContext,
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+  if (!isLocalhostOnNative) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.text) {
-        return {
-          text: data.text,
-          suggestions: data.suggestions || [
-            'Help me plan my day',
-            'Suggest a balanced dinner',
-            'Check my active plan',
-          ],
-          audioBase64: data.audioBase64,
-          audioMime: data.audioMime,
-          audioUrl: data.audioUrl,
-        };
+      const res = await fetch(`${backendUrl}/api/voice/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message,
+          userId: userId || 'usr_synthetic_alex',
+          generateCloudAudio: true,
+          activityContext,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.text) {
+          return {
+            text: data.text,
+            suggestions: data.suggestions || [
+              'Help me plan my day',
+              'Suggest a balanced dinner',
+              'Check my active plan',
+            ],
+            audioBase64: data.audioBase64,
+            audioMime: data.audioMime,
+            audioUrl: data.audioUrl,
+          };
+        }
       }
+    } catch {
+      // Backend unreachable from current device/network; proceed to direct Gemini call
     }
-  } catch {
-    // Backend unreachable from current device/network; proceed to direct Gemini call
   }
 
-  // 2. Direct HTTPS Gemini API (Works when EXPO_PUBLIC_GEMINI_API_KEY is configured)
+  // 2. Direct HTTPS Gemini API (Works flawlessly in standalone APK & offline)
   if (DIRECT_GEMINI_KEY) {
     try {
       const conditionsStr =
@@ -101,9 +107,10 @@ Rules:
       const candidateModels = Array.from(
         new Set([
           GEMINI_MODEL,
+          'gemini-3.5-flash-lite',
+          'gemini-flash-lite-latest',
           'gemini-3.8-flash',
           'gemini-3.5-flash',
-          'gemini-3.1-flash-lite',
         ])
       ).filter(Boolean);
 
@@ -263,48 +270,54 @@ export async function transcribeAndReplyAudio(
   lastCoachReply = '',
   userId = 'usr_synthetic_alex'
 ): Promise<{ userTranscript: string; coachReply: string; audioBase64?: string; audioMime?: string; audioUrl?: string; isEcho?: boolean }> {
-  // 1. First attempt backend server (logs to server terminal in real-time)
-  try {
-    const backendUrl = getBackendBaseUrl();
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
+  // 1. First attempt backend server if reachable
+  const backendUrl = getBackendBaseUrl();
+  const isLocalhostOnNative =
+    Platform.OS !== 'web' &&
+    (backendUrl.includes('localhost') || backendUrl.includes('127.0.0.1'));
 
-    const res = await fetch(`${backendUrl}/api/voice/audio-turn`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        audioBase64: base64Audio,
-        mimeType,
-        userId: userId || 'usr_synthetic_alex',
-        lastCoachReply,
-        generateCloudAudio: true,
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+  if (!isLocalhostOnNative) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.isEcho) {
-        return {
-          userTranscript: data.userTranscript || '(Speaker feedback suppressed)',
-          coachReply: '',
-          isEcho: true,
-        };
+      const res = await fetch(`${backendUrl}/api/voice/audio-turn`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audioBase64: base64Audio,
+          mimeType,
+          userId: userId || 'usr_synthetic_alex',
+          lastCoachReply,
+          generateCloudAudio: true,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.isEcho) {
+          return {
+            userTranscript: data.userTranscript || '(Speaker feedback suppressed)',
+            coachReply: '',
+            isEcho: true,
+          };
+        }
+        if (data.coachReply) {
+          return {
+            userTranscript: data.userTranscript || 'Voice note recorded',
+            coachReply: data.coachReply,
+            audioBase64: data.audioBase64,
+            audioMime: data.audioMime,
+            audioUrl: data.audioUrl,
+            isEcho: false,
+          };
+        }
       }
-      if (data.coachReply) {
-        return {
-          userTranscript: data.userTranscript || 'Voice note recorded',
-          coachReply: data.coachReply,
-          audioBase64: data.audioBase64,
-          audioMime: data.audioMime,
-          audioUrl: data.audioUrl,
-          isEcho: false,
-        };
-      }
+    } catch {
+      // Backend unreachable from this device, fallback to direct Gemini HTTPS
     }
-  } catch {
-    // Backend unreachable from this device, fallback to direct Gemini HTTPS
   }
 
   // 2. Direct HTTPS Gemini API Fallback (Works when EXPO_PUBLIC_GEMINI_API_KEY is configured)
@@ -346,9 +359,10 @@ Listen carefully to the audio.
       const candidateModels = Array.from(
         new Set([
           GEMINI_MODEL,
+          'gemini-3.5-flash-lite',
+          'gemini-flash-lite-latest',
           'gemini-3.8-flash',
           'gemini-3.5-flash',
-          'gemini-3.1-flash-lite',
         ])
       ).filter(Boolean);
 

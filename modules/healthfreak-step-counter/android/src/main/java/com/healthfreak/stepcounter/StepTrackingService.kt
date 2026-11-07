@@ -29,6 +29,15 @@ class StepTrackingService : Service(), SensorEventListener {
     const val CHANNEL_ID = "healthfreak_step_tracker_channel"
     var isRunning: Boolean = false
       private set
+    private var instance: StepTrackingService? = null
+
+    fun flush() {
+      try {
+        instance?.let { s ->
+          s.sensorManager.flush(s)
+        }
+      } catch (_: Exception) {}
+    }
 
     fun start(context: Context) {
       val intent = Intent(context, StepTrackingService::class.java)
@@ -47,20 +56,23 @@ class StepTrackingService : Service(), SensorEventListener {
 
   override fun onCreate() {
     super.onCreate()
+    instance = this
     isRunning = true
     notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-    stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+    // Prioritize wake-up sensor variant so steps count reliably 24/7 even in deep Doze mode
+    stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER, true)
+      ?: sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
 
     createNotificationChannel()
 
     if (stepSensor != null) {
-      // 60-second batching latency allows the device AP/CPU to sleep while hardware DSP accumulates
+      // 30-second batching latency balances CPU sleep with responsive step updates
       sensorManager.registerListener(
         this,
         stepSensor,
         SensorManager.SENSOR_DELAY_NORMAL,
-        60_000_000
+        30_000_000
       )
     }
   }
@@ -98,7 +110,30 @@ class StepTrackingService : Service(), SensorEventListener {
     // No-op for step counter
   }
 
+  override fun onTaskRemoved(rootIntent: Intent?) {
+    super.onTaskRemoved(rootIntent)
+    // Keep foreground step counter service running even if user swipes app away from recents
+    if (StepStorage.isBackgroundTrackingEnabled(this)) {
+      val restartServiceIntent = Intent(applicationContext, StepTrackingService::class.java).also {
+        it.setPackage(packageName)
+      }
+      val restartServicePendingIntent = PendingIntent.getService(
+        this, 1, restartServiceIntent,
+        PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+      )
+      val alarmService = getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager
+      alarmService?.set(
+        android.app.AlarmManager.ELAPSED_REALTIME,
+        android.os.SystemClock.elapsedRealtime() + 1500,
+        restartServicePendingIntent
+      )
+    }
+  }
+
   override fun onDestroy() {
+    if (instance == this) {
+      instance = null
+    }
     isRunning = false
     try {
       sensorManager.unregisterListener(this)

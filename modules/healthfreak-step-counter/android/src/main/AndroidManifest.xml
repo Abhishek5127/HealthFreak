@@ -13,6 +13,7 @@
             android:name=".StepTrackingService"
             android:enabled="true"
             android:exported="false"
+            android:stopWithTask="false"
             android:foregroundServiceType="health" />
 
         <receiver

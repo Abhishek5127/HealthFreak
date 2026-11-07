@@ -810,7 +810,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           triggerIncomingCallScreen(res.call);
         }
       }
-    }, 5000);
+    }, 2500);
 
     return () => {
       unsubscribe();
