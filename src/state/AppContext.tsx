@@ -31,6 +31,8 @@ import { pedometerService, PedometerState } from '../features/activity/services/
 import { streakService } from '../services/streakService';
 import { sleepService, SleepSession } from '../services/sleepService';
 import { syncWidgetStateToHomeScreen, getWaterWidgetState } from '../widgets/widgetStorage';
+import { ActivitySyncService } from '../features/activity/services/activitySyncService';
+import { getLocalDateString } from '../features/activity/utils/stepDateUtils';
 
 export function computeProgressMetrics(
   currentSteps: number,
@@ -406,26 +408,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logWater = (amountMl: number = 100) => {
     triggerHaptic('success');
+    const today = getLocalDateString();
     setWaterLoggedMl((prev) => {
       const next = Math.max(0, Math.min(8000, prev + amountMl));
       expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED', next.toString()).catch(() => {});
-      syncWidgetStateToHomeScreen(next, waterTargetMl).catch(() => {});
+      expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED_DATE', today).catch(() => {});
+      syncWidgetStateToHomeScreen(next, waterTargetMl, amountMl).catch(() => {});
+      // Persist to database (Express / Supabase)
+      ActivitySyncService.syncDailyWater(userProfileState.id || 'usr_synthetic_alex', next, waterTargetMl, today).catch(() => {});
       return next;
     });
   };
 
   const setCustomWaterTarget = async (ml: number) => {
     triggerHaptic('success');
+    const today = getLocalDateString();
     setWaterTargetMl(ml);
     await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_TARGET_ML', ml.toString());
     syncWidgetStateToHomeScreen(waterLoggedMl, ml).catch(() => {});
+    ActivitySyncService.syncDailyWater(userProfileState.id || 'usr_synthetic_alex', waterLoggedMl, ml, today).catch(() => {});
   };
 
   const resetWaterLogged = async () => {
     triggerHaptic('selection');
+    const today = getLocalDateString();
     setWaterLoggedMl(0);
     await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED', '0');
+    await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED_DATE', today);
     syncWidgetStateToHomeScreen(0, waterTargetMl).catch(() => {});
+    ActivitySyncService.syncDailyWater(userProfileState.id || 'usr_synthetic_alex', 0, waterTargetMl, today).catch(() => {});
   };
 
   const applySurveyAssessment = async (assessment: UserSurveyAssessment) => {
@@ -530,31 +541,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setActivities(savedGoalActivities);
             setMetrics(computeProgressMetrics(pedometerService.getState().steps, savedGoalActivities));
 
-            // Restore stored hydration metrics (synchronized with desktop widget storage)
+            // Restore stored hydration metrics (synchronized with desktop widget storage & daily reset)
             try {
-              const widgetState = await getWaterWidgetState();
-              if (typeof widgetState.waterLoggedMl === 'number' && widgetState.waterLoggedMl > 0) {
-                setWaterLoggedMl(widgetState.waterLoggedMl);
+              const today = getLocalDateString();
+              const savedDate = await expoSecureStoreAdapter.getItem('HEALTHFREAK_WATER_LOGGED_DATE');
+              
+              if (savedDate && savedDate !== today) {
+                // Midnight rollover detected: reset daily bottle
+                setWaterLoggedMl(0);
+                await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED', '0');
+                await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED_DATE', today);
+                syncWidgetStateToHomeScreen(0, waterTargetMl).catch(() => {});
               } else {
-                const savedWaterRaw = await expoSecureStoreAdapter.getItem('HEALTHFREAK_WATER_LOGGED');
-                if (savedWaterRaw) {
-                  const pWater = parseInt(savedWaterRaw, 10);
-                  if (!isNaN(pWater) && pWater >= 0) {
-                    setWaterLoggedMl(pWater);
-                    syncWidgetStateToHomeScreen(pWater, waterTargetMl).catch(() => {});
+                const widgetState = await getWaterWidgetState();
+                if (typeof widgetState.waterLoggedMl === 'number' && widgetState.waterLoggedMl > 0) {
+                  setWaterLoggedMl(widgetState.waterLoggedMl);
+                } else {
+                  const savedWaterRaw = await expoSecureStoreAdapter.getItem('HEALTHFREAK_WATER_LOGGED');
+                  if (savedWaterRaw) {
+                    const pWater = parseInt(savedWaterRaw, 10);
+                    if (!isNaN(pWater) && pWater >= 0) {
+                      setWaterLoggedMl(pWater);
+                      syncWidgetStateToHomeScreen(pWater, waterTargetMl).catch(() => {});
+                    }
                   }
                 }
-              }
 
-              if (widgetState.waterTargetMl && widgetState.waterTargetMl > 0) {
-                setWaterTargetMl(widgetState.waterTargetMl);
-              } else {
-                const savedTargetRaw = await expoSecureStoreAdapter.getItem('HEALTHFREAK_WATER_TARGET_ML');
-                if (savedTargetRaw) {
-                  const pTarget = parseInt(savedTargetRaw, 10);
-                  if (!isNaN(pTarget) && pTarget > 0) setWaterTargetMl(pTarget);
-                } else if (parsed.calculatedPlan?.waterLiters) {
-                  setWaterTargetMl(Math.round(parsed.calculatedPlan.waterLiters * 1000));
+                if (widgetState.waterTargetMl && widgetState.waterTargetMl > 0) {
+                  setWaterTargetMl(widgetState.waterTargetMl);
+                } else {
+                  const savedTargetRaw = await expoSecureStoreAdapter.getItem('HEALTHFREAK_WATER_TARGET_ML');
+                  if (savedTargetRaw) {
+                    const pTarget = parseInt(savedTargetRaw, 10);
+                    if (!isNaN(pTarget) && pTarget > 0) setWaterTargetMl(pTarget);
+                  } else if (parsed.calculatedPlan?.waterLiters) {
+                    setWaterTargetMl(Math.round(parsed.calculatedPlan.waterLiters * 1000));
+                  }
                 }
               }
             } catch {}
@@ -572,16 +594,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const handleAppStateChange = async (nextAppState: string) => {
       if (nextAppState === 'active') {
         try {
-          const widgetState = await getWaterWidgetState();
-          if (typeof widgetState.waterLoggedMl === 'number') {
-            setWaterLoggedMl((prev) =>
-              prev !== widgetState.waterLoggedMl ? widgetState.waterLoggedMl : prev
-            );
-          }
-          if (widgetState.waterTargetMl && widgetState.waterTargetMl > 0) {
-            setWaterTargetMl((prev) =>
-              prev !== widgetState.waterTargetMl ? widgetState.waterTargetMl : prev
-            );
+          const today = getLocalDateString();
+          const savedDate = await expoSecureStoreAdapter.getItem('HEALTHFREAK_WATER_LOGGED_DATE');
+          if (savedDate && savedDate !== today) {
+            // Day rollover detected on resume
+            setWaterLoggedMl(0);
+            await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED', '0');
+            await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED_DATE', today);
+            syncWidgetStateToHomeScreen(0, waterTargetMl).catch(() => {});
+          } else {
+            const widgetState = await getWaterWidgetState();
+            if (typeof widgetState.waterLoggedMl === 'number') {
+              setWaterLoggedMl((prev) =>
+                prev !== widgetState.waterLoggedMl ? widgetState.waterLoggedMl : prev
+              );
+            }
+            if (widgetState.waterTargetMl && widgetState.waterTargetMl > 0) {
+              setWaterTargetMl((prev) =>
+                prev !== widgetState.waterTargetMl ? widgetState.waterTargetMl : prev
+              );
+            }
           }
         } catch (e) {
           console.warn('[AppContext] Error syncing widget state on foreground:', e);

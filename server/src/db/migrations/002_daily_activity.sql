@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS daily_activity (
   distance_meters NUMERIC DEFAULT 0,
   active_minutes INTEGER DEFAULT 0,
   calories_burned NUMERIC DEFAULT 0,
+  water_intake_ml INTEGER DEFAULT 0,
+  water_target_ml INTEGER DEFAULT 3000,
   source TEXT NOT NULL DEFAULT 'device',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

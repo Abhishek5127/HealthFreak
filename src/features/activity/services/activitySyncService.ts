@@ -51,6 +51,8 @@ export class ActivitySyncService {
               distance_meters: p.distanceMeters,
               active_minutes: p.activeMinutes,
               calories_burned: p.caloriesBurned,
+              water_intake_ml: p.waterIntakeMl,
+              water_target_ml: p.waterTargetMl,
               source: p.source,
             })),
           }),
@@ -76,6 +78,8 @@ export class ActivitySyncService {
             distance_meters: p.distanceMeters,
             active_minutes: p.activeMinutes,
             calories_burned: p.caloriesBurned,
+            water_intake_ml: p.waterIntakeMl ?? 0,
+            water_target_ml: p.waterTargetMl ?? 3000,
             source: p.source,
             updated_at: new Date().toISOString(),
           }));
@@ -139,5 +143,72 @@ export class ActivitySyncService {
     } catch {}
 
     return await StepPersistenceService.getRecentHistory(daysCount);
+  }
+
+  /**
+   * Synchronizes daily hydration intake directly to Express backend and Supabase daily_activity table.
+   */
+  public static async syncDailyWater(
+    userId?: string | null,
+    waterLoggedMl: number = 0,
+    waterTargetMl: number = 3000,
+    dateStr?: string
+  ): Promise<boolean> {
+    const effectiveUserId = userId || 'usr_synthetic_alex';
+    const date = dateStr || new Date().toISOString().split('T')[0];
+    let synced = false;
+
+    // 1. Try syncing via local Express Backend API
+    try {
+      const backendUrl = getBackendBaseUrl();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+      const res = await fetch(`${backendUrl}/api/activity/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: effectiveUserId,
+          records: [
+            {
+              activity_date: date,
+              water_intake_ml: waterLoggedMl,
+              water_target_ml: waterTargetMl,
+            },
+          ],
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        synced = true;
+      }
+    } catch {
+      // Backend not reachable, fall back to direct Supabase
+    }
+
+    // 2. Direct Supabase Upsert fallback
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('daily_activity').upsert(
+          {
+            user_id: effectiveUserId,
+            activity_date: date,
+            water_intake_ml: waterLoggedMl,
+            water_target_ml: waterTargetMl,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id,activity_date' }
+        );
+        if (!error) {
+          synced = true;
+        }
+      } catch (err) {
+        console.warn('[ActivitySyncService] Direct Supabase water sync error:', err);
+      }
+    }
+
+    return synced;
   }
 }

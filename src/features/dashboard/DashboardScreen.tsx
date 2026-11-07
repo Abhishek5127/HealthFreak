@@ -26,8 +26,13 @@ import {
   Sun,
   Activity,
   Trash2,
+  Database,
+  RefreshCw,
+  CheckCheck,
+  Cloud,
 } from 'lucide-react-native';
 import { useApp } from '../../state/AppContext';
+import { ActivitySyncService } from '../activity/services/activitySyncService';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
@@ -56,9 +61,35 @@ export const DashboardScreen: React.FC = () => {
     logWater,
     setCustomWaterTarget,
     resetWaterLogged,
+    pedometerState,
+    triggerHaptic,
   } = useApp();
 
   const [showWaterTargetModal, setShowWaterTargetModal] = useState<boolean>(false);
+  const [isSyncingData, setIsSyncingData] = useState<boolean>(false);
+  const [lastSyncBadge, setLastSyncBadge] = useState<string>('Just now');
+
+  const handleManualSync = async () => {
+    if (isSyncingData) return;
+    setIsSyncingData(true);
+    triggerHaptic?.('selection');
+    try {
+      await Promise.all([
+        ActivitySyncService.syncDailyWater(
+          userProfile.id || 'usr_synthetic_alex',
+          waterLoggedMl,
+          effectiveTargetMl
+        ),
+        ActivitySyncService.syncActivities(userProfile.id || 'usr_synthetic_alex', false),
+      ]);
+      setLastSyncBadge('Just now');
+      triggerHaptic?.('success');
+    } catch {
+      // Graceful fallback
+    } finally {
+      setIsSyncingData(false);
+    }
+  };
 
   // Focus workout for Today's Highlight
   const focusWorkout =
@@ -572,6 +603,128 @@ export const DashboardScreen: React.FC = () => {
         onOpenTargetModal={() => setShowWaterTargetModal(true)}
         onResetWater={resetWaterLogged}
       />
+
+      {/* 8b. DAILY HEALTH & DATABASE SYNC SUMMARY */}
+      <View style={styles.dbSummaryCard}>
+        <View style={styles.dbSummaryHeader}>
+          <View style={styles.dbSummaryTitleRow}>
+            <View style={styles.dbIconBadge}>
+              <Database size={15} color={Colors.forestGreenLight} />
+            </View>
+            <View>
+              <Text style={styles.dbSummaryTitle}>Daily Activity & Database Sync</Text>
+              <Text style={styles.dbSummarySub}>Stored locally & synced with cloud</Text>
+            </View>
+          </View>
+
+          <Pressable
+            style={styles.dbSyncActionBtn}
+            onPress={handleManualSync}
+            disabled={isSyncingData}
+          >
+            <RefreshCw
+              size={13}
+              color={Colors.forestGreenLight}
+              style={[isSyncingData && { transform: [{ rotate: '45deg' }] }, { marginRight: 5 }]}
+            />
+            <Text style={styles.dbSyncActionText}>
+              {isSyncingData ? 'Syncing...' : 'Sync Now'}
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* 2x2 Metric Summary Grid */}
+        <View style={styles.dbMetricsGrid}>
+          {/* Steps */}
+          <View style={styles.dbMetricTile}>
+            <View style={styles.dbMetricTop}>
+              <Footprints size={14} color="#7AE69E" />
+              <Text style={styles.dbMetricLabel}>Daily Steps</Text>
+            </View>
+            <Text style={styles.dbMetricValue}>
+              {pedometerState.steps.toLocaleString()}
+            </Text>
+            <View style={styles.dbProgressBarTrack}>
+              <View
+                style={[
+                  styles.dbProgressBarFill,
+                  {
+                    width: `${Math.min(100, Math.round((pedometerState.steps / Math.max(1, pedometerState.stepGoal)) * 100))}%`,
+                    backgroundColor: '#7AE69E',
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.dbMetricSub}>
+              {Math.round((pedometerState.steps / Math.max(1, pedometerState.stepGoal)) * 100)}% of {pedometerState.stepGoal.toLocaleString()} goal
+            </Text>
+          </View>
+
+          {/* Water */}
+          <View style={styles.dbMetricTile}>
+            <View style={styles.dbMetricTop}>
+              <Droplet size={14} color="#7AD3FA" />
+              <Text style={styles.dbMetricLabel}>Daily Hydration</Text>
+            </View>
+            <Text style={styles.dbMetricValue}>
+              {waterLoggedMl} <Text style={{ fontSize: 13, color: Colors.textSecondary }}>ml</Text>
+            </Text>
+            <View style={styles.dbProgressBarTrack}>
+              <View
+                style={[
+                  styles.dbProgressBarFill,
+                  {
+                    width: `${Math.min(100, Math.round((waterLoggedMl / Math.max(1, effectiveTargetMl)) * 100))}%`,
+                    backgroundColor: '#7AD3FA',
+                  },
+                ]}
+              />
+            </View>
+            <Text style={styles.dbMetricSub}>
+              {Math.round((waterLoggedMl / Math.max(1, effectiveTargetMl)) * 100)}% of {effectiveTargetMl}ml
+            </Text>
+          </View>
+
+          {/* Active Calories */}
+          <View style={styles.dbMetricTile}>
+            <View style={styles.dbMetricTop}>
+              <Flame size={14} color="#FFA26B" />
+              <Text style={styles.dbMetricLabel}>Burned</Text>
+            </View>
+            <Text style={styles.dbMetricValue}>
+              {pedometerState.calories || 0} <Text style={{ fontSize: 13, color: Colors.textSecondary }}>kcal</Text>
+            </Text>
+            <Text style={styles.dbMetricSub}>
+              Estimated active burn
+            </Text>
+          </View>
+
+          {/* Distance */}
+          <View style={styles.dbMetricTile}>
+            <View style={styles.dbMetricTop}>
+              <Activity size={14} color="#C4B5FD" />
+              <Text style={styles.dbMetricLabel}>Distance</Text>
+            </View>
+            <Text style={styles.dbMetricValue}>
+              {((pedometerState.distanceMeters || 0) / 1000).toFixed(2)} <Text style={{ fontSize: 13, color: Colors.textSecondary }}>km</Text>
+            </Text>
+            <Text style={styles.dbMetricSub}>
+              {pedometerState.activeMinutes || 0} active minutes
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.dbStatusFooter}>
+          <View style={styles.dbStatusPill}>
+            <View style={styles.dbStatusDot} />
+            <Text style={styles.dbStatusText}>Auto-resets at midnight • Database sync enabled</Text>
+          </View>
+          <View style={styles.dbSyncIndicator}>
+            <CheckCheck size={13} color="#7AE69E" style={{ marginRight: 4 }} />
+            <Text style={styles.dbSyncIndicatorText}>{lastSyncBadge}</Text>
+          </View>
+        </View>
+      </View>
 
       {/* 9. Your Progress Section */}
       <SectionHeader
@@ -1441,5 +1594,141 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamilies.sansBold,
     fontSize: Typography.fontSizes.xs,
     color: Colors.coralCTA,
+  },
+  dbSummaryCard: {
+    backgroundColor: 'rgba(16, 26, 20, 0.78)',
+    borderRadius: 22,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  dbSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  dbSummaryTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  dbIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(74, 184, 122, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  dbSummaryTitle: {
+    fontFamily: Typography.fontFamilies.sansBold,
+    fontSize: Typography.fontSizes.sm,
+    color: Colors.textPrimary,
+  },
+  dbSummarySub: {
+    fontFamily: Typography.fontFamilies.sansRegular,
+    fontSize: Typography.fontSizes.xs - 1,
+    color: Colors.textSecondary,
+    marginTop: 1,
+  },
+  dbSyncActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(74, 184, 122, 0.14)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  dbSyncActionText: {
+    fontFamily: Typography.fontFamilies.sansBold,
+    fontSize: Typography.fontSizes.xs - 1,
+    color: Colors.forestGreenLight,
+  },
+  dbMetricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 12,
+  },
+  dbMetricTile: {
+    flexBasis: '47%',
+    flexGrow: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 14,
+    padding: 12,
+  },
+  dbMetricTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  dbMetricLabel: {
+    fontFamily: Typography.fontFamilies.sansMedium,
+    fontSize: Typography.fontSizes.xs - 1,
+    color: Colors.textSecondary,
+  },
+  dbMetricValue: {
+    fontFamily: Typography.fontFamilies.sansBold,
+    fontSize: Typography.fontSizes.lg,
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  dbProgressBarTrack: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  dbProgressBarFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  dbMetricSub: {
+    fontFamily: Typography.fontFamilies.sansRegular,
+    fontSize: 10,
+    color: Colors.textSecondary,
+  },
+  dbStatusFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  dbStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  dbStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#7AE69E',
+    marginRight: 6,
+  },
+  dbStatusText: {
+    fontFamily: Typography.fontFamilies.sansRegular,
+    fontSize: 10,
+    color: Colors.textSecondary,
+  },
+  dbSyncIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dbSyncIndicatorText: {
+    fontFamily: Typography.fontFamilies.sansMedium,
+    fontSize: 10,
+    color: '#7AE69E',
   },
 });

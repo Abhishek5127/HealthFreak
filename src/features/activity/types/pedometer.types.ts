@@ -12,6 +12,8 @@ export interface StepSummary {
   distanceMeters: number;
   caloriesBurned: number; // Estimated active calories (kcal)
   activeMinutes: number;
+  waterIntakeMl?: number;
+  waterTargetMl?: number;
   source: 'device' | 'manual' | 'cloud';
   updatedAt: string;
 }

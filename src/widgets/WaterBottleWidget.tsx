@@ -6,22 +6,24 @@ import { generateWaterBottleSvg } from './waterBottleSvg';
 export interface WaterBottleWidgetProps {
   waterLoggedMl?: number;
   waterTargetMl?: number;
+  lastAddedAmount?: number;
 }
 
 /**
  * Native Android Home Screen (Phone Desktop) Water Bottle Widget.
- * Minimalist glassmorphic box with centered dynamic bottle.
- * Tapping anywhere on the widget adds 150ml and updates the bottle expression!
+ * Super glassy borderless box with centered dynamic bottle.
+ * Tapping anywhere on the widget adds 150ml and provides immediate visual amount feedback!
  */
 export function WaterBottleWidget({
   waterLoggedMl = 0,
   waterTargetMl = 3000,
+  lastAddedAmount,
 }: WaterBottleWidgetProps) {
   const percentage = Math.round((waterLoggedMl / waterTargetMl) * 100);
-  const isGoalReached = waterLoggedMl >= waterTargetMl;
 
-  // Generate the dynamic vector SVG containing the bottle and dynamic facial expression (1.5x smaller)
-  const bottleSvg = generateWaterBottleSvg(percentage, 56, 90);
+  // Generate the dynamic vector SVG containing the bottle, facial expression, and optional amount badge
+  const badgeText = lastAddedAmount ? `+${lastAddedAmount}ml` : undefined;
+  const bottleSvg = generateWaterBottleSvg(percentage, 56, 90, badgeText);
 
   return (
     <FlexWidget
@@ -29,10 +31,8 @@ export function WaterBottleWidget({
       style={{
         height: 'match_parent',
         width: 'match_parent',
-        backgroundColor: '#121915',
-        borderRadius: 18,
-        borderColor: isGoalReached ? '#386644' : '#243429',
-        borderWidth: 1.5,
+        backgroundColor: '#0C1C13',
+        borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
       }}

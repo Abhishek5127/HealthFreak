@@ -48,36 +48,36 @@
     }
 
     /* ==========================================================
-       FROSTED GLASSMORPHISM WIDGET BOX (2x Compact Size)
+       SUPER GLASSY BORDERLESS WIDGET BOX (2x Compact Size)
        ========================================================== */
     .glass-widget-box {
       width: 72px;
       height: 98px;
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(20, 32, 24, 0.52) 40%, rgba(10, 18, 13, 0.72) 100%);
-      backdrop-filter: blur(24px) saturate(190%);
-      -webkit-backdrop-filter: blur(24px) saturate(190%);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.03) 38%, rgba(10, 28, 18, 0.42) 100%);
+      backdrop-filter: blur(28px) saturate(220%);
+      -webkit-backdrop-filter: blur(28px) saturate(220%);
       border-radius: 18px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: none;
+      outline: none;
       box-shadow: 
-        0 14px 32px rgba(0, 0, 0, 0.65),
-        0 3px 8px rgba(0, 0, 0, 0.35),
-        inset 0 1px 1.2px rgba(255, 255, 255, 0.25),
-        inset 0 -1px 1px rgba(0, 0, 0, 0.3);
+        0 18px 42px rgba(0, 0, 0, 0.55),
+        0 4px 12px rgba(0, 0, 0, 0.3),
+        inset 0 1.5px 2px rgba(255, 255, 255, 0.4),
+        inset 0 -1.5px 2px rgba(0, 0, 0, 0.25);
       display: flex;
       align-items: center;
       justify-content: center;
       position: relative;
       cursor: pointer;
-      transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.4s ease, box-shadow 0.4s ease;
+      transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease;
       z-index: 2;
     }
 
     .glass-widget-box:hover {
-      border-color: rgba(122, 230, 158, 0.35);
       box-shadow: 
-        0 16px 36px rgba(0, 0, 0, 0.7),
-        0 0 16px rgba(74, 184, 122, 0.18),
-        inset 0 1px 1.2px rgba(255, 255, 255, 0.35);
+        0 20px 48px rgba(0, 0, 0, 0.65),
+        0 0 24px rgba(74, 184, 122, 0.22),
+        inset 0 1.5px 2px rgba(255, 255, 255, 0.5);
     }
 
     .glass-widget-box:active {
@@ -85,11 +85,10 @@
     }
 
     .glass-widget-box.goal-met {
-      border-color: rgba(122, 230, 158, 0.5);
       box-shadow: 
-        0 14px 32px rgba(0, 0, 0, 0.65),
-        0 0 20px rgba(74, 184, 122, 0.3),
-        inset 0 1px 1.5px rgba(255, 255, 255, 0.45);
+        0 18px 42px rgba(0, 0, 0, 0.55),
+        0 0 28px rgba(74, 184, 122, 0.35),
+        inset 0 1.5px 2px rgba(255, 255, 255, 0.6);
     }
 
     /* Bottle Container (1.5x Smaller: 52px x 81px) */

@@ -12,7 +12,8 @@
 export function generateWaterBottleSvg(
   fillPercentage: number,
   width: number = 85,
-  height: number = 135
+  height: number = 135,
+  addedBadgeText?: string
 ): string {
   const clampedPercent = Math.min(Math.max(fillPercentage, 0), 100);
 
@@ -148,5 +149,17 @@ export function generateWaterBottleSvg(
     <line x1="26" y1="140" x2="36" y2="140" stroke="#FFFFFF" stroke-width="1.8" opacity="0.4" />
     <line x1="26" y1="100" x2="39" y2="100" stroke="#FFFFFF" stroke-width="2.2" opacity="0.55" />
     <line x1="26" y1="65" x2="36" y2="65" stroke="#FFFFFF" stroke-width="1.8" opacity="0.4" />
+
+    ${
+      addedBadgeText
+        ? `
+        <!-- Floating +150ml Luminous Badge -->
+        <g transform="translate(60, 48)">
+          <rect x="-28" y="-10" width="56" height="20" rx="10" fill="rgba(8, 24, 16, 0.88)" stroke="#4FA3E2" stroke-width="1" />
+          <text x="0" y="4" fill="#FFFFFF" font-size="11" font-weight="bold" text-anchor="middle" font-family="sans-serif">${addedBadgeText}</text>
+        </g>
+      `
+        : ''
+    }
   </svg>`;
 }

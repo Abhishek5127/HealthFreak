@@ -27,6 +27,7 @@ export const ProgressScreen: React.FC = () => {
     todaysNutrition,
     recentMeals,
     waterLoggedMl,
+    waterTargetMl,
     logWater,
     pedometerState,
     weeklySteps,
@@ -275,9 +276,9 @@ export const ProgressScreen: React.FC = () => {
           <Text style={styles.gridValue}>{(waterLoggedMl / 1000).toFixed(1)} L</Text>
           <Text style={styles.gridLabel}>Cellular Hydration</Text>
           <Text style={styles.gridStatus}>
-            {waterLoggedMl >= 2500
-              ? '• Daily target met'
-              : `• ${Math.round((waterLoggedMl / 3000) * 100)}% of 3.0 L`}
+            {waterLoggedMl >= waterTargetMl
+              ? '• Daily target met (Synced)'
+              : `• ${Math.round((waterLoggedMl / Math.max(1, waterTargetMl)) * 100)}% of ${(waterTargetMl / 1000).toFixed(1)} L`}
           </Text>
 
           <Pressable style={styles.biomarkerActionBtn} onPress={() => logWater(250)}>

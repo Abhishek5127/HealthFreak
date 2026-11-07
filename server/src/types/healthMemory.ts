@@ -482,6 +482,8 @@ export interface DailyActivityEntity {
   distanceMeters: number;
   activeMinutes: number;
   caloriesBurned: number;
+  waterIntakeMl?: number;
+  waterTargetMl?: number;
   source: string;
   createdAt: string;
   updatedAt: string;

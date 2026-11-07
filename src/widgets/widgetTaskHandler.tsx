@@ -28,6 +28,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
           <WaterBottleWidget
             waterLoggedMl={nextState.waterLoggedMl}
             waterTargetMl={nextState.waterTargetMl}
+            lastAddedAmount={amount}
           />
         );
       }
