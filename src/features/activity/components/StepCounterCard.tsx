@@ -183,7 +183,7 @@ export const StepCounterCard: React.FC<StepCounterCardProps> = ({
 
 const styles = StyleSheet.create({
   cardContainer: {
-    backgroundColor: '#161B18',
+    backgroundColor: '#1E2320',
     borderRadius: 24,
     padding: 20,
     borderWidth: 1,

@@ -257,11 +257,11 @@ export const WaterBottleWidget: React.FC<WaterBottleWidgetProps> = ({
 
 const styles = StyleSheet.create({
   cardContainer: {
-    backgroundColor: 'rgba(16, 26, 20, 0.78)',
+    backgroundColor: '#1E2320',
     borderRadius: 22,
     padding: 16,
-    borderWidth: 0,
-    borderColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#262F28',
     marginVertical: 10,
     shadowColor: '#000',
     shadowOpacity: 0.35,
