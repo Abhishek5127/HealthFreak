@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Image,
   View,
   Text,
   StyleSheet,
@@ -24,6 +25,7 @@ import {
   Utensils,
   Sun,
   Compass,
+  Zap,
 } from 'lucide-react-native';
 import { useApp } from '../../state/AppContext';
 import { Colors } from '../../theme/colors';
@@ -108,62 +110,88 @@ export const OnboardingFlow: React.FC = () => {
     badge: string;
     icon: React.ReactNode;
     color: string;
+    image: any;
   }[] = [
       {
         id: 'weight_gain',
-        title: 'Weight Gain & Muscle Building',
-        subtitle: 'Lean caloric surplus, progressive overload, and hypertrophy protein targets.',
+        title: 'Weight Gain & Muscle',
+        subtitle: 'Lean caloric surplus, progressive overload & hypertrophy protein.',
         badge: 'Surplus & Mass',
-        icon: <Dumbbell size={22} color={Colors.forestGreenLight} />,
+        icon: <Dumbbell size={16} color={Colors.forestGreenLight} />,
         color: Colors.forestGreenLight,
+        image: require('../../../assets/primaryGoals/Skinny to Strong Fitness Transformation.png'),
       },
       {
         id: 'weight_loss',
         title: 'Weight Loss & Fat Reduction',
-        subtitle: 'Sustainable caloric deficit, hunger-blunting satiety, and lean muscle preservation.',
+        subtitle: 'Sustainable caloric deficit, hunger satiety & lean preservation.',
         badge: 'Deficit & Burn',
-        icon: <Flame size={22} color={Colors.coralCTA} />,
+        icon: <Flame size={16} color={Colors.coralCTA} />,
         color: Colors.coralCTA,
+        image: require('../../../assets/primaryGoals/Healthy Transformation Journey.png'),
       },
       {
         id: 'acne_control',
         title: 'Clear Skin & Acne Control',
-        subtitle: 'Tackle active pimples, cystic hormonal acne, sebum overload, and post-acne dark marks.',
+        subtitle: 'Tackle active breakouts, cystic acne & post-acne dark marks.',
         badge: 'Dermal Clarity',
-        icon: <Sparkles size={22} color="#45D09E" />,
+        icon: <Sparkles size={16} color="#45D09E" />,
         color: '#45D09E',
+        image: require('../../../assets/primaryGoals/Cute Pastel Skincare Routine Duo.png'),
       },
       {
         id: 'skincare_glow',
         title: 'Skincare Routine & Skin Glow',
-        subtitle: 'Cellular hydration, collagen repair, texture smoothing, and anti-aging radiance.',
+        subtitle: 'Cellular hydration, collagen repair, texture smoothing & radiance.',
         badge: 'Skin Longevity',
-        icon: <Heart size={22} color="#F38BA8" />,
+        icon: <Heart size={16} color="#F38BA8" />,
         color: '#F38BA8',
+        image: require('../../../assets/primaryGoals/Before-and-After Wellness Glow-Up.png'),
       },
       {
         id: 'hair_health',
         title: 'Hair Growth & Anti-Hair Fall',
-        subtitle: 'Keratin synthesis amino acids, scalp stimulation, and ferritin micro-nutrition.',
+        subtitle: 'Keratin synthesis amino acids, scalp stimulation & micro-nutrition.',
         badge: 'Follicle Health',
-        icon: <Droplet size={22} color={Colors.lightSage} />,
+        icon: <Droplet size={16} color={Colors.lightSage} />,
         color: Colors.lightSage,
+        image: require('../../../assets/primaryGoals/Hair Loss Worries with a HealthFreak Mirror.png'),
       },
       {
         id: 'pcos_pcod',
         title: 'Hormonal Balance & PCOS Harmony',
-        subtitle: 'Steady glucose levels, cycle synchronization, cortisol blunting, and metabolic rhythm.',
+        subtitle: 'Steady glucose levels, cycle synchronization & cortisol balance.',
         badge: 'Hormone Sync',
-        icon: <Activity size={22} color="#D48BAA" />,
+        icon: <Activity size={16} color="#D48BAA" />,
         color: '#D48BAA',
+        image: require('../../../assets/primaryGoals/Hormone Balance_ Before and After.png'),
       },
       {
         id: 'metabolic_fitness',
-        title: 'Metabolic Fitness & All-Day Energy',
-        subtitle: 'Balanced macronutrients, athletic stamina, and beating the afternoon energy slump.',
+        title: 'Metabolic Fitness & Energy',
+        subtitle: 'Balanced macronutrients, athletic stamina & all-day vitality.',
         badge: 'Vitality',
-        icon: <Sun size={22} color={Colors.softYellow} />,
+        icon: <Sun size={16} color={Colors.softYellow} />,
         color: Colors.softYellow,
+        image: require('../../../assets/primaryGoals/Cheerful Chibi Side Stretch Duo.png'),
+      },
+      {
+        id: 'energy_vitality',
+        title: 'Mindful Wellness & Rest',
+        subtitle: 'Nervous system calm, mindful recovery & restorative sleep.',
+        badge: 'Rest & Focus',
+        icon: <Zap size={16} color="#818CF8" />,
+        color: '#818CF8',
+        image: require('../../../assets/primaryGoals/Mindful Wellness with HealthFreak.png'),
+      },
+      {
+        id: 'weight_management',
+        title: 'Gut Health & Digestive Glow',
+        subtitle: 'Microbiome restoration, bloat reduction & optimal digestion.',
+        badge: 'Gut & Glow',
+        icon: <Utensils size={16} color="#38BDF8" />,
+        color: '#38BDF8',
+        image: require('../../../assets/primaryGoals/From Gut Pain to Healthy Glow.png'),
       },
     ];
 
@@ -298,11 +326,9 @@ export const OnboardingFlow: React.FC = () => {
                 What is your <Text style={styles.serifAccent}>primary focus</Text>?
               </Text>
               <Text style={styles.stepSubtitle}>
-                Select your core health goals do you want to work on. We’ll calibrate your exact daily calories, protein target, carbs, and habits accordingly.
+                Select your core health goal. We’ll calibrate your exact daily calories, protein targets, carbs, and habits accordingly.
               </Text>
             </View>
-
-            {/*commment */}
 
             <View style={styles.goalsList}>
               {goalsList.map((g) => {
@@ -325,19 +351,31 @@ export const OnboardingFlow: React.FC = () => {
                       }
                     }}
                   >
-                    <View style={styles.goalCardTop}>
-                      <View style={[styles.goalIconCircle, { backgroundColor: isSelected ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)' }]}>
-                        {g.icon}
-                      </View>
-                      <View style={styles.goalTitleCol}>
-                        <View style={styles.badgeRow}>
-                          <Text style={styles.goalCardTitle}>{g.title}</Text>
-                        </View>
-                        <Text style={styles.goalCardSubtitle}>{g.subtitle}</Text>
-                      </View>
-                      <View style={[styles.radioCircle, isSelected && { borderColor: g.color }]}>
-                        {isSelected && <View style={[styles.radioDot, { backgroundColor: g.color }]} />}
-                      </View>
+                    {/* Compact 16:9 Illustration Thumbnail */}
+                    <View style={styles.goalImageContainer}>
+                      <Image
+                        source={g.image}
+                        style={styles.goalImage}
+                        resizeMode="cover"
+                      />
+                    </View>
+
+                    {/* Goal Title & Subtitle */}
+                    <View style={styles.goalTitleCol}>
+                      <Text
+                        style={[styles.goalCardTitle, isSelected && { color: '#FFFFFF' }]}
+                        numberOfLines={1}
+                      >
+                        {g.title}
+                      </Text>
+                      <Text style={styles.goalCardSubtitle} numberOfLines={2}>
+                        {g.subtitle}
+                      </Text>
+                    </View>
+
+                    {/* Radio Indicator */}
+                    <View style={[styles.radioCircle, isSelected && { borderColor: g.color }]}>
+                      {isSelected && <View style={[styles.radioDot, { backgroundColor: g.color }]} />}
                     </View>
                   </Pressable>
                 );
@@ -1236,85 +1274,91 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
   },
   questionHeader: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   stepQuestion: {
-    fontFamily: Typography.fonts.sansBold,
-    fontSize: Typography.sizes.h2,
-    color: Colors.textPrimary,
-    lineHeight: 32,
+    fontFamily: Typography.fontFamilies.instrumentSerif,
+    fontSize: 32,
+    color: '#FFFFFF',
+    lineHeight: 36,
+    letterSpacing: 0.3,
     marginBottom: Spacing.xs,
   },
   serifAccent: {
-    fontFamily: Typography.fonts.serifRegular,
-    color: Colors.lightSage,
-    fontStyle: 'italic',
+    fontFamily: Typography.fontFamilies.instrumentSerifItalic,
+    color: Colors.forestGreenLight,
   },
   stepSubtitle: {
     fontFamily: Typography.fonts.sansRegular,
     fontSize: Typography.sizes.body,
     color: Colors.textSecondary,
-    lineHeight: 22,
+    lineHeight: 21,
   },
   goalsList: {
-    gap: Spacing.md,
+    gap: 10,
   },
   goalCard: {
-    backgroundColor: Colors.surfaceCard,
+    backgroundColor: '#18201B',
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: Colors.borderSubtle,
-    padding: Spacing.md,
-  },
-  goalCardActive: {
-    backgroundColor: Colors.surfaceElevated,
-  },
-  goalCardTop: {
+    borderColor: '#26342B',
+    padding: 8,
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 78,
   },
-  goalIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: Spacing.md,
+  goalCardActive: {
+    backgroundColor: '#1E2B23',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  goalImageContainer: {
+    width: 104,
+    height: 60,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#121714',
+  },
+  goalImage: {
+    width: 104,
+    height: 60,
+    borderRadius: 10,
   },
   goalTitleCol: {
     flex: 1,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
+    marginHorizontal: 12,
+    justifyContent: 'center',
   },
   goalCardTitle: {
-    fontFamily: Typography.fonts.sansBold,
-    fontSize: Typography.sizes.body,
-    color: Colors.textPrimary,
+    fontFamily: Typography.fontFamilies.instrumentSerif,
+    fontSize: 22,
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+    marginBottom: 2,
   },
   goalCardSubtitle: {
     fontFamily: Typography.fonts.sansRegular,
-    fontSize: Typography.sizes.caption,
+    fontSize: 11,
     color: Colors.textSecondary,
-    marginTop: 2,
-    lineHeight: 18,
+    lineHeight: 14.5,
   },
   radioCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: Colors.borderLight,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.8,
+    borderColor: '#37473D',
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: Spacing.sm,
+    marginRight: 4,
   },
   radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
   },
   subOptionsContainer: {
     gap: Spacing.lg,
