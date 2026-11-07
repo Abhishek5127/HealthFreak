@@ -8,7 +8,7 @@ import {
   ScrollView,
   NativeSyntheticEvent,
   NativeScrollEvent,
-  ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,18 +28,15 @@ import Svg, {
   LinearGradient as SvgGradient,
   Stop,
   Rect,
-  Path,
 } from 'react-native-svg';
 import { ArrowRight, AlertCircle, X } from 'lucide-react-native';
 import { useAuth } from '../../state/AuthContext';
 import { Typography } from '../../theme/typography';
 import { GoogleLogo } from '../../components/illustrations/GoogleLogo';
+import { IOSButton } from '../../components/common/IOSButton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BUTTON_WIDTH = Math.min(SCREEN_WIDTH - 44, 380);
-const BUTTON_HEIGHT = 62;
-
-const GLASS_GRAIN_IMG = require('../../../assets/images/glass_grain_texture.png');
 
 // 3 Ordered Wallpaper Artworks (Zero text on photos)
 const SLIDES = [
@@ -344,167 +341,54 @@ export const LoginScreen: React.FC = () => {
           })}
         </View>
 
-        {/* TRANSPARENT GLASS BUTTON WITH RICH GLASS TEXTURE */}
-        <Animated.View style={[styles.buttonOuterWrapper, animatedButton]}>
-          {/* Ambient glass halo aura */}
-          <View style={styles.glassGlowAura} />
-
-          <Pressable
-            onPress={handleButtonPress}
-            disabled={isAuthenticating}
-            style={styles.glassButton}
-          >
-            {/* Transparent Frosted Glass Texture Layers (Background wallpaper shows through) */}
-            <Svg
-              style={StyleSheet.absoluteFill}
-              width={BUTTON_WIDTH}
-              height={BUTTON_HEIGHT}
-            >
-              <Defs>
-                {/* Diagonal Specular Reflection across glass */}
-                <SvgGradient id="glassSpecularGrad" x1="0" y1="0" x2="1" y2="1">
-                  <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.24} />
-                  <Stop offset="25%" stopColor="#FFFFFF" stopOpacity={0.08} />
-                  <Stop offset="50%" stopColor="#FFFFFF" stopOpacity={0.02} />
-                  <Stop offset="75%" stopColor="#FFFFFF" stopOpacity={0.12} />
-                  <Stop offset="100%" stopColor="#FFFFFF" stopOpacity={0.04} />
-                </SvgGradient>
-
-                {/* Subtle Translucent #ff715f Shade */}
-                <SvgGradient id="coralGlassTint" x1="0" y1="0" x2="0" y2="1">
-                  <Stop offset="0%" stopColor="#FF8573" stopOpacity={0.18} />
-                  <Stop offset="50%" stopColor="#FF715F" stopOpacity={0.10} />
-                  <Stop offset="100%" stopColor="#D94B38" stopOpacity={0.16} />
-                </SvgGradient>
-              </Defs>
-
-              {/* Translucent Base Glass Fill */}
-              <Rect
-                x="0"
-                y="0"
-                width={BUTTON_WIDTH}
-                height={BUTTON_HEIGHT}
-                rx="31"
-                ry="31"
-                fill="url(#glassSpecularGrad)"
-              />
-
-              {/* Translucent Tint Fill */}
-              <Rect
-                x="0"
-                y="0"
-                width={BUTTON_WIDTH}
-                height={BUTTON_HEIGHT}
-                rx="31"
-                ry="31"
-                fill="url(#coralGlassTint)"
-              />
-
-              {/* Physical Glass Diagonal Refraction Streaks */}
-              <Path
-                d="M 55 0 L 115 0 L 70 62 L 10 62 Z"
-                fill="rgba(255, 255, 255, 0.09)"
-              />
-              <Path
-                d="M 135 0 L 170 0 L 130 62 L 95 62 Z"
-                fill="rgba(255, 255, 255, 0.05)"
-              />
-            </Svg>
-
-            {/* Tactile Frosted Glass Grain Noise Texture */}
-            <Image
-              source={GLASS_GRAIN_IMG}
-              style={[StyleSheet.absoluteFill, styles.grainTexture]}
-              contentFit="cover"
-              priority="high"
-            />
-
-            {/* Apple Specular Top Rim Highlight */}
-            <View style={styles.topSheenLine} />
-
-            {/* Upper Glass Specular Surface Reflection */}
-            <View style={styles.glassSheenSurface} />
-
-            {/* Bottom Inner Rim Reflection */}
-            <View style={styles.bottomSheenLine} />
-
-            {/* Expanding Liquid Circular Ripple */}
-            <Animated.View
-              pointerEvents="none"
-              style={[styles.liquidWaveRipple, animatedWaveRipple]}
-            />
-
-            {/* Animated Liquid Wave Crest Layer */}
-            <Animated.View
-              pointerEvents="none"
-              style={[styles.waveOverlayContainer, animatedWaveOverlay]}
-            >
-              <Svg width={BUTTON_WIDTH * 1.5} height={BUTTON_HEIGHT} viewBox="0 0 540 62">
-                <Defs>
-                  <SvgGradient id="waveCrestGrad" x1="0" y1="0" x2="1" y2="0">
-                    <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0} />
-                    <Stop offset="30%" stopColor="#FFFFFF" stopOpacity={0.80} />
-                    <Stop offset="50%" stopColor="#FFE0D9" stopOpacity={0.95} />
-                    <Stop offset="70%" stopColor="#FF715F" stopOpacity={0.80} />
-                    <Stop offset="100%" stopColor="#FF715F" stopOpacity={0} />
-                  </SvgGradient>
-                </Defs>
-                <Path
-                  d="M 0 26 C 45 9, 90 43, 135 26 C 180 9, 225 43, 270 26 C 315 9, 360 43, 405 26 C 450 9, 495 43, 540 26 V 62 H 0 Z"
-                  fill="url(#waveCrestGrad)"
-                />
-                <Path
-                  d="M 0 36 C 40 49, 85 19, 130 36 C 175 53, 220 23, 265 36 C 310 49, 355 19, 400 36 C 445 53, 490 23, 540 36 V 62 H 0 Z"
-                  fill="rgba(255, 255, 255, 0.45)"
-                />
-              </Svg>
+        {/* PREMIUM MINIMAL iOS WARM ORANGE CAPSULE BUTTON */}
+        <IOSButton
+          onPress={handleButtonPress}
+          disabled={isAuthenticating}
+          loading={isAuthenticating}
+          loadingText="Connecting with Google..."
+          variant="orange"
+          size="lg"
+          style={{ width: BUTTON_WIDTH }}
+        >
+          {activeIndex === 2 && isTransformedToGoogle ? (
+            /* State: Transformed "Sign in with google" with Google Logo */
+            <Animated.View style={[styles.contentRow, animatedGoogleContent]}>
+              <View style={styles.googleLogoCircle}>
+                <GoogleLogo size={18} />
+              </View>
+              <Text style={styles.buttonLabel}>Sign in with google</Text>
             </Animated.View>
-
-            {/* BUTTON CONTENT */}
-            {isAuthenticating ? (
-              <View style={styles.contentRow}>
-                <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.glassButtonText}>Connecting with Google...</Text>
-              </View>
-            ) : activeIndex === 2 && isTransformedToGoogle ? (
-              /* State: Transformed "Sign in with google" with Google Logo */
-              <Animated.View style={[styles.contentRow, animatedGoogleContent]}>
-                <View style={styles.googleLogoCircle}>
-                  <GoogleLogo size={20} />
-                </View>
-                <Text style={styles.glassButtonText}>Sign in with google</Text>
-              </Animated.View>
-            ) : activeIndex === 2 ? (
-              /* State: Slide 3 transition container */
-              <View style={styles.contentWrapper}>
-                <Animated.View style={[styles.contentRow, animatedButtonText]}>
-                  <Text style={styles.glassButtonText}>Your Health Wingman</Text>
-                  <ArrowRight size={19} color="#FFFFFF" strokeWidth={2.4} style={{ marginLeft: 8 }} />
-                </Animated.View>
-
-                {/* Pre-mounted Google content transitioning in with wave */}
-                <Animated.View
-                  style={[
-                    styles.contentRow,
-                    StyleSheet.absoluteFill,
-                    animatedGoogleContent,
-                  ]}
-                >
-                  <View style={styles.googleLogoCircle}>
-                    <GoogleLogo size={20} />
-                  </View>
-                  <Text style={styles.glassButtonText}>Sign in with google</Text>
-                </Animated.View>
-              </View>
-            ) : (
-              /* States 1 & 2: "Crush Your Goals" & "Know Every Bite" */
+          ) : activeIndex === 2 ? (
+            /* State: Slide 3 transition container */
+            <View style={styles.contentWrapper}>
               <Animated.View style={[styles.contentRow, animatedButtonText]}>
-                <Text style={styles.glassButtonText}>{getButtonLabel()}</Text>
-                <ArrowRight size={19} color="#FFFFFF" strokeWidth={2.4} style={{ marginLeft: 8 }} />
+                <Text style={styles.buttonLabel}>Your Health Wingman</Text>
+                <ArrowRight size={18} color="#FFFBF7" strokeWidth={2.4} style={{ marginLeft: 8 }} />
               </Animated.View>
-            )}
-          </Pressable>
-        </Animated.View>
+
+              {/* Pre-mounted Google content transitioning in */}
+              <Animated.View
+                style={[
+                  styles.contentRow,
+                  StyleSheet.absoluteFill,
+                  animatedGoogleContent,
+                ]}
+              >
+                <View style={styles.googleLogoCircle}>
+                  <GoogleLogo size={18} />
+                </View>
+                <Text style={styles.buttonLabel}>Sign in with google</Text>
+              </Animated.View>
+            </View>
+          ) : (
+            /* States 1 & 2: "Crush Your Goals" & "Know Every Bite" */
+            <Animated.View style={[styles.contentRow, animatedButtonText]}>
+              <Text style={styles.buttonLabel}>{getButtonLabel()}</Text>
+              <ArrowRight size={18} color="#FFFBF7" strokeWidth={2.4} style={{ marginLeft: 8 }} />
+            </Animated.View>
+          )}
+        </IOSButton>
       </View>
     </Animated.View>
   );
@@ -548,105 +432,16 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     width: 24,
-    backgroundColor: '#FF715F',
-    shadowColor: '#FF715F',
+    backgroundColor: '#FF7738',
+    shadowColor: '#E04A08',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.7,
+    shadowOpacity: 0.35,
     shadowRadius: 6,
-    elevation: 4,
+    elevation: 2,
   },
   dotInactive: {
     width: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.32)',
-  },
-  buttonOuterWrapper: {
-    width: BUTTON_WIDTH,
-    height: BUTTON_HEIGHT,
-    borderRadius: 31,
-    position: 'relative',
-  },
-  glassGlowAura: {
-    position: 'absolute',
-    top: 4,
-    left: 12,
-    right: 12,
-    bottom: 4,
-    borderRadius: 31,
-    backgroundColor: 'rgba(255, 113, 95, 0.16)',
-    shadowColor: '#FF715F',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 18,
-    elevation: 6,
-  },
-  glassButton: {
-    width: BUTTON_WIDTH,
-    height: BUTTON_HEIGHT,
-    borderRadius: 31,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1.4,
-    borderColor: 'rgba(255, 255, 255, 0.32)',
-    borderTopColor: 'rgba(255, 255, 255, 0.85)',
-    borderBottomColor: 'rgba(255, 255, 255, 0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    position: 'relative',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.32,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  topSheenLine: {
-    position: 'absolute',
-    top: 1.5,
-    left: 24,
-    right: 24,
-    height: 1.2,
-    borderRadius: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.70)',
-    pointerEvents: 'none',
-  },
-  glassSheenSurface: {
-    position: 'absolute',
-    top: 2,
-    left: 16,
-    right: 16,
-    height: 22,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
-    pointerEvents: 'none',
-  },
-  bottomSheenLine: {
-    position: 'absolute',
-    bottom: 1.5,
-    left: 28,
-    right: 28,
-    height: 1,
-    borderRadius: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    pointerEvents: 'none',
-  },
-  grainTexture: {
-    borderRadius: 31,
-    opacity: 0.42,
-    pointerEvents: 'none',
-  },
-  liquidWaveRipple: {
-    position: 'absolute',
-    width: BUTTON_WIDTH * 0.7,
-    height: BUTTON_WIDTH * 0.7,
-    borderRadius: (BUTTON_WIDTH * 0.7) / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.35)',
-    alignSelf: 'center',
-  },
-  waveOverlayContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: BUTTON_WIDTH * 1.5,
-    height: BUTTON_HEIGHT,
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
   },
   contentWrapper: {
     width: '100%',
@@ -660,26 +455,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   googleLogoCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 9,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
   },
-  glassButtonText: {
-    fontFamily: Typography.fontFamilies.sansBold,
+  buttonLabel: {
+    fontFamily: Platform.select({
+      ios: 'System',
+      default: Typography.fontFamilies.sansSemiBold,
+    }),
+    fontWeight: '600',
     fontSize: 16.5,
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
-    textShadowColor: 'rgba(0, 0, 0, 0.28)',
-    textShadowOffset: { width: 0, height: 1.5 },
-    textShadowRadius: 4,
+    color: '#FFFBF7',
+    letterSpacing: -0.25,
   },
   errorToast: {
     flexDirection: 'row',
