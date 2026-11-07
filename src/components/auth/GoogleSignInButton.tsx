@@ -15,12 +15,14 @@ interface GoogleSignInButtonProps {
   onPress: () => void;
   isLoading?: boolean;
   disabled?: boolean;
+  variant?: 'light' | 'dark';
 }
 
 export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   onPress,
   isLoading = false,
   disabled = false,
+  variant = 'light',
 }) => {
   const handlePress = () => {
     if (isLoading || disabled) return;
@@ -33,6 +35,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   };
 
   const isInteractive = !isLoading && !disabled;
+  const isLight = variant === 'light';
 
   return (
     <Pressable
@@ -40,19 +43,20 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       disabled={!isInteractive}
       style={({ pressed }) => [
         styles.button,
-        pressed && isInteractive && styles.buttonPressed,
+        isLight ? styles.buttonLight : styles.buttonDark,
+        pressed && isInteractive && (isLight ? styles.buttonLightPressed : styles.buttonPressed),
         (!isInteractive || disabled) && styles.buttonDisabled,
       ]}
     >
       <View style={styles.contentRow}>
         {isLoading ? (
-          <ActivityIndicator size="small" color="#FFFFFF" style={styles.spinner} />
+          <ActivityIndicator size="small" color={isLight ? '#101712' : '#FFFFFF'} style={styles.spinner} />
         ) : (
           <View style={styles.logoWrapper}>
             <GoogleLogo size={20} />
           </View>
         )}
-        <Text style={styles.buttonText}>
+        <Text style={[styles.buttonText, isLight ? styles.buttonLightText : styles.buttonDarkText]}>
           {isLoading ? 'Connecting to Google...' : 'Continue with Google'}
         </Text>
       </View>
@@ -62,14 +66,30 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    height: 52,
-    backgroundColor: '#131A15',
-    borderRadius: 26,
-    borderWidth: 1.2,
-    borderColor: '#222E25',
+    height: 54,
+    borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.xl,
+    width: '100%',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  buttonLight: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 0,
+  },
+  buttonLightPressed: {
+    backgroundColor: '#EDEDED',
+    transform: [{ scale: 0.985 }],
+  },
+  buttonDark: {
+    backgroundColor: '#131A15',
+    borderWidth: 1.2,
+    borderColor: '#222E25',
   },
   buttonPressed: {
     backgroundColor: '#1B251E',
@@ -77,8 +97,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.985 }],
   },
   buttonDisabled: {
-    opacity: 0.5,
-    borderColor: '#1A221C',
+    opacity: 0.6,
   },
   contentRow: {
     flexDirection: 'row',
@@ -94,10 +113,15 @@ const styles = StyleSheet.create({
     marginRight: Spacing.md,
   },
   buttonText: {
-    color: '#FFFFFF',
-    fontSize: Typography.fontSizes.md,
+    fontSize: Typography.fontSizes.base,
     fontFamily: Typography.fontFamilies.sansBold,
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
+  },
+  buttonLightText: {
+    color: '#101712',
+  },
+  buttonDarkText: {
+    color: '#FFFFFF',
   },
 });
 
