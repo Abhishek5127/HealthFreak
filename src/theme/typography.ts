@@ -4,6 +4,8 @@ export const Typography = {
   fontFamilies: {
     serif: 'DMSerifDisplay_400Regular',
     serifItalic: 'DMSerifDisplay_400Regular_Italic',
+    instrumentSerif: 'InstrumentSerif_400Regular',
+    instrumentSerifItalic: 'InstrumentSerif_400Regular_Italic',
     sansRegular: 'Manrope_400Regular',
     sansMedium: 'Manrope_500Medium',
     sansSemiBold: 'Manrope_600SemiBold',
@@ -12,6 +14,8 @@ export const Typography = {
   fonts: {
     serifRegular: 'DMSerifDisplay_400Regular',
     serifItalic: 'DMSerifDisplay_400Regular_Italic',
+    instrumentSerifRegular: 'InstrumentSerif_400Regular',
+    instrumentSerifItalic: 'InstrumentSerif_400Regular_Italic',
     sansRegular: 'Manrope_400Regular',
     sansMedium: 'Manrope_500Medium',
     sansSemiBold: 'Manrope_600SemiBold',

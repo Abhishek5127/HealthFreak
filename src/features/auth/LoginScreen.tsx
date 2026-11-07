@@ -305,6 +305,11 @@ export const LoginScreen: React.FC = () => {
         ))}
       </ScrollView>
 
+      {/* Floating Brand Title: "Health Freak" in Instrument Serif */}
+      <View style={styles.floatingHeaderTitle} pointerEvents="none">
+        <Text style={styles.brandTitleText}>Health Freak</Text>
+      </View>
+
       {/* Floating Bottom Controls Area */}
       <View
         style={[
@@ -409,6 +414,26 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+  },
+  floatingHeaderTitle: {
+    position: 'absolute',
+    top: '10%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+    paddingHorizontal: 20,
+  },
+  brandTitleText: {
+    fontFamily: Typography.fontFamilies.instrumentSerif,
+    fontSize: 46,
+    color: '#FFFDF9',
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    textShadowColor: 'rgba(0, 0, 0, 0.65)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 10,
   },
   floatingBottomArea: {
     position: 'absolute',

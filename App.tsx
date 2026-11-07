@@ -16,6 +16,10 @@ import {
   DMSerifDisplay_400Regular_Italic,
 } from '@expo-google-fonts/dm-serif-display';
 import {
+  InstrumentSerif_400Regular,
+  InstrumentSerif_400Regular_Italic,
+} from '@expo-google-fonts/instrument-serif';
+import {
   Manrope_400Regular,
   Manrope_500Medium,
   Manrope_600SemiBold,
@@ -267,6 +271,8 @@ export default function App() {
   const [fontsLoaded] = useFonts({
     DMSerifDisplay_400Regular,
     DMSerifDisplay_400Regular_Italic,
+    InstrumentSerif_400Regular,
+    InstrumentSerif_400Regular_Italic,
     Manrope_400Regular,
     Manrope_500Medium,
     Manrope_600SemiBold,
