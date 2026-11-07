@@ -29,11 +29,22 @@ import Svg, {
   Stop,
   Rect,
 } from 'react-native-svg';
-import { ArrowRight, AlertCircle, X } from 'lucide-react-native';
+import {
+  ArrowRight,
+  AlertCircle,
+  X,
+  Flame,
+  Apple,
+  Sparkles,
+  ChevronsUpDown,
+} from 'lucide-react-native';
 import { useAuth } from '../../state/AuthContext';
 import { Typography } from '../../theme/typography';
 import { GoogleLogo } from '../../components/illustrations/GoogleLogo';
-import { LiquidGlassButton, LiquidGlassTheme } from '../../components/common/LiquidGlassButton';
+import {
+  IOSControlCenterGlassButton,
+  IOSGlassVariant,
+} from '../../components/common/IOSControlCenterGlassButton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BUTTON_WIDTH = Math.min(SCREEN_WIDTH - 44, 380);
@@ -45,18 +56,21 @@ const SLIDES = [
     image: require('../../../assets/loginUiImages/HealthFreak Fitness Doodle Wallpaper.png'),
     buttonText: 'Crush Your Goals',
     subtitle: 'Touch grass, Track macros!',
+    variant: 'frostedDark' as IOSGlassVariant,
   },
   {
     id: 'nutrition',
     image: require('../../../assets/loginUiImages/HealthFreak Nutrition Doodle Collage.png'),
     buttonText: 'Know Every Bite',
     subtitle: 'We scan. You snack!',
+    variant: 'frostedOlive' as IOSGlassVariant,
   },
   {
     id: 'call',
     image: require('../../../assets/loginUiImages/Neon HealthFreak Call Doodle Wallpaper.png'),
     buttonText: 'Your Health Wingman',
     subtitle: 'Your health, Her headache!',
+    variant: 'frostedCoral' as IOSGlassVariant,
   },
 ];
 
@@ -74,41 +88,16 @@ export const LoginScreen: React.FC = () => {
   const screenOpacity = useSharedValue(0);
   const contentTranslateY = useSharedValue(20);
 
-  // Button Press Bounce
-  const buttonScale = useSharedValue(1);
-
   // Liquid Wave Animation Shared Values
   const waveProgress = useSharedValue(0);
   const waveOpacity = useSharedValue(0);
   const waveRippleScale = useSharedValue(0.1);
   const waveRippleOpacity = useSharedValue(0);
-  const buttonTextOpacity = useSharedValue(1);
-  const googleContentOpacity = useSharedValue(0);
-  const googleContentScale = useSharedValue(0.85);
 
   useEffect(() => {
     screenOpacity.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.ease) });
     contentTranslateY.value = withSpring(0, { damping: 16, stiffness: 95 });
   }, [contentTranslateY, screenOpacity]);
-
-  // Synchronize button text visibility when user swipes between slides
-  useEffect(() => {
-    if (activeIndex !== 2) {
-      buttonTextOpacity.value = 1;
-      googleContentOpacity.value = 0;
-      googleContentScale.value = 0.85;
-    } else {
-      if (isTransformedToGoogle) {
-        googleContentOpacity.value = 1;
-        googleContentScale.value = 1;
-        buttonTextOpacity.value = 0;
-      } else {
-        buttonTextOpacity.value = 1;
-        googleContentOpacity.value = 0;
-        googleContentScale.value = 0.85;
-      }
-    }
-  }, [activeIndex, isTransformedToGoogle, buttonTextOpacity, googleContentOpacity, googleContentScale]);
 
   // Handle Carousel Page Scroll (called continuously during drag and on momentum)
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -136,12 +125,6 @@ export const LoginScreen: React.FC = () => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {}
 
-    // Button squish bounce
-    buttonScale.value = withSequence(
-      withTiming(0.95, { duration: 90 }),
-      withSpring(1, { damping: 10, stiffness: 200 })
-    );
-
     // 1. Wave translation & opacity
     waveOpacity.value = withSequence(
       withTiming(1, { duration: 100 }),
@@ -162,19 +145,6 @@ export const LoginScreen: React.FC = () => {
       easing: Easing.out(Easing.cubic),
     });
 
-    // 3. Dissolve 'Your Health Wingman' text
-    buttonTextOpacity.value = withTiming(0, { duration: 220, easing: Easing.out(Easing.ease) });
-
-    // 4. Reveal 'Sign in with google' content
-    googleContentOpacity.value = withDelay(
-      260,
-      withTiming(1, { duration: 260, easing: Easing.out(Easing.ease) })
-    );
-    googleContentScale.value = withDelay(
-      260,
-      withSpring(1, { damping: 12, stiffness: 180 })
-    );
-
     // Finalize state on wave completion
     setTimeout(() => {
       setIsTransformedToGoogle(true);
@@ -187,11 +157,6 @@ export const LoginScreen: React.FC = () => {
 
   // Primary Glass Button Tap Action
   const handleButtonPress = () => {
-    buttonScale.value = withSequence(
-      withTiming(0.96, { duration: 80 }),
-      withSpring(1, { damping: 12, stiffness: 220 })
-    );
-
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
@@ -231,10 +196,6 @@ export const LoginScreen: React.FC = () => {
     transform: [{ translateY: contentTranslateY.value }],
   }));
 
-  const animatedButton = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
   const animatedWaveOverlay = useAnimatedStyle(() => {
     const translateX = interpolate(
       waveProgress.value,
@@ -252,17 +213,37 @@ export const LoginScreen: React.FC = () => {
     transform: [{ scale: waveRippleScale.value }],
   }));
 
-  const animatedButtonText = useAnimatedStyle(() => ({
-    opacity: buttonTextOpacity.value,
-  }));
+  const animatedButtonText = useAnimatedStyle(() => {
+    if (activeIndex !== 2) {
+      return { opacity: 1 };
+    }
+    if (isTransformedToGoogle) {
+      return { opacity: 0 };
+    }
+    return {
+      opacity: interpolate(waveProgress.value, [0, 0.45], [1, 0]),
+    };
+  });
 
-  const animatedGoogleContent = useAnimatedStyle(() => ({
-    opacity: googleContentOpacity.value,
-    transform: [{ scale: googleContentScale.value }],
-  }));
+  const animatedGoogleContent = useAnimatedStyle(() => {
+    if (activeIndex !== 2) {
+      return { opacity: 0, transform: [{ scale: 0.85 }] };
+    }
+    if (isTransformedToGoogle) {
+      return { opacity: 1, transform: [{ scale: 1 }] };
+    }
+    return {
+      opacity: interpolate(waveProgress.value, [0.35, 0.85], [0, 1]),
+      transform: [
+        {
+          scale: interpolate(waveProgress.value, [0.35, 0.85], [0.85, 1]),
+        },
+      ],
+    };
+  });
 
-  const activeTheme: LiquidGlassTheme =
-    activeIndex === 0 ? 'chrome' : activeIndex === 1 ? 'silk' : 'prismatic';
+  const activeVariant: IOSGlassVariant =
+    SLIDES[activeIndex]?.variant || 'frostedDark';
 
   return (
     <Animated.View style={[styles.root, animatedRoot]}>
@@ -355,53 +336,102 @@ export const LoginScreen: React.FC = () => {
           })}
         </View>
 
-        {/* AUTHENTIC LIQUID GLASS BUTTON (DIFFERENT STYLED BUTTON ON EACH SLIDE) */}
-        <LiquidGlassButton
-          theme={activeTheme}
+        {/* AUTHENTIC IOS CONTROL CENTER FROSTED GLASS CAPSULE BUTTON */}
+        <IOSControlCenterGlassButton
+          variant={activeVariant}
           onPress={handleButtonPress}
           disabled={isAuthenticating}
           loading={isAuthenticating}
           loadingText="Connecting with Google..."
           style={{ width: BUTTON_WIDTH }}
         >
-          {activeIndex === 2 && isTransformedToGoogle ? (
-            /* State: Transformed "Sign in with google" with Google Logo */
-            <Animated.View style={[styles.contentRow, animatedGoogleContent]}>
-              <View style={styles.googleLogoCircle}>
-                <GoogleLogo size={18} />
-              </View>
-              <Text style={styles.buttonLabel}>Sign in with google</Text>
-            </Animated.View>
-          ) : activeIndex === 2 ? (
-            /* State: Slide 3 transition container */
-            <View style={styles.contentWrapper}>
-              <Animated.View style={[styles.contentRow, animatedButtonText]}>
-                <Text style={styles.buttonLabel}>Your Health Wingman</Text>
-                <ArrowRight size={18} color="#FAFAFA" strokeWidth={2.4} style={{ marginLeft: 8 }} />
-              </Animated.View>
+          {/* Liquid Wave Ripple Overlay on Slide 3 */}
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.waveRipple, animatedWaveRipple]}
+          />
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.waveSweep, animatedWaveOverlay]}
+          />
 
-              {/* Pre-mounted Google content transitioning in */}
-              <Animated.View
-                style={[
-                  styles.contentRow,
-                  StyleSheet.absoluteFill,
-                  animatedGoogleContent,
-                ]}
-              >
-                <View style={styles.googleLogoCircle}>
-                  <GoogleLogo size={18} />
+          {/* iOS Control Center Capsule Row */}
+          <View style={styles.controlCenterRow}>
+            {/* Left Inset Circular Frosted Glass Pod */}
+            <View
+              style={[
+                styles.iconPod,
+                activeIndex === 1 && styles.iconPodOlive,
+                activeIndex === 2 && styles.iconPodCoral,
+              ]}
+            >
+              {activeIndex === 0 ? (
+                <Flame size={19} color="#FFFDF9" strokeWidth={2.4} />
+              ) : activeIndex === 1 ? (
+                <Apple size={19} color="#FFFDF9" strokeWidth={2.4} />
+              ) : (
+                <View style={styles.iconPodMorphWrapper}>
+                  <Animated.View
+                    style={[StyleSheet.absoluteFill, styles.iconPodCenter, animatedButtonText]}
+                  >
+                    <Sparkles size={19} color="#FFFDF9" strokeWidth={2.4} />
+                  </Animated.View>
+                  <Animated.View
+                    style={[StyleSheet.absoluteFill, styles.iconPodCenter, animatedGoogleContent]}
+                  >
+                    <GoogleLogo size={20} />
+                  </Animated.View>
                 </View>
-                <Text style={styles.buttonLabel}>Sign in with google</Text>
-              </Animated.View>
+              )}
             </View>
-          ) : (
-            /* States 1 & 2: "Crush Your Goals" & "Know Every Bite" */
-            <Animated.View style={[styles.contentRow, animatedButtonText]}>
-              <Text style={styles.buttonLabel}>{getButtonLabel()}</Text>
-              <ArrowRight size={18} color="#FAFAFA" strokeWidth={2.4} style={{ marginLeft: 8 }} />
-            </Animated.View>
-          )}
-        </LiquidGlassButton>
+
+            {/* Centered Typography */}
+            <View style={styles.labelCenterWrapper}>
+              {activeIndex === 2 ? (
+                <View style={styles.labelMorphWrapper}>
+                  <Animated.Text
+                    style={[styles.controlCenterLabel, animatedButtonText]}
+                    numberOfLines={1}
+                  >
+                    Your Health Wingman
+                  </Animated.Text>
+                  <Animated.Text
+                    style={[
+                      styles.controlCenterLabel,
+                      StyleSheet.absoluteFill,
+                      animatedGoogleContent,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    Sign in with google
+                  </Animated.Text>
+                </View>
+              ) : (
+                <Animated.Text
+                  style={[styles.controlCenterLabel, animatedButtonText]}
+                  numberOfLines={1}
+                >
+                  {getButtonLabel()}
+                </Animated.Text>
+              )}
+            </View>
+
+            {/* Right Indicator (iOS Control Center chevrons / arrow) */}
+            <View style={styles.rightIndicatorContainer}>
+              {activeIndex === 2 && isTransformedToGoogle ? (
+                <Animated.View style={animatedGoogleContent}>
+                  <ArrowRight size={17} color="#FFFDF9" strokeWidth={2.4} />
+                </Animated.View>
+              ) : (
+                <ChevronsUpDown
+                  size={16}
+                  color="rgba(255, 255, 255, 0.65)"
+                  strokeWidth={2.4}
+                />
+              )}
+            </View>
+          </View>
+        </IOSControlCenterGlassButton>
       </View>
     </Animated.View>
   );
@@ -489,6 +519,104 @@ const styles = StyleSheet.create({
   dotInactive: {
     width: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.28)',
+  },
+  // iOS Control Center Glass Button Layout
+  controlCenterRow: {
+    width: '100%',
+    height: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    zIndex: 10,
+  },
+  iconPod: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.32)',
+    borderTopColor: 'rgba(255, 255, 255, 0.60)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.22,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  iconPodOlive: {
+    backgroundColor: 'rgba(180, 220, 140, 0.22)',
+    borderColor: 'rgba(215, 245, 180, 0.45)',
+    borderTopColor: 'rgba(240, 255, 215, 0.75)',
+  },
+  iconPodCoral: {
+    backgroundColor: 'rgba(255, 113, 95, 0.25)',
+    borderColor: 'rgba(255, 175, 160, 0.48)',
+    borderTopColor: 'rgba(255, 215, 205, 0.80)',
+  },
+  iconPodMorphWrapper: {
+    width: 24,
+    height: 24,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconPodCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  labelCenterWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  labelMorphWrapper: {
+    width: '100%',
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  controlCenterLabel: {
+    fontFamily: Platform.select({
+      ios: 'System',
+      default: Typography.fontFamilies.sansSemiBold,
+    }),
+    fontWeight: '600',
+    fontSize: 16.5,
+    color: '#FFFDF9',
+    textAlign: 'center',
+    letterSpacing: 0.25,
+    textShadowColor: 'rgba(0, 0, 0, 0.45)',
+    textShadowOffset: { width: 0, height: 1.5 },
+    textShadowRadius: 4,
+  },
+  rightIndicatorContainer: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  waveRipple: {
+    position: 'absolute',
+    width: BUTTON_WIDTH,
+    height: BUTTON_WIDTH,
+    borderRadius: BUTTON_WIDTH / 2,
+    backgroundColor: 'rgba(255, 113, 95, 0.35)',
+    zIndex: 15,
+  },
+  waveSweep: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: BUTTON_WIDTH * 0.7,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: 30,
+    zIndex: 14,
   },
   contentWrapper: {
     width: '100%',
