@@ -43,8 +43,6 @@ export const ProfileScreen: React.FC = () => {
   const displayEmail = authProfile?.email || user?.email || 'alex.sharma@healthfreak.com';
 
   const currentAvatarId = userProfile.avatarUrl || authProfile?.avatarUrl || 'avatar_1';
-  const currentPreset =
-    CARTOON_AVATARS.find((p) => p.id === currentAvatarId) || CARTOON_AVATARS[0];
 
   const handleSignOut = async () => {
     triggerHaptic('impact');
@@ -115,9 +113,6 @@ export const ProfileScreen: React.FC = () => {
         </View>
         <View style={styles.avatarSectionInfo}>
           <Text style={styles.avatarSectionTitle}>Choose Your Avatar</Text>
-          <Text style={styles.avatarSectionSub}>
-            {currentPreset.name} • 15 fictional cartoon characters
-          </Text>
         </View>
         <View style={styles.changeAvatarPill}>
           <Text style={styles.changeAvatarText}>Change</Text>
@@ -351,12 +346,6 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: Typography.fontSizes.sm + 1,
     fontFamily: Typography.fontFamilies.sansBold,
-  },
-  avatarSectionSub: {
-    color: Colors.textSecondary,
-    fontSize: Typography.fontSizes.xs,
-    fontFamily: Typography.fontFamilies.sansMedium,
-    marginTop: 2,
   },
   changeAvatarPill: {
     flexDirection: 'row',
