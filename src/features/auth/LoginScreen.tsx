@@ -39,6 +39,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BUTTON_WIDTH = Math.min(SCREEN_WIDTH - 44, 380);
 const BUTTON_HEIGHT = 62;
 
+const GLASS_GRAIN_IMG = require('../../../assets/images/glass_grain_texture.png');
+
 // 3 Ordered Wallpaper Artworks (Zero text on photos)
 const SLIDES = [
   {
@@ -409,6 +411,14 @@ export const LoginScreen: React.FC = () => {
               />
             </Svg>
 
+            {/* Tactile Frosted Glass Grain Noise Texture */}
+            <Image
+              source={GLASS_GRAIN_IMG}
+              style={[StyleSheet.absoluteFill, styles.grainTexture]}
+              contentFit="cover"
+              priority="high"
+            />
+
             {/* Apple Specular Top Rim Highlight */}
             <View style={styles.topSheenLine} />
 
@@ -616,6 +626,11 @@ const styles = StyleSheet.create({
     height: 1,
     borderRadius: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    pointerEvents: 'none',
+  },
+  grainTexture: {
+    borderRadius: 31,
+    opacity: 0.42,
     pointerEvents: 'none',
   },
   liquidWaveRipple: {
