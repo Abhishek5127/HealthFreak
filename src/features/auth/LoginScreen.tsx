@@ -9,7 +9,6 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
@@ -17,8 +16,6 @@ import Animated, {
   withTiming,
   withSpring,
   withDelay,
-  withRepeat,
-  withSequence,
   Easing,
   runOnJS,
 } from 'react-native-reanimated';
@@ -30,10 +27,17 @@ import {
   Clock,
   Activity,
   Camera,
-  Calendar,
   Sparkles,
   AlertCircle,
   X,
+  Footprints,
+  Flame,
+  Moon,
+  Droplet,
+  Mic,
+  Check,
+  Zap,
+  ShieldCheck,
 } from 'lucide-react-native';
 import { useAuth } from '../../state/AuthContext';
 import { Typography } from '../../theme/typography';
@@ -41,9 +45,6 @@ import { HealthFreakLogo } from '../../components/common/HealthFreakLogo';
 import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-const MASCOT_IMG = require('../../../assets/logo/HealthFreakLogoTransparent.png');
-const TRAINER_IMG = require('../../../assets/images/trainer_hero.jpg');
 
 export const LoginScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -59,9 +60,6 @@ export const LoginScreen: React.FC = () => {
   const screenOpacity = useSharedValue(0);
   const contentTranslateY = useSharedValue(20);
 
-  // Mascot subtle floating animation for Slide 1
-  const mascotBobY = useSharedValue(0);
-
   // App Entrance Transition (radiant portal burst on exit)
   const portalScale = useSharedValue(0.3);
   const portalOpacity = useSharedValue(0);
@@ -70,20 +68,11 @@ export const LoginScreen: React.FC = () => {
   const entranceTextOpacity = useSharedValue(0);
   const entranceTextScale = useSharedValue(0.92);
 
-  // 1. Initial mount animation & mascot breathing bob
+  // 1. Initial mount animation
   useEffect(() => {
     screenOpacity.value = withTiming(1, { duration: 450, easing: Easing.out(Easing.ease) });
     contentTranslateY.value = withSpring(0, { damping: 16, stiffness: 95 });
-
-    mascotBobY.value = withRepeat(
-      withSequence(
-        withTiming(-8, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 1800, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-  }, []);
+  }, [contentTranslateY, screenOpacity]);
 
   // 2. Gentle auto-advance for carousel (pauses when user interacts)
   const resetAutoAdvance = () => {
@@ -172,10 +161,6 @@ export const LoginScreen: React.FC = () => {
     transform: [{ scale: entranceTextScale.value }],
   }));
 
-  const animatedMascot = useAnimatedStyle(() => ({
-    transform: [{ translateY: mascotBobY.value }],
-  }));
-
   return (
     <Animated.View style={[styles.root, animatedRoot]}>
       {/* Subtle ambient lighting top and bottom */}
@@ -226,208 +211,301 @@ export const LoginScreen: React.FC = () => {
           onScrollEndDrag={resetAutoAdvance}
           scrollEventThrottle={16}
           style={styles.carouselScrollView}
+          contentContainerStyle={styles.carouselContentContainer}
         >
-          {/* ==================== SLIDE 1 ==================== */}
-          {/* Your AI Health Coach — Always With You. */}
+          {/* ==================== SLIDE 1: AI Health Partner ==================== */}
           <View style={[styles.slideContainer, { width: SCREEN_WIDTH }]}>
-            <View style={styles.slideTextTop}>
+            <View style={styles.slideHeader}>
               <Text style={styles.slideHeadline}>
-                {'Your\nAI Health\nCoach —\n'}
+                {'Your AI Health\nCoach — '}
                 <Text style={styles.greenHighlight}>Always With You.</Text>
               </Text>
               <Text style={styles.slideSubtitle}>
-                {'Workouts • Nutrition • Habits • Insights\nAll Personalized For You.'}
+                24/7 personalized voice & chat guidance tailored to your biology.
               </Text>
             </View>
 
-            {/* Visual: HealthFreak mascot lifting dumbbells on curved hill */}
-            <View style={styles.mascotVisualArea}>
-              <Animated.View style={[styles.mascotWrapper, animatedMascot]}>
-                <Image
-                  source={MASCOT_IMG}
-                  style={styles.mascotImage}
-                  contentFit="contain"
-                />
-              </Animated.View>
-              {/* Soft curved pedestal / hill */}
-              <View style={styles.curvedPedestal} />
+            {/* Showcase Card: AI Coach Disha */}
+            <View style={styles.showcaseCard}>
+              <View style={styles.cardHeaderRow}>
+                <View style={styles.cardBadgePill}>
+                  <Sparkles size={11} color="#52C480" style={{ marginRight: 5 }} />
+                  <Text style={styles.cardBadgeText}>AI HEALTH PARTNER</Text>
+                </View>
+                <View style={styles.livePulseRow}>
+                  <View style={styles.pulseDot} />
+                  <Text style={styles.liveText}>Live • 24/7 Active</Text>
+                </View>
+              </View>
+
+              <View style={styles.coachProfileRow}>
+                <View style={styles.coachAvatarCircle}>
+                  <Sparkles size={20} color="#52C480" />
+                </View>
+                <View style={styles.coachInfoCol}>
+                  <Text style={styles.coachNameText}>Disha AI Coach</Text>
+                  <Text style={styles.coachMetaText}>Adaptive Biometric Companion</Text>
+                </View>
+              </View>
+
+              <View style={styles.chatBubble}>
+                <Text style={styles.chatBubbleText}>
+                  &ldquo;Good morning Alex! I&apos;ve calibrated your daily macros and programmed a targeted hypertrophy session for today. Ready to crush it?&rdquo;
+                </Text>
+              </View>
+
+              <View style={styles.cardFooterStrip}>
+                <View style={styles.featureChip}>
+                  <Mic size={11} color="#52C480" style={{ marginRight: 4 }} />
+                  <Text style={styles.featureChipText}>LiveKit Voice Calls</Text>
+                </View>
+                <View style={styles.featureChip}>
+                  <Activity size={11} color="#52C480" style={{ marginRight: 4 }} />
+                  <Text style={styles.featureChipText}>Real-Time Recalibration</Text>
+                </View>
+              </View>
             </View>
           </View>
 
-          {/* ==================== SLIDE 2 ==================== */}
-          {/* Train. Eat. Track. Repeat. */}
+          {/* ==================== SLIDE 2: Workouts ==================== */}
           <View style={[styles.slideContainer, { width: SCREEN_WIDTH }]}>
-            {/* 3 Staggered Floating Feature Cards */}
-            <View style={styles.cardsVisualArea}>
-              {/* Card 1: Workout */}
-              <View style={[styles.floatingCard, styles.floatingCardDark]}>
-                <View style={styles.cardIconCircleDark}>
-                  <Dumbbell size={18} color="#52C480" />
-                </View>
-                <View style={styles.cardTextCol}>
-                  <Text style={styles.cardTitleLight}>Workout</Text>
-                  <Text style={styles.cardSubtitleLight}>Get stronger</Text>
-                </View>
-              </View>
-
-              {/* Card 2: Nutrition (Vibrant Highlight Card) */}
-              <View style={[styles.floatingCard, styles.floatingCardActive]}>
-                <View style={styles.cardIconCircleActive}>
-                  <Utensils size={18} color="#0D1A11" />
-                </View>
-                <View style={styles.cardTextCol}>
-                  <Text style={styles.cardTitleDark}>Nutrition</Text>
-                  <Text style={styles.cardSubtitleDark}>Eat better</Text>
-                </View>
-              </View>
-
-              {/* Card 3: Progress */}
-              <View style={[styles.floatingCard, styles.floatingCardDark]}>
-                <View style={styles.cardIconCircleDark}>
-                  <TrendingUp size={18} color="#52C480" />
-                </View>
-                <View style={styles.cardTextCol}>
-                  <Text style={styles.cardTitleLight}>Progress</Text>
-                  <Text style={styles.cardSubtitleLight}>Track & improve</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.slideTextBottom}>
+            <View style={styles.slideHeader}>
               <Text style={styles.slideHeadline}>
                 {'Train. Eat.\nTrack. '}
                 <Text style={styles.greenHighlight}>Repeat.</Text>
               </Text>
               <Text style={styles.slideSubtitle}>
-                Everything you need for a healthier, fitter you.
+                Tailored hypertrophy routines & adaptive progressive overload.
               </Text>
             </View>
-          </View>
 
-          {/* ==================== SLIDE 3 ==================== */}
-          {/* Smarter Fitness with AI. */}
-          <View style={[styles.slideContainer, { width: SCREEN_WIDTH }]}>
-            {/* Visual: Athletic Trainer with floating metric pills */}
-            <View style={styles.trainerVisualArea}>
-              <View style={styles.trainerFrame}>
-                <Image
-                  source={TRAINER_IMG}
-                  style={styles.trainerImage}
-                  contentFit="cover"
-                />
-                <View style={styles.trainerImageFade} />
+            {/* Showcase Card: Precision Workout */}
+            <View style={styles.showcaseCard}>
+              <View style={styles.cardHeaderRow}>
+                <View style={styles.cardBadgePill}>
+                  <Dumbbell size={11} color="#52C480" style={{ marginRight: 5 }} />
+                  <Text style={styles.cardBadgeText}>TAILORED ROUTINE</Text>
+                </View>
+                <Text style={styles.timeTagText}>07:30 AM</Text>
               </View>
 
-              {/* Floating Pill: 45 min */}
-              <View style={styles.floatingPillLeft}>
-                <Clock size={14} color="#52C480" style={{ marginRight: 6 }} />
-                <Text style={styles.floatingPillText}>45 min</Text>
-              </View>
-
-              {/* Floating Pill: 540 kcal */}
-              <View style={styles.floatingPillRight}>
-                <Activity size={14} color="#52C480" style={{ marginRight: 6 }} />
-                <Text style={styles.floatingPillText}>540 kcal</Text>
-              </View>
-            </View>
-
-            <View style={styles.slideTextBottom}>
-              <Text style={styles.slideHeadline}>
-                {'Smarter Fitness\n'}
-                <Text style={styles.greenHighlight}>with AI.</Text>
-              </Text>
-              <Text style={styles.slideSubtitle}>
-                Personalized workouts, meal plans and real progress tracking.
-              </Text>
-            </View>
-          </View>
-
-          {/* ==================== SLIDE 4 ==================== */}
-          {/* Know Your Food. Eat Smarter. */}
-          <View style={[styles.slideContainer, { width: SCREEN_WIDTH }]}>
-            {/* Visual: Viewfinder reticle brackets with fresh salad plate */}
-            <View style={styles.foodVisualArea}>
-              {/* Scan Meal Floating Badge */}
-              <View style={styles.scanMealBadge}>
-                <Camera size={14} color="#52C480" style={{ marginRight: 8 }} />
-                <View>
-                  <Text style={styles.scanMealTitle}>Scan Meal</Text>
-                  <Text style={styles.scanMealSub}>Get instant insights</Text>
+              <Text style={styles.workoutCardTitle}>Hypertrophy Push & Overhead Press</Text>
+              <View style={styles.workoutMetaRow}>
+                <View style={styles.metaChip}>
+                  <Clock size={11} color="#52C480" style={{ marginRight: 4 }} />
+                  <Text style={styles.metaChipText}>45 min</Text>
+                </View>
+                <View style={styles.metaChip}>
+                  <Flame size={11} color="#FF715F" style={{ marginRight: 4 }} />
+                  <Text style={styles.metaChipText}>280 kcal</Text>
+                </View>
+                <View style={styles.metaChip}>
+                  <Zap size={11} color="#EAD66F" style={{ marginRight: 4 }} />
+                  <Text style={styles.metaChipText}>Progressive Overload</Text>
                 </View>
               </View>
 
-              {/* Camera reticle brackets */}
-              <View style={styles.reticleFrame}>
-                <View style={[styles.reticleCorner, styles.reticleTL]} />
-                <View style={[styles.reticleCorner, styles.reticleTR]} />
-                <View style={[styles.reticleCorner, styles.reticleBL]} />
-                <View style={[styles.reticleCorner, styles.reticleBR]} />
-
-                {/* Stylized healthy bowl plate inside reticle */}
-                <View style={styles.foodPlateCircle}>
-                  <View style={styles.foodPlateInner}>
-                    <View style={styles.foodGarnishRow}>
-                      <View style={[styles.foodMorsel, { backgroundColor: '#478A58' }]} />
-                      <View style={[styles.foodMorsel, { backgroundColor: '#D47E3B', width: 34 }]} />
-                      <View style={[styles.foodMorsel, { backgroundColor: '#C94A4A' }]} />
-                    </View>
-                    <View style={styles.foodGarnishRow}>
-                      <View style={[styles.foodMorsel, { backgroundColor: '#D9B55D', width: 44 }]} />
-                      <View style={[styles.foodMorsel, { backgroundColor: '#3A7047', width: 28 }]} />
-                    </View>
-                    <View style={styles.foodGarnishRow}>
-                      <View style={[styles.foodMorsel, { backgroundColor: '#C94A4A', width: 20 }]} />
-                      <View style={[styles.foodMorsel, { backgroundColor: '#D47E3B', width: 38 }]} />
-                    </View>
+              <View style={styles.exerciseList}>
+                <View style={styles.exerciseItem}>
+                  <View style={styles.checkCircleActive}>
+                    <Check size={10} color="#FFFFFF" />
                   </View>
-                  <Text style={styles.foodPlateLabel}>🥗 Fresh Protein Bowl</Text>
+                  <Text style={styles.exerciseNameText}>Incline Dumbbell Bench Press</Text>
+                  <Text style={styles.exerciseSetsText}>3 × 10</Text>
+                </View>
+                <View style={styles.exerciseItem}>
+                  <View style={styles.checkCircleActive}>
+                    <Check size={10} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.exerciseNameText}>Standing Barbell Overhead Press</Text>
+                  <Text style={styles.exerciseSetsText}>3 × 8</Text>
+                </View>
+                <View style={styles.exerciseItem}>
+                  <View style={styles.checkCircleActive}>
+                    <Check size={10} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.exerciseNameText}>Cable Lateral Raises</Text>
+                  <Text style={styles.exerciseSetsText}>4 × 12</Text>
                 </View>
               </View>
             </View>
+          </View>
 
-            <View style={styles.slideTextBottom}>
+          {/* ==================== SLIDE 3: Nutrition Scanner ==================== */}
+          <View style={[styles.slideContainer, { width: SCREEN_WIDTH }]}>
+            <View style={styles.slideHeader}>
               <Text style={styles.slideHeadline}>
                 {'Know Your Food.\n'}
                 <Text style={styles.greenHighlight}>Eat Smarter.</Text>
               </Text>
               <Text style={styles.slideSubtitle}>
-                Scan your meals and get instant nutrition analysis with AI.
+                Instant meal photo scanning with clinical macro & protein analysis.
               </Text>
             </View>
-          </View>
 
-          {/* ==================== SLIDE 5 ==================== */}
-          {/* Build Healthier Habits that Stick. */}
-          <View style={[styles.slideContainer, { width: SCREEN_WIDTH }]}>
-            {/* Visual: Glowing 3D Progress Bar Chart */}
-            <View style={styles.chartVisualArea}>
-              {/* Floating Streak Pill */}
-              <View style={styles.streakBadge}>
-                <Calendar size={15} color="#52C480" style={{ marginRight: 8 }} />
-                <View>
-                  <Text style={styles.streakNumber}>12</Text>
-                  <Text style={styles.streakLabel}>Day Streak</Text>
+            {/* Showcase Card: AI Meal Scanner */}
+            <View style={styles.showcaseCard}>
+              <View style={styles.cardHeaderRow}>
+                <View style={styles.cardBadgePill}>
+                  <Camera size={11} color="#52C480" style={{ marginRight: 5 }} />
+                  <Text style={styles.cardBadgeText}>AI MEAL SCANNER</Text>
+                </View>
+                <View style={styles.accuracyPill}>
+                  <Text style={styles.accuracyText}>98% Match</Text>
                 </View>
               </View>
 
-              {/* Glowing progressive green vertical bars */}
-              <View style={styles.barsRow}>
-                <View style={[styles.barCol, { height: 26, backgroundColor: '#183323' }]} />
-                <View style={[styles.barCol, { height: 46, backgroundColor: '#214630' }]} />
-                <View style={[styles.barCol, { height: 68, backgroundColor: '#2A5C3E' }]} />
-                <View style={[styles.barCol, { height: 96, backgroundColor: '#377850' }]} />
-                <View style={[styles.barCol, styles.barColPeak]} />
+              <View style={styles.scannerRow}>
+                <View style={styles.miniReticleFrame}>
+                  <View style={[styles.miniReticleCorner, styles.mTL]} />
+                  <View style={[styles.miniReticleCorner, styles.mTR]} />
+                  <View style={[styles.miniReticleCorner, styles.mBL]} />
+                  <View style={[styles.miniReticleCorner, styles.mBR]} />
+                  <Utensils size={22} color="#52C480" />
+                </View>
+                <View style={styles.scannedFoodInfo}>
+                  <Text style={styles.scannedFoodTitle}>Sprouted Moong & Paneer Bowl</Text>
+                  <Text style={styles.scannedFoodSub}>High Protein • Clean Surplus</Text>
+                  <View style={styles.verifiedRow}>
+                    <ShieldCheck size={11} color="#52C480" style={{ marginRight: 4 }} />
+                    <Text style={styles.verifiedText}>IFCT 2024 Verified Database</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.macroPillsRow}>
+                <View style={styles.macroPill}>
+                  <Text style={styles.macroPillVal}>480</Text>
+                  <Text style={styles.macroPillLbl}>kcal</Text>
+                </View>
+                <View style={[styles.macroPill, { borderColor: 'rgba(255, 113, 95, 0.4)' }]}>
+                  <Text style={[styles.macroPillVal, { color: '#FF715F' }]}>34g</Text>
+                  <Text style={styles.macroPillLbl}>Protein</Text>
+                </View>
+                <View style={[styles.macroPill, { borderColor: 'rgba(234, 214, 111, 0.4)' }]}>
+                  <Text style={[styles.macroPillVal, { color: '#EAD66F' }]}>42g</Text>
+                  <Text style={styles.macroPillLbl}>Carbs</Text>
+                </View>
+                <View style={[styles.macroPill, { borderColor: 'rgba(160, 201, 168, 0.4)' }]}>
+                  <Text style={[styles.macroPillVal, { color: '#A0C9A8' }]}>14g</Text>
+                  <Text style={styles.macroPillLbl}>Fats</Text>
+                </View>
               </View>
             </View>
+          </View>
 
-            <View style={styles.slideTextBottom}>
+          {/* ==================== SLIDE 4: Pedometer ==================== */}
+          <View style={[styles.slideContainer, { width: SCREEN_WIDTH }]}>
+            <View style={styles.slideHeader}>
+              <Text style={styles.slideHeadline}>
+                {'Real-Time Steps &\n'}
+                <Text style={styles.greenHighlight}>Movement Pulse.</Text>
+              </Text>
+              <Text style={styles.slideSubtitle}>
+                Hardware sensor tracking for daily steps, active burn & distance.
+              </Text>
+            </View>
+
+            {/* Showcase Card: Daily Pedometer */}
+            <View style={styles.showcaseCard}>
+              <View style={styles.cardHeaderRow}>
+                <View style={styles.cardBadgePill}>
+                  <Footprints size={11} color="#52C480" style={{ marginRight: 5 }} />
+                  <Text style={styles.cardBadgeText}>HARDWARE PEDOMETER</Text>
+                </View>
+                <View style={styles.liveSensorPill}>
+                  <View style={styles.pulseDot} />
+                  <Text style={styles.liveSensorText}>Sensor Active</Text>
+                </View>
+              </View>
+
+              <View style={styles.stepStatsRow}>
+                <View>
+                  <Text style={styles.stepBigNumber}>8,450</Text>
+                  <Text style={styles.stepTargetText}>/ 10,000 daily goal (85%)</Text>
+                </View>
+                <View style={styles.goalPillBadge}>
+                  <TrendingUp size={13} color="#52C480" style={{ marginRight: 4 }} />
+                  <Text style={styles.goalPillText}>+1.2k vs avg</Text>
+                </View>
+              </View>
+
+              <View style={styles.stepProgressTrack}>
+                <View style={[styles.stepProgressBar, { width: '85%' }]} />
+              </View>
+
+              <View style={styles.subMetricsRow}>
+                <View style={styles.subMetricItem}>
+                  <Text style={styles.subMetricVal}>6.2 km</Text>
+                  <Text style={styles.subMetricLbl}>Distance</Text>
+                </View>
+                <View style={styles.subMetricDivider} />
+                <View style={styles.subMetricItem}>
+                  <Text style={styles.subMetricVal}>340 kcal</Text>
+                  <Text style={styles.subMetricLbl}>Active Energy</Text>
+                </View>
+                <View style={styles.subMetricDivider} />
+                <View style={styles.subMetricItem}>
+                  <Text style={styles.subMetricVal}>68 min</Text>
+                  <Text style={styles.subMetricLbl}>Movement</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* ==================== SLIDE 5: Habits & Streaks ==================== */}
+          <View style={[styles.slideContainer, { width: SCREEN_WIDTH }]}>
+            <View style={styles.slideHeader}>
               <Text style={styles.slideHeadline}>
                 {'Build Healthier\nHabits '}
                 <Text style={styles.greenHighlight}>that Stick.</Text>
               </Text>
               <Text style={styles.slideSubtitle}>
-                Stay consistent, earn streaks and see real results.
+                Daily streaks, circadian sleep logging & metabolic consistency.
               </Text>
+            </View>
+
+            {/* Showcase Card: Consistency & Streaks */}
+            <View style={styles.showcaseCard}>
+              <View style={styles.cardHeaderRow}>
+                <View style={[styles.cardBadgePill, { backgroundColor: 'rgba(255, 113, 95, 0.15)', borderColor: 'rgba(255, 113, 95, 0.3)' }]}>
+                  <Flame size={11} color="#FF715F" style={{ marginRight: 5 }} />
+                  <Text style={[styles.cardBadgeText, { color: '#FF715F' }]}>HABIT CONSISTENCY</Text>
+                </View>
+                <View style={styles.scorePill}>
+                  <Text style={styles.scorePillText}>92% Score</Text>
+                </View>
+              </View>
+
+              <View style={styles.streakHeroRow}>
+                <View style={styles.streakFlameCircle}>
+                  <Flame size={24} color="#FF715F" />
+                </View>
+                <View style={styles.streakTextCol}>
+                  <Text style={styles.streakNumberHeadline}>12-Day Active Streak</Text>
+                  <Text style={styles.streakSubNote}>All daily routines completed consecutively</Text>
+                </View>
+              </View>
+
+              <View style={styles.biometricPairRow}>
+                <View style={styles.biometricBox}>
+                  <View style={styles.biometricBoxHeader}>
+                    <Moon size={12} color="#EAD66F" style={{ marginRight: 5 }} />
+                    <Text style={styles.biometricBoxTitle}>Circadian Sleep</Text>
+                  </View>
+                  <Text style={styles.biometricBoxValue}>7h 45m</Text>
+                  <Text style={styles.biometricBoxSub}>88% Recovery Score</Text>
+                </View>
+
+                <View style={styles.biometricBox}>
+                  <View style={styles.biometricBoxHeader}>
+                    <Droplet size={12} color="#4FA3E2" style={{ marginRight: 5 }} />
+                    <Text style={styles.biometricBoxTitle}>Hydration</Text>
+                  </View>
+                  <Text style={styles.biometricBoxValue}>3.2 L</Text>
+                  <Text style={styles.biometricBoxSub}>Daily Target Met</Text>
+                </View>
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -586,361 +664,507 @@ const styles = StyleSheet.create({
   carouselScrollView: {
     flex: 1,
   },
+  carouselContentContainer: {
+    flexGrow: 1,
+  },
   slideContainer: {
     flex: 1,
     justifyContent: 'space-between',
-    paddingHorizontal: 26,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingHorizontal: 22,
+    paddingTop: 4,
+    paddingBottom: 10,
   },
-
-  // Typography for Headlines & Subtitles
-  slideTextTop: {
-    marginTop: 8,
-  },
-  slideTextBottom: {
-    marginBottom: 8,
+  slideHeader: {
+    paddingTop: 4,
+    paddingBottom: 6,
   },
   slideHeadline: {
-    fontSize: 34,
+    fontSize: 28,
     fontFamily: Typography.fontFamilies.sansBold,
     color: '#FFFFFF',
     letterSpacing: -0.6,
-    lineHeight: 40,
-    marginBottom: 10,
+    lineHeight: 34,
+    marginBottom: 4,
   },
   greenHighlight: {
     color: '#52C480',
   },
   slideSubtitle: {
-    fontSize: Typography.fontSizes.sm + 0.5,
+    fontSize: Typography.fontSizes.xs + 1.5,
     fontFamily: Typography.fontFamilies.sansMedium,
-    color: '#8A9C8D',
-    lineHeight: 20,
+    color: '#8E9F91',
+    lineHeight: 18,
   },
 
-  // Slide 1 Visuals: Mascot on Hill
-  mascotVisualArea: {
-    height: 220,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    position: 'relative',
-    marginBottom: 12,
-  },
-  mascotWrapper: {
-    zIndex: 2,
-    marginBottom: -16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mascotImage: {
-    width: 148,
-    height: 148,
-  },
-  curvedPedestal: {
-    width: 250,
-    height: 90,
-    borderTopLeftRadius: 125,
-    borderTopRightRadius: 125,
-    backgroundColor: '#163321',
+  // Premium Showcase Card Container (fills the center void beautifully)
+  showcaseCard: {
+    backgroundColor: '#121814',
+    borderRadius: 22,
+    padding: 16,
     borderWidth: 1.2,
-    borderColor: '#265437',
-    borderBottomWidth: 0,
-    zIndex: 1,
-  },
-
-  // Slide 2 Visuals: Stacked Cards
-  cardsVisualArea: {
-    height: 230,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 10,
-  },
-  floatingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    borderRadius: 18,
-  },
-  floatingCardDark: {
-    width: 250,
-    height: 56,
-    backgroundColor: '#142017',
-    borderWidth: 1.2,
-    borderColor: '#223527',
-  },
-  floatingCardActive: {
-    width: 275,
-    height: 62,
-    backgroundColor: '#52C480',
-    borderWidth: 1.2,
-    borderColor: '#6FE09C',
-    shadowColor: '#52C480',
-    shadowOffset: { width: 0, height: 6 },
+    borderColor: '#223226',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.35,
     shadowRadius: 16,
-    elevation: 8,
+    elevation: 6,
+    marginVertical: 6,
+    width: '100%',
   },
-  cardIconCircleDark: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#1C2E22',
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  cardBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(82, 196, 128, 0.12)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(82, 196, 128, 0.28)',
+  },
+  cardBadgeText: {
+    color: '#52C480',
+    fontSize: 10,
+    fontFamily: Typography.fontFamilies.sansBold,
+    letterSpacing: 0.8,
+  },
+  livePulseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  pulseDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#52C480',
+    marginRight: 6,
+  },
+  liveText: {
+    color: '#8E9F91',
+    fontSize: 11,
+    fontFamily: Typography.fontFamilies.sansMedium,
+  },
+
+  // Slide 1 (AI Coach) Sub-elements
+  coachProfileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  coachAvatarCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: 'rgba(82, 196, 128, 0.16)',
+    borderWidth: 1.2,
+    borderColor: '#52C480',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
-  cardIconCircleActive: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    backgroundColor: '#38A763',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  cardTextCol: {
+  coachInfoCol: {
     flex: 1,
   },
-  cardTitleLight: {
+  coachNameText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
+  coachMetaText: {
+    color: '#8E9F91',
+    fontSize: 11,
+    fontFamily: Typography.fontFamilies.sansMedium,
+    marginTop: 2,
+  },
+  chatBubble: {
+    backgroundColor: '#18221B',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#243628',
+    marginBottom: 12,
+  },
+  chatBubbleText: {
+    color: '#D4E2D7',
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontFamily: Typography.fontFamilies.sansRegular,
+    fontStyle: 'italic',
+  },
+  cardFooterStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  featureChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#19251D',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#283B2E',
+  },
+  featureChipText: {
+    color: '#A0B4A4',
+    fontSize: 10.5,
+    fontFamily: Typography.fontFamilies.sansMedium,
+  },
+
+  // Slide 2 (Workouts) Sub-elements
+  timeTagText: {
+    color: '#8E9F91',
+    fontSize: 11,
+    fontFamily: Typography.fontFamilies.sansMedium,
+  },
+  workoutCardTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: Typography.fontFamilies.sansBold,
+    marginBottom: 8,
+  },
+  workoutMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    flexWrap: 'wrap',
+  },
+  metaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#19251D',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  metaChipText: {
+    color: '#D4E2D7',
+    fontSize: 11,
+    fontFamily: Typography.fontFamilies.sansMedium,
+  },
+  exerciseList: {
+    gap: 7,
+  },
+  exerciseItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#18221B',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#243628',
+  },
+  checkCircleActive: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#52C480',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  exerciseNameText: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontFamily: Typography.fontFamilies.sansMedium,
+  },
+  exerciseSetsText: {
+    color: '#8E9F91',
+    fontSize: 11.5,
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
+
+  // Slide 3 (AI Food Scanner) Sub-elements
+  accuracyPill: {
+    backgroundColor: 'rgba(82, 196, 128, 0.16)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  accuracyText: {
+    color: '#52C480',
+    fontSize: 10.5,
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
+  scannerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  miniReticleFrame: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    backgroundColor: '#18241D',
+    borderWidth: 1,
+    borderColor: '#263A2C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginRight: 14,
+  },
+  miniReticleCorner: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderColor: '#52C480',
+  },
+  mTL: {
+    top: 3,
+    left: 3,
+    borderTopWidth: 2,
+    borderLeftWidth: 2,
+    borderTopLeftRadius: 3,
+  },
+  mTR: {
+    top: 3,
+    right: 3,
+    borderTopWidth: 2,
+    borderRightWidth: 2,
+    borderTopRightRadius: 3,
+  },
+  mBL: {
+    bottom: 3,
+    left: 3,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
+    borderBottomLeftRadius: 3,
+  },
+  mBR: {
+    bottom: 3,
+    right: 3,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderBottomRightRadius: 3,
+  },
+  scannedFoodInfo: {
+    flex: 1,
+  },
+  scannedFoodTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: Typography.fontFamilies.sansBold,
+    marginBottom: 2,
+  },
+  scannedFoodSub: {
+    color: '#8E9F91',
+    fontSize: 11,
+    fontFamily: Typography.fontFamilies.sansMedium,
+    marginBottom: 4,
+  },
+  verifiedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  verifiedText: {
+    color: '#52C480',
+    fontSize: 10,
+    fontFamily: Typography.fontFamilies.sansMedium,
+  },
+  macroPillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  macroPill: {
+    flex: 1,
+    backgroundColor: '#18221B',
+    borderRadius: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#263A2C',
+  },
+  macroPillVal: {
     color: '#FFFFFF',
     fontSize: 14,
     fontFamily: Typography.fontFamilies.sansBold,
   },
-  cardSubtitleLight: {
-    color: '#7D9684',
-    fontSize: 11,
-    fontFamily: Typography.fontFamilies.sansMedium,
-    marginTop: 1,
-  },
-  cardTitleDark: {
-    color: '#0B180F',
-    fontSize: 15,
-    fontFamily: Typography.fontFamilies.sansBold,
-  },
-  cardSubtitleDark: {
-    color: '#15331E',
-    fontSize: 12,
-    fontFamily: Typography.fontFamilies.sansSemiBold,
-    marginTop: 1,
-  },
-
-  // Slide 3 Visuals: Trainer Hero
-  trainerVisualArea: {
-    height: 230,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    marginTop: 10,
-  },
-  trainerFrame: {
-    width: 175,
-    height: 195,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: '#233928',
-    backgroundColor: '#131B15',
-  },
-  trainerImage: {
-    width: '100%',
-    height: '100%',
-  },
-  trainerImageFade: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(9, 13, 10, 0.15)',
-  },
-  floatingPillLeft: {
-    position: 'absolute',
-    bottom: 6,
-    left: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(17, 26, 20, 0.94)',
-    borderWidth: 1.2,
-    borderColor: '#2A4331',
-    borderRadius: 18,
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  floatingPillRight: {
-    position: 'absolute',
-    top: 36,
-    right: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(17, 26, 20, 0.94)',
-    borderWidth: 1.2,
-    borderColor: '#2A4331',
-    borderRadius: 18,
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  floatingPillText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontFamily: Typography.fontFamilies.sansBold,
-  },
-
-  // Slide 4 Visuals: Reticle & Bowl
-  foodVisualArea: {
-    height: 230,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  scanMealBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(19, 29, 22, 0.95)',
-    borderWidth: 1.2,
-    borderColor: '#2A4331',
-    borderRadius: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    marginBottom: 12,
-  },
-  scanMealTitle: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontFamily: Typography.fontFamilies.sansBold,
-  },
-  scanMealSub: {
-    color: '#849E8A',
+  macroPillLbl: {
+    color: '#8E9F91',
     fontSize: 10,
     fontFamily: Typography.fontFamilies.sansMedium,
-  },
-  reticleFrame: {
-    width: 165,
-    height: 165,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  reticleCorner: {
-    position: 'absolute',
-    width: 22,
-    height: 22,
-    borderColor: '#52C480',
-  },
-  reticleTL: {
-    top: 0,
-    left: 0,
-    borderTopWidth: 2.5,
-    borderLeftWidth: 2.5,
-    borderTopLeftRadius: 6,
-  },
-  reticleTR: {
-    top: 0,
-    right: 0,
-    borderTopWidth: 2.5,
-    borderRightWidth: 2.5,
-    borderTopRightRadius: 6,
-  },
-  reticleBL: {
-    bottom: 0,
-    left: 0,
-    borderBottomWidth: 2.5,
-    borderLeftWidth: 2.5,
-    borderBottomLeftRadius: 6,
-  },
-  reticleBR: {
-    bottom: 0,
-    right: 0,
-    borderBottomWidth: 2.5,
-    borderRightWidth: 2.5,
-    borderBottomRightRadius: 6,
-  },
-  foodPlateCircle: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: '#162319',
-    borderWidth: 2,
-    borderColor: '#263C2B',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  foodPlateInner: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: '#203225',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-  },
-  foodGarnishRow: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  foodMorsel: {
-    width: 24,
-    height: 10,
-    borderRadius: 5,
-  },
-  foodPlateLabel: {
-    position: 'absolute',
-    bottom: 8,
-    color: '#B9CCBD',
-    fontSize: 9,
-    fontFamily: Typography.fontFamilies.sansBold,
+    marginTop: 2,
   },
 
-  // Slide 5 Visuals: Glowing Bar Chart
-  chartVisualArea: {
-    height: 230,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  streakBadge: {
+  // Slide 4 (Pedometer) Sub-elements
+  liveSensorPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(19, 29, 22, 0.95)',
-    borderWidth: 1.2,
-    borderColor: '#2A4331',
-    borderRadius: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    marginBottom: 16,
-    alignSelf: 'center',
+    backgroundColor: 'rgba(82, 196, 128, 0.14)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 8,
   },
-  streakNumber: {
+  liveSensorText: {
+    color: '#52C480',
+    fontSize: 10.5,
+    fontFamily: Typography.fontFamilies.sansMedium,
+  },
+  stepStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 10,
+  },
+  stepBigNumber: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    fontFamily: Typography.fontFamilies.sansBold,
+    lineHeight: 36,
+  },
+  stepTargetText: {
+    color: '#8E9F91',
+    fontSize: 11,
+    fontFamily: Typography.fontFamilies.sansMedium,
+    marginTop: 2,
+  },
+  goalPillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#19261E',
+    paddingVertical: 4,
+    paddingHorizontal: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#293E30',
+  },
+  goalPillText: {
+    color: '#52C480',
+    fontSize: 11,
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
+  stepProgressTrack: {
+    height: 8,
+    backgroundColor: '#19261E',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 14,
+  },
+  stepProgressBar: {
+    height: '100%',
+    backgroundColor: '#52C480',
+    borderRadius: 4,
+  },
+  subMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#18221B',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#243628',
+  },
+  subMetricItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  subMetricVal: {
     color: '#FFFFFF',
     fontSize: 13,
     fontFamily: Typography.fontFamilies.sansBold,
   },
-  streakLabel: {
-    color: '#849E8A',
+  subMetricLbl: {
+    color: '#8E9F91',
     fontSize: 10,
     fontFamily: Typography.fontFamilies.sansMedium,
+    marginTop: 2,
   },
-  barsRow: {
-    height: 130,
+  subMetricDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#263A2C',
+  },
+
+  // Slide 5 (Habits & Streaks) Sub-elements
+  scorePill: {
+    backgroundColor: 'rgba(255, 113, 95, 0.16)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  scorePillText: {
+    color: '#FF715F',
+    fontSize: 10.5,
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
+  streakHeroRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 12,
+    alignItems: 'center',
+    backgroundColor: '#1A231C',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#2B3B2E',
+    marginBottom: 12,
   },
-  barCol: {
-    width: 24,
+  streakFlameCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 113, 95, 0.16)',
+    borderWidth: 1.2,
+    borderColor: '#FF715F',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  streakTextCol: {
+    flex: 1,
+  },
+  streakNumberHeadline: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
+  streakSubNote: {
+    color: '#8E9F91',
+    fontSize: 11,
+    fontFamily: Typography.fontFamilies.sansMedium,
+    marginTop: 2,
+  },
+  biometricPairRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  biometricBox: {
+    flex: 1,
+    backgroundColor: '#18221B',
     borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#243628',
   },
-  barColPeak: {
-    height: 124,
-    backgroundColor: '#52C480',
-    shadowColor: '#52C480',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.6,
-    shadowRadius: 14,
-    elevation: 8,
+  biometricBoxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  biometricBoxTitle: {
+    color: '#A0B4A4',
+    fontSize: 11,
+    fontFamily: Typography.fontFamilies.sansMedium,
+  },
+  biometricBoxValue: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: Typography.fontFamilies.sansBold,
+    marginBottom: 2,
+  },
+  biometricBoxSub: {
+    color: '#6F8574',
+    fontSize: 9.5,
+    fontFamily: Typography.fontFamilies.sansMedium,
   },
 
   // Bottom Controls

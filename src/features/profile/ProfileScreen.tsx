@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Image,
   Pressable,
+  Modal,
+  ScrollView,
 } from 'react-native';
 import {
   ChevronRight,
@@ -13,8 +15,9 @@ import {
   RotateCcw,
   Sparkles,
   LogOut,
-  Shield,
-  CheckCircle,
+  Camera,
+  Check,
+  X,
 } from 'lucide-react-native';
 import { useApp } from '../../state/AppContext';
 import { useAuth } from '../../state/AuthContext';
@@ -23,7 +26,8 @@ import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
 import { ScreenContainer } from '../../components/common/ScreenContainer';
 import { SectionHeader } from '../../components/common/SectionHeader';
-import { WellnessGoal, LanguagePreference } from '../../types';
+import { LanguagePreference } from '../../types';
+import { AVATAR_PRESETS, getAvatarSource } from '../../constants/avatars';
 
 export const ProfileScreen: React.FC = () => {
   const {
@@ -34,48 +38,55 @@ export const ProfileScreen: React.FC = () => {
     triggerHaptic,
   } = useApp();
   const { signOut, profile: authProfile, user } = useAuth();
+  const [isAvatarPickerOpen, setIsAvatarPickerOpen] = useState<boolean>(false);
 
   const displayName = authProfile?.name || userProfile.name;
   const displayEmail = authProfile?.email || user?.email || 'alex.sharma@healthfreak.com';
-  const avatarSource = authProfile?.avatarUrl
-    ? { uri: authProfile.avatarUrl }
-    : require('../../../assets/images/user_avatar.jpg');
+
+  const currentAvatarId = userProfile.avatarUrl || authProfile?.avatarUrl;
+  const currentAvatarSource = getAvatarSource(currentAvatarId);
+  const currentPreset =
+    AVATAR_PRESETS.find((p) => p.id === currentAvatarId) || AVATAR_PRESETS[0];
 
   const handleSignOut = async () => {
     triggerHaptic('impact');
     await signOut();
   };
 
-  const goals: { id: WellnessGoal; label: string }[] = [
-    { id: 'weight_gain', label: 'Weight Gain & Muscle Building (+450 kcal Surplus)' },
-    { id: 'weight_loss', label: 'Weight Loss & Fat Reduction (-500 kcal Deficit)' },
-    { id: 'acne_control', label: 'Clear Skin & Acne Control (Sebum Balance)' },
-    { id: 'skincare_glow', label: 'Skincare Routine & Radiant Glow' },
-    { id: 'hair_health', label: 'Hair Growth & Anti-Hair Fall' },
-    { id: 'pcos_pcod', label: 'PCOS / PCOD Hormonal Balance' },
-    { id: 'metabolic_fitness', label: 'Metabolic Fitness & Energy' },
-  ];
-
   const languages: LanguagePreference[] = ['English', 'Hindi', 'Hinglish'];
-
-  const handleGoalSelect = (goal: WellnessGoal, label: string) => {
-    triggerHaptic('selection');
-    updateUserProfile({ selectedGoal: goal, goalLabel: label });
-  };
 
   const handleLanguageSelect = (lang: LanguagePreference) => {
     triggerHaptic('selection');
     updateUserProfile({ language: lang });
   };
 
+  const handleSelectAvatar = (avatarId: string) => {
+    triggerHaptic('impact');
+    updateUserProfile({ avatarUrl: avatarId });
+    setIsAvatarPickerOpen(false);
+  };
+
   return (
     <ScreenContainer scrollable={true}>
-      {/* Profile Header */}
+      {/* Profile Header with Interactive Avatar */}
       <View style={styles.profileHeader}>
-        <Image
-          source={avatarSource}
-          style={styles.avatarImage}
-        />
+        <Pressable
+          style={styles.avatarTouchable}
+          onPress={() => {
+            triggerHaptic('selection');
+            setIsAvatarPickerOpen(true);
+          }}
+          hitSlop={8}
+        >
+          <Image
+            source={currentAvatarSource}
+            style={styles.avatarImage}
+          />
+          <View style={styles.avatarEditBadge}>
+            <Camera size={13} color="#FFFFFF" />
+          </View>
+        </Pressable>
+
         <Text style={styles.profileName}>{displayName}</Text>
         <Text style={styles.profileEmailText}>{displayEmail}</Text>
         <View style={styles.badgeRow}>
@@ -89,62 +100,29 @@ export const ProfileScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Retake Health Questionnaire / Survey Card */}
+      {/* Avatar Section: Tap to open slide-up avatar picker */}
+      <SectionHeader title="Profile Avatar" />
       <Pressable
-        style={styles.retakeSurveyCard}
+        style={styles.avatarSectionCard}
         onPress={() => {
-          triggerHaptic('impact');
-          setActiveModal('onboarding');
+          triggerHaptic('selection');
+          setIsAvatarPickerOpen(true);
         }}
       >
-        <View style={styles.retakeIconCircle}>
-          <Sparkles size={20} color={Colors.coralCTA} />
+        <View style={styles.avatarMiniPreviewFrame}>
+          <Image source={currentAvatarSource} style={styles.avatarMiniImage} />
         </View>
-        <View style={styles.retakeTextCol}>
-          <Text style={styles.retakeTitle}>Retake Health & Nutrition Survey</Text>
-          <Text style={styles.retakeSub}>
-            Recalibrate your weight goals, acne/skincare concerns, and recalculate your daily protein, carbs & energy budget.
+        <View style={styles.avatarSectionInfo}>
+          <Text style={styles.avatarSectionTitle}>Choose Your Avatar</Text>
+          <Text style={styles.avatarSectionSub}>
+            {currentPreset.name} • 15 Gymrat & God personas available
           </Text>
         </View>
-        <ChevronRight size={18} color={Colors.textSecondary} />
+        <View style={styles.changeAvatarPill}>
+          <Text style={styles.changeAvatarText}>Change</Text>
+          <ChevronRight size={14} color="#52C480" />
+        </View>
       </Pressable>
-
-      {/* Primary Goal Selector */}
-      <SectionHeader title="Your Primary Health Goal" />
-      <View style={styles.goalsContainer}>
-        {goals.map((g) => {
-          const isSelected = userProfile.selectedGoal === g.id;
-          return (
-            <Pressable
-              key={g.id}
-              style={[
-                styles.goalItem,
-                isSelected && styles.goalItemSelected,
-              ]}
-              onPress={() => handleGoalSelect(g.id, g.label)}
-            >
-              <View style={styles.goalRow}>
-                <View
-                  style={[
-                    styles.goalRadioCircle,
-                    isSelected && styles.goalRadioCircleSelected,
-                  ]}
-                >
-                  {isSelected && <View style={styles.goalRadioInner} />}
-                </View>
-                <Text
-                  style={[
-                    styles.goalText,
-                    isSelected && styles.goalTextSelected,
-                  ]}
-                >
-                  {g.label}
-                </Text>
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
 
       {/* Language Preference */}
       <SectionHeader title="Language Preference" />
@@ -203,39 +181,12 @@ export const ProfileScreen: React.FC = () => {
         <ChevronRight size={18} color={Colors.textSecondary} />
       </Pressable>
 
-      {/* Account & Authentication Security */}
-      <SectionHeader title="Account & Identity Security" />
-      <View style={styles.authInfoCard}>
-        <View style={styles.authRow}>
-          <Text style={styles.authLabel}>Auth Provider</Text>
-          <View style={styles.authValueRow}>
-            <Shield size={14} color={Colors.forestGreenLight} style={{ marginRight: 6 }} />
-            <Text style={styles.authValue}>{authProfile?.authProvider === 'demo' ? 'Local Demo Account' : 'Google OAuth 2.0'}</Text>
-          </View>
-        </View>
-
-        <View style={styles.authDivider} />
-
-        <View style={styles.authRow}>
-          <Text style={styles.authLabel}>Identity Authority</Text>
-          <Text style={styles.authValue}>{authProfile?.authProvider === 'demo' ? 'On-Device Local Storage' : 'Supabase Cloud Auth'}</Text>
-        </View>
-
-        <View style={styles.authDivider} />
-
-        <View style={styles.authRow}>
-          <Text style={styles.authLabel}>Account Status</Text>
-          <View style={styles.authValueRow}>
-            <CheckCircle size={14} color={Colors.success} style={{ marginRight: 6 }} />
-            <Text style={[styles.authValue, { color: Colors.success }]}>Verified & Active</Text>
-          </View>
-        </View>
-      </View>
-
       {/* Logout Action */}
       <Pressable style={styles.logoutButton} onPress={handleSignOut}>
         <LogOut size={16} color="#FF6B6B" style={{ marginRight: 8 }} />
-        <Text style={styles.logoutButtonText}>{authProfile?.authProvider === 'demo' ? 'Sign Out of Demo Account' : 'Sign Out from Google'}</Text>
+        <Text style={styles.logoutButtonText}>
+          {authProfile?.authProvider === 'demo' ? 'Sign Out of Demo Account' : 'Sign Out from Google'}
+        </Text>
       </Pressable>
 
       {/* Privacy & Reset Section */}
@@ -253,6 +204,87 @@ export const ProfileScreen: React.FC = () => {
         <RotateCcw size={16} color={Colors.textMuted} />
         <Text style={styles.resetText}>Reset Prototype State</Text>
       </Pressable>
+
+      {/* Bottom Sheet Modal: 15 Stylized Avatars */}
+      <Modal
+        visible={isAvatarPickerOpen}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsAvatarPickerOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setIsAvatarPickerOpen(false)}
+          />
+          <View style={styles.bottomSheetContainer}>
+            <View style={styles.sheetHandle} />
+
+            <View style={styles.sheetHeader}>
+              <View style={styles.sheetHeaderLeft}>
+                <Text style={styles.sheetTitle}>Choose Profile Avatar</Text>
+                <Text style={styles.sheetSub}>
+                  Select an avatar that matches your grind and aesthetic
+                </Text>
+              </View>
+              <Pressable
+                style={styles.closeBtn}
+                onPress={() => setIsAvatarPickerOpen(false)}
+                hitSlop={10}
+              >
+                <X size={18} color="#8E9F91" />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              contentContainerStyle={styles.avatarGridContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.avatarGrid}>
+                {AVATAR_PRESETS.map((avatar) => {
+                  const isSelected =
+                    currentAvatarId === avatar.id ||
+                    (!currentAvatarId && avatar.id === 'avatar_1');
+                  return (
+                    <Pressable
+                      key={avatar.id}
+                      style={[
+                        styles.avatarCard,
+                        isSelected && styles.avatarCardSelected,
+                      ]}
+                      onPress={() => handleSelectAvatar(avatar.id)}
+                    >
+                      <View style={styles.avatarFrame}>
+                        <Image
+                          source={avatar.source}
+                          style={styles.avatarCardImage}
+                        />
+                        {isSelected && (
+                          <View style={styles.selectedCheckBadge}>
+                            <Check size={11} color="#FFFFFF" strokeWidth={3} />
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.avatarCardName,
+                          isSelected && styles.avatarCardNameSelected,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {avatar.name}
+                      </Text>
+                      <View style={styles.avatarTagPill}>
+                        <Text style={styles.avatarTagText}>{avatar.tag}</Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScreenContainer>
   );
 };
@@ -265,157 +297,34 @@ const styles = StyleSheet.create({
     borderBottomColor: '#202621',
     marginBottom: 16,
   },
-  avatarImage: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    borderWidth: 2,
-    borderColor: Colors.forestGreenLight,
+  avatarTouchable: {
+    position: 'relative',
     marginBottom: 12,
+  },
+  avatarImage: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    borderWidth: 2.2,
+    borderColor: '#52C480',
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#52C480',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#090D0A',
   },
   profileName: {
     color: Colors.textPrimary,
     fontSize: Typography.fontSizes.xl,
     fontFamily: Typography.fontFamilies.serif,
-  },
-  profileSubtext: {
-    color: Colors.textSecondary,
-    fontSize: Typography.fontSizes.xs,
-    fontFamily: Typography.fontFamilies.sansMedium,
-    marginTop: 4,
-  },
-  goalsContainer: {
-    gap: 8,
-    marginBottom: 20,
-  },
-  goalItem: {
-    backgroundColor: '#1C201D',
-    borderRadius: Spacing.borderRadius.md,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#262D28',
-  },
-  goalItemSelected: {
-    backgroundColor: '#233026',
-    borderColor: Colors.forestGreenLight,
-  },
-  goalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  goalRadioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#3E4940',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  goalRadioCircleSelected: {
-    borderColor: Colors.forestGreenLight,
-  },
-  goalRadioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.forestGreenLight,
-  },
-  goalText: {
-    color: Colors.textSecondary,
-    fontSize: Typography.fontSizes.sm,
-    fontFamily: Typography.fontFamilies.sansMedium,
-  },
-  goalTextSelected: {
-    color: Colors.textPrimary,
-    fontFamily: Typography.fontFamilies.sansSemiBold,
-  },
-  languageRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 20,
-  },
-  langChip: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: Spacing.borderRadius.md,
-    backgroundColor: '#1C201D',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#262D28',
-  },
-  langChipSelected: {
-    backgroundColor: '#355544',
-    borderColor: '#4E7A63',
-  },
-  langChipText: {
-    color: Colors.textSecondary,
-    fontSize: Typography.fontSizes.sm,
-    fontFamily: Typography.fontFamilies.sansMedium,
-  },
-  langChipTextSelected: {
-    color: '#FFFFFF',
-    fontFamily: Typography.fontFamilies.sansBold,
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1C201D',
-    borderRadius: Spacing.borderRadius.lg,
-    padding: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#262D28',
-  },
-  menuIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#262E28',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  menuTextCol: {
-    flex: 1,
-  },
-  menuTitle: {
-    color: Colors.textPrimary,
-    fontSize: Typography.fontSizes.sm + 1,
-    fontFamily: Typography.fontFamilies.sansSemiBold,
-  },
-  menuSub: {
-    color: Colors.textMuted,
-    fontSize: Typography.fontSizes.xs,
-    fontFamily: Typography.fontFamilies.sansRegular,
-    marginTop: 2,
-  },
-  privacyBox: {
-    backgroundColor: '#181E19',
-    borderRadius: Spacing.borderRadius.md,
-    padding: 14,
-    marginVertical: 18,
-    borderWidth: 1,
-    borderColor: '#242F26',
-  },
-  privacyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  privacyTitle: {
-    color: Colors.lightSage,
-    fontSize: Typography.fontSizes.xs,
-    fontFamily: Typography.fontFamilies.sansBold,
-  },
-  privacyText: {
-    color: Colors.textMuted,
-    fontSize: Typography.fontSizes.xs - 1,
-    fontFamily: Typography.fontFamilies.sansRegular,
-    lineHeight: 16,
   },
   profileEmailText: {
     color: Colors.textSecondary,
@@ -451,39 +360,133 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: Typography.fontFamilies.sansBold,
   },
-  authInfoCard: {
+  profileSubtext: {
+    color: Colors.textSecondary,
+    fontSize: Typography.fontSizes.xs,
+    fontFamily: Typography.fontFamilies.sansMedium,
+  },
+
+  // Avatar Section Card
+  avatarSectionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#161E18',
+    borderRadius: Spacing.borderRadius.lg,
+    padding: 14,
+    marginBottom: 18,
+    borderWidth: 1.2,
+    borderColor: '#243427',
+  },
+  avatarMiniPreviewFrame: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1.8,
+    borderColor: '#52C480',
+    overflow: 'hidden',
+    marginRight: 14,
+  },
+  avatarMiniImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarSectionInfo: {
+    flex: 1,
+  },
+  avatarSectionTitle: {
+    color: Colors.textPrimary,
+    fontSize: Typography.fontSizes.sm + 1,
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
+  avatarSectionSub: {
+    color: Colors.textSecondary,
+    fontSize: Typography.fontSizes.xs,
+    fontFamily: Typography.fontFamilies.sansMedium,
+    marginTop: 2,
+  },
+  changeAvatarPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(82, 196, 128, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(82, 196, 128, 0.3)',
+  },
+  changeAvatarText: {
+    color: '#52C480',
+    fontSize: 11,
+    fontFamily: Typography.fontFamilies.sansBold,
+    marginRight: 2,
+  },
+
+  // Language Selector
+  languageRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 20,
+  },
+  langChip: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: Spacing.borderRadius.md,
+    backgroundColor: '#1C201D',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#262D28',
+  },
+  langChipSelected: {
+    backgroundColor: '#355544',
+    borderColor: '#4E7A63',
+  },
+  langChipText: {
+    color: Colors.textSecondary,
+    fontSize: Typography.fontSizes.sm,
+    fontFamily: Typography.fontFamilies.sansMedium,
+  },
+  langChipTextSelected: {
+    color: '#FFFFFF',
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
+
+  // Menu Links
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#1C201D',
     borderRadius: Spacing.borderRadius.lg,
     padding: 16,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#262D28',
-    marginBottom: 14,
   },
-  authRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  menuIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#262E28',
     alignItems: 'center',
-    paddingVertical: 6,
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  authValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  menuTextCol: {
+    flex: 1,
   },
-  authLabel: {
-    color: Colors.textSecondary,
-    fontSize: Typography.fontSizes.xs + 1,
-    fontFamily: Typography.fontFamilies.sansMedium,
-  },
-  authValue: {
+  menuTitle: {
     color: Colors.textPrimary,
-    fontSize: Typography.fontSizes.xs + 1,
+    fontSize: Typography.fontSizes.sm + 1,
     fontFamily: Typography.fontFamilies.sansSemiBold,
   },
-  authDivider: {
-    height: 1,
-    backgroundColor: '#262D28',
-    marginVertical: 4,
+  menuSub: {
+    color: Colors.textMuted,
+    fontSize: Typography.fontSizes.xs,
+    fontFamily: Typography.fontFamilies.sansRegular,
+    marginTop: 2,
   },
+
+  // Logout Button
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -494,11 +497,39 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.borderRadius.lg,
     paddingVertical: 14,
     marginBottom: 10,
+    marginTop: 10,
   },
   logoutButtonText: {
     color: '#FF8585',
     fontSize: Typography.fontSizes.sm,
     fontFamily: Typography.fontFamilies.sansBold,
+  },
+
+  // Privacy & Reset
+  privacyBox: {
+    backgroundColor: '#181E19',
+    borderRadius: Spacing.borderRadius.md,
+    padding: 14,
+    marginVertical: 18,
+    borderWidth: 1,
+    borderColor: '#242F26',
+  },
+  privacyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  privacyTitle: {
+    color: Colors.lightSage,
+    fontSize: Typography.fontSizes.xs,
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
+  privacyText: {
+    color: Colors.textMuted,
+    fontSize: Typography.fontSizes.xs - 1,
+    fontFamily: Typography.fontFamilies.sansRegular,
+    lineHeight: 16,
   },
   resetButton: {
     flexDirection: 'row',
@@ -513,40 +544,142 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSizes.xs + 1,
     fontFamily: Typography.fontFamilies.sansMedium,
   },
-  retakeSurveyCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E2320',
-    borderRadius: Spacing.borderRadius.xl,
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 113, 95, 0.35)',
+
+  // Modal / Bottom Sheet Styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
   },
-  retakeIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 113, 95, 0.15)',
+  modalBackdrop: {
+    ...StyleSheet.absoluteFill,
+  },
+  bottomSheetContainer: {
+    backgroundColor: '#111713',
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderWidth: 1.2,
+    borderColor: '#243427',
+    borderBottomWidth: 0,
+    paddingTop: 12,
+    paddingBottom: 28,
+    paddingHorizontal: 20,
+    maxHeight: '80%',
+  },
+  sheetHandle: {
+    width: 42,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#354538',
+    alignSelf: 'center',
+    marginBottom: 14,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  sheetHeaderLeft: {
+    flex: 1,
+  },
+  sheetTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
+  sheetSub: {
+    color: '#8E9F91',
+    fontSize: 12,
+    fontFamily: Typography.fontFamilies.sansMedium,
+    marginTop: 2,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1B241E',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#28362B',
   },
-  retakeTextCol: {
-    flex: 1,
-    paddingRight: 8,
+  avatarGridContainer: {
+    paddingBottom: 20,
   },
-  retakeTitle: {
+  avatarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  avatarCard: {
+    width: '31%',
+    alignItems: 'center',
+    backgroundColor: '#161F18',
+    borderRadius: 16,
+    padding: 10,
+    borderWidth: 1.2,
+    borderColor: '#243327',
+    marginBottom: 2,
+  },
+  avatarCardSelected: {
+    borderColor: '#52C480',
+    backgroundColor: '#18271C',
+    shadowColor: '#52C480',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  avatarFrame: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    overflow: 'hidden',
+    position: 'relative',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#2C3E30',
+  },
+  avatarCardImage: {
+    width: '100%',
+    height: '100%',
+  },
+  selectedCheckBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#52C480',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#111713',
+  },
+  avatarCardName: {
+    color: '#E0EDE2',
+    fontSize: 10.5,
     fontFamily: Typography.fontFamilies.sansBold,
-    fontSize: Typography.fontSizes.sm,
-    color: Colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 4,
   },
-  retakeSub: {
-    fontFamily: Typography.fontFamilies.sansRegular,
-    fontSize: Typography.fontSizes.xs - 1,
-    color: Colors.textSecondary,
-    marginTop: 3,
-    lineHeight: 16,
+  avatarCardNameSelected: {
+    color: '#52C480',
+  },
+  avatarTagPill: {
+    backgroundColor: '#1C271F',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#27382B',
+  },
+  avatarTagText: {
+    color: '#8E9F91',
+    fontSize: 8.5,
+    fontFamily: Typography.fontFamilies.sansMedium,
   },
 });
-

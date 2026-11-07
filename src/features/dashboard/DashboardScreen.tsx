@@ -45,6 +45,7 @@ import { StepCounterCard } from '../activity/components/StepCounterCard';
 import { usePedometer } from '../activity/hooks/usePedometer';
 import { WaterBottleWidget } from './components/WaterBottleWidget';
 import { WaterTargetModal } from './components/WaterTargetModal';
+import { getAvatarSource } from '../../constants/avatars';
 
 export const DashboardScreen: React.FC = () => {
   const {
@@ -201,7 +202,7 @@ export const DashboardScreen: React.FC = () => {
           onPress={() => setActiveTab('profile')}
         >
           <Image
-            source={require('../../../assets/images/user_avatar.jpg')}
+            source={getAvatarSource(userProfile.avatarUrl)}
             style={styles.avatarImage}
           />
         </Pressable>
