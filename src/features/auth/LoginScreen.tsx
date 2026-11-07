@@ -33,7 +33,7 @@ import { ArrowRight, AlertCircle, X } from 'lucide-react-native';
 import { useAuth } from '../../state/AuthContext';
 import { Typography } from '../../theme/typography';
 import { GoogleLogo } from '../../components/illustrations/GoogleLogo';
-import { IOSButton } from '../../components/common/IOSButton';
+import { LiquidGlassButton, LiquidGlassTheme } from '../../components/common/LiquidGlassButton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BUTTON_WIDTH = Math.min(SCREEN_WIDTH - 44, 380);
@@ -258,6 +258,9 @@ export const LoginScreen: React.FC = () => {
     transform: [{ scale: googleContentScale.value }],
   }));
 
+  const activeTheme: LiquidGlassTheme =
+    activeIndex === 0 ? 'chrome' : activeIndex === 1 ? 'silk' : 'prismatic';
+
   return (
     <Animated.View style={[styles.root, animatedRoot]}>
       {/* Full-bleed 3-slide artwork carousel (Zero text over photos) */}
@@ -346,14 +349,13 @@ export const LoginScreen: React.FC = () => {
           })}
         </View>
 
-        {/* PREMIUM MINIMAL iOS WARM ORANGE CAPSULE BUTTON */}
-        <IOSButton
+        {/* AUTHENTIC LIQUID GLASS BUTTON (DIFFERENT STYLED BUTTON ON EACH SLIDE) */}
+        <LiquidGlassButton
+          theme={activeTheme}
           onPress={handleButtonPress}
           disabled={isAuthenticating}
           loading={isAuthenticating}
           loadingText="Connecting with Google..."
-          variant="orange"
-          size="lg"
           style={{ width: BUTTON_WIDTH }}
         >
           {activeIndex === 2 && isTransformedToGoogle ? (
@@ -369,7 +371,7 @@ export const LoginScreen: React.FC = () => {
             <View style={styles.contentWrapper}>
               <Animated.View style={[styles.contentRow, animatedButtonText]}>
                 <Text style={styles.buttonLabel}>Your Health Wingman</Text>
-                <ArrowRight size={18} color="#FFFBF7" strokeWidth={2.4} style={{ marginLeft: 8 }} />
+                <ArrowRight size={18} color="#FAFAFA" strokeWidth={2.4} style={{ marginLeft: 8 }} />
               </Animated.View>
 
               {/* Pre-mounted Google content transitioning in */}
@@ -390,10 +392,10 @@ export const LoginScreen: React.FC = () => {
             /* States 1 & 2: "Crush Your Goals" & "Know Every Bite" */
             <Animated.View style={[styles.contentRow, animatedButtonText]}>
               <Text style={styles.buttonLabel}>{getButtonLabel()}</Text>
-              <ArrowRight size={18} color="#FFFBF7" strokeWidth={2.4} style={{ marginLeft: 8 }} />
+              <ArrowRight size={18} color="#FAFAFA" strokeWidth={2.4} style={{ marginLeft: 8 }} />
             </Animated.View>
           )}
-        </IOSButton>
+        </LiquidGlassButton>
       </View>
     </Animated.View>
   );
@@ -457,12 +459,12 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     width: 24,
-    backgroundColor: '#FF7738',
-    shadowColor: '#E04A08',
+    backgroundColor: '#FAFAFA',
+    shadowColor: '#FFFFFF',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 3,
   },
   dotInactive: {
     width: 6,
