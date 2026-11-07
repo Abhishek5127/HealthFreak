@@ -33,7 +33,7 @@ import { Typography } from '../../theme/typography';
 export const ActivityScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { setActiveModal, setActiveTab, triggerHaptic } = useApp();
-  const [activeTabMode] = useState<'journey' | 'technical'>('journey');
+  const [activeTabMode, setActiveTabMode] = useState<'pedometer' | 'journey'>('pedometer');
 
   const {
     todaySteps,
@@ -56,18 +56,6 @@ export const ActivityScreen: React.FC = () => {
   const [showGoalModal, setShowGoalModal] = useState<boolean>(false);
   const [showPermissionModal, setShowPermissionModal] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
-
-  if (activeTabMode === 'journey') {
-    return (
-      <FitnessJourneyScreen
-        onClose={() => setActiveModal(null)}
-        onNavigateToProgress={() => {
-          setActiveModal(null);
-          setActiveTab('progress');
-        }}
-      />
-    );
-  }
 
   const percentage = stepGoal > 0 ? todaySteps / stepGoal : 0;
   const isGoalReached = todaySteps >= stepGoal && stepGoal > 0;
@@ -104,7 +92,9 @@ export const ActivityScreen: React.FC = () => {
           <ArrowLeft size={22} color={Colors.textPrimary} />
         </Pressable>
 
-        <Text style={styles.screenTitle}>Activity & Steps</Text>
+        <Text style={styles.screenTitle}>
+          {activeTabMode === 'journey' ? 'Fitness Journey' : 'Activity & Steps'}
+        </Text>
 
         <View style={styles.topRightActions}>
           <Pressable
@@ -127,10 +117,66 @@ export const ActivityScreen: React.FC = () => {
         </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      {/* Segment Switcher */}
+      <View style={styles.segmentContainer}>
+        <Pressable
+          style={[styles.segmentBtn, activeTabMode === 'pedometer' && styles.segmentBtnActive]}
+          onPress={() => {
+            triggerHaptic?.('selection');
+            setActiveTabMode('pedometer');
+          }}
+        >
+          <Footprints
+            size={13}
+            color={activeTabMode === 'pedometer' ? '#FFFFFF' : Colors.textSecondary}
+            style={{ marginRight: 6 }}
+          />
+          <Text
+            style={[
+              styles.segmentBtnText,
+              activeTabMode === 'pedometer' && styles.segmentBtnTextActive,
+            ]}
+          >
+            Pedometer & Steps
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={[styles.segmentBtn, activeTabMode === 'journey' && styles.segmentBtnActive]}
+          onPress={() => {
+            triggerHaptic?.('selection');
+            setActiveTabMode('journey');
+          }}
+        >
+          <TrendingUp
+            size={13}
+            color={activeTabMode === 'journey' ? '#FFFFFF' : Colors.textSecondary}
+            style={{ marginRight: 6 }}
+          />
+          <Text
+            style={[
+              styles.segmentBtnText,
+              activeTabMode === 'journey' && styles.segmentBtnTextActive,
+            ]}
+          >
+            Fitness Journey
+          </Text>
+        </Pressable>
+      </View>
+
+      {activeTabMode === 'journey' ? (
+        <FitnessJourneyScreen
+          onClose={() => setActiveModal(null)}
+          onNavigateToProgress={() => {
+            setActiveModal(null);
+            setActiveTab('progress');
+          }}
+        />
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
         {/* Web Notice Banner */}
         {Platform.OS === 'web' && (
           <View style={styles.webNoticeBanner}>
@@ -271,6 +317,7 @@ export const ActivityScreen: React.FC = () => {
           )}
         </View>
       </ScrollView>
+      )}
 
       {/* Step Goal Customizer Modal */}
       <StepGoalModal
@@ -501,5 +548,35 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamilies.sansRegular,
     marginTop: 10,
     textAlign: 'center',
+  },
+  segmentContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#161C18',
+    borderRadius: 14,
+    padding: 4,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#242D26',
+  },
+  segmentBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  segmentBtnActive: {
+    backgroundColor: '#26332B',
+  },
+  segmentBtnText: {
+    fontFamily: Typography.fontFamilies.sansMedium,
+    fontSize: Typography.fontSizes.xs,
+    color: Colors.textSecondary,
+  },
+  segmentBtnTextActive: {
+    fontFamily: Typography.fontFamilies.sansBold,
+    color: '#FFFFFF',
   },
 });

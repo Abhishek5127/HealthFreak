@@ -41,6 +41,8 @@ import { SectionHeader } from '../../components/common/SectionHeader';
 import { ProgressMetricCard } from '../../components/cards/ProgressMetricCard';
 import { CheckInCharacterView } from '../../components/illustrations/CheckInCharacters';
 import { SAMPLE_MEAL_TEMPLATES } from '../../mock-data/sampleMealTemplates';
+import { StepCounterCard } from '../activity/components/StepCounterCard';
+import { usePedometer } from '../activity/hooks/usePedometer';
 import { WaterBottleWidget } from './components/WaterBottleWidget';
 import { WaterTargetModal } from './components/WaterTargetModal';
 
@@ -68,6 +70,18 @@ export const DashboardScreen: React.FC = () => {
   const [showWaterTargetModal, setShowWaterTargetModal] = useState<boolean>(false);
   const [isSyncingData, setIsSyncingData] = useState<boolean>(false);
   const [lastSyncBadge, setLastSyncBadge] = useState<string>('Just now');
+
+  const {
+    todaySteps,
+    stepGoal,
+    distanceMeters,
+    caloriesBurned,
+    activeMinutes,
+    permissionStatus,
+    isAvailable,
+    isTracking,
+    requestPermissions,
+  } = usePedometer();
 
   const handleManualSync = async () => {
     if (isSyncingData) return;
@@ -731,6 +745,20 @@ export const DashboardScreen: React.FC = () => {
         title="Your progress"
         actionText="Detailed stats"
         onActionPress={() => setActiveModal('activity_detail')}
+      />
+
+      {/* Native Hardware Step Counter & Live Pedometer Card */}
+      <StepCounterCard
+        todaySteps={todaySteps}
+        stepGoal={stepGoal}
+        distanceMeters={distanceMeters}
+        caloriesBurned={caloriesBurned}
+        activeMinutes={activeMinutes}
+        permissionStatus={permissionStatus}
+        isAvailable={isAvailable}
+        isTracking={isTracking}
+        onPress={() => setActiveModal('activity_detail')}
+        onRequestPermission={requestPermissions}
       />
 
       <View style={styles.progressCardsRow}>
