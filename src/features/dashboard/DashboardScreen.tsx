@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Image,
   View,
@@ -23,9 +23,6 @@ import {
   Check,
   Sun,
   Activity,
-  Database,
-  RefreshCw,
-  CheckCheck,
 } from 'lucide-react-native';
 import { useApp } from '../../state/AppContext';
 import { ActivitySyncService } from '../activity/services/activitySyncService';
@@ -62,13 +59,10 @@ export const DashboardScreen: React.FC = () => {
     setCustomWaterTarget,
     resetWaterLogged,
     pedometerState,
-    triggerHaptic,
   } = useApp();
 
   const [showWaterTargetModal, setShowWaterTargetModal] = useState<boolean>(false);
   const [showNutritionModal, setShowNutritionModal] = useState<boolean>(false);
-  const [isSyncingData, setIsSyncingData] = useState<boolean>(false);
-  const [lastSyncBadge, setLastSyncBadge] = useState<string>('Just now');
 
   const {
     todaySteps,
@@ -81,28 +75,6 @@ export const DashboardScreen: React.FC = () => {
     isTracking,
     requestPermissions,
   } = usePedometer();
-
-  const handleManualSync = async () => {
-    if (isSyncingData) return;
-    setIsSyncingData(true);
-    triggerHaptic?.('selection');
-    try {
-      await Promise.all([
-        ActivitySyncService.syncDailyWater(
-          userProfile.id || 'usr_synthetic_alex',
-          waterLoggedMl,
-          effectiveTargetMl
-        ),
-        ActivitySyncService.syncActivities(userProfile.id || 'usr_synthetic_alex', false),
-      ]);
-      setLastSyncBadge('Just now');
-      triggerHaptic?.('success');
-    } catch {
-      // Graceful fallback
-    } finally {
-      setIsSyncingData(false);
-    }
-  };
 
   // Focus workout for Today's Highlight
   const focusWorkout =
@@ -203,6 +175,46 @@ export const DashboardScreen: React.FC = () => {
   const fatsPct = todaysNutrition.fatTarget > 0
     ? Math.min(100, Math.round((todaysNutrition.fatTotal / todaysNutrition.fatTarget) * 100))
     : 0;
+
+  // Automatic scheduled sync (syncs data silently in the background at night / periodically according to time)
+  useEffect(() => {
+    const triggerAutoNightSync = async () => {
+      try {
+        await Promise.all([
+          ActivitySyncService.syncDailyWater(
+            userProfile.id || 'usr_synthetic_alex',
+            waterLoggedMl,
+            effectiveTargetMl
+          ),
+          ActivitySyncService.syncActivities(userProfile.id || 'usr_synthetic_alex', false),
+        ]);
+      } catch {
+        // Silent background fallback
+      }
+    };
+
+    // Calculate time until next midnight to sync automatically
+    const now = new Date();
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5);
+    const msUntilMidnight = Math.max(1000, nextMidnight.getTime() - now.getTime());
+
+    const midnightTimer = setTimeout(() => {
+      triggerAutoNightSync();
+    }, msUntilMidnight);
+
+    // Also periodic background check every 30 mins (syncs if late night between 10PM and 2AM)
+    const interval = setInterval(() => {
+      const currentHour = new Date().getHours();
+      if (currentHour >= 22 || currentHour < 2) {
+        triggerAutoNightSync();
+      }
+    }, 30 * 60 * 1000);
+
+    return () => {
+      clearTimeout(midnightTimer);
+      clearInterval(interval);
+    };
+  }, [userProfile.id, waterLoggedMl, effectiveTargetMl]);
 
   return (
     <ScreenContainer scrollable={true}>
@@ -567,33 +579,18 @@ export const DashboardScreen: React.FC = () => {
         onResetWater={resetWaterLogged}
       />
 
-      {/* 8b. DAILY HEALTH & DATABASE SYNC SUMMARY */}
+      {/* 8b. DAILY ACTIVITY SUMMARY */}
       <View style={styles.dbSummaryCard}>
         <View style={styles.dbSummaryHeader}>
           <View style={styles.dbSummaryTitleRow}>
             <View style={styles.dbIconBadge}>
-              <Database size={15} color={Colors.forestGreenLight} />
+              <Activity size={16} color={Colors.forestGreenLight} />
             </View>
             <View>
-              <Text style={styles.dbSummaryTitle}>Daily Activity & Database Sync</Text>
-              <Text style={styles.dbSummarySub}>Stored locally & synced with cloud</Text>
+              <Text style={styles.dbSummaryTitle}>Daily Activity</Text>
+              <Text style={styles.dbSummarySub}>Today&apos;s movement and hydration overview</Text>
             </View>
           </View>
-
-          <Pressable
-            style={styles.dbSyncActionBtn}
-            onPress={handleManualSync}
-            disabled={isSyncingData}
-          >
-            <RefreshCw
-              size={13}
-              color={Colors.forestGreenLight}
-              style={[isSyncingData && { transform: [{ rotate: '45deg' }] }, { marginRight: 5 }]}
-            />
-            <Text style={styles.dbSyncActionText}>
-              {isSyncingData ? 'Syncing...' : 'Sync Now'}
-            </Text>
-          </Pressable>
         </View>
 
         {/* 2x2 Metric Summary Grid */}
@@ -674,17 +671,6 @@ export const DashboardScreen: React.FC = () => {
             <Text style={styles.dbMetricSub}>
               {pedometerState.activeMinutes || 0} active minutes
             </Text>
-          </View>
-        </View>
-
-        <View style={styles.dbStatusFooter}>
-          <View style={styles.dbStatusPill}>
-            <View style={styles.dbStatusDot} />
-            <Text style={styles.dbStatusText}>Auto-resets at midnight • Database sync enabled</Text>
-          </View>
-          <View style={styles.dbSyncIndicator}>
-            <CheckCheck size={13} color="#7AE69E" style={{ marginRight: 4 }} />
-            <Text style={styles.dbSyncIndicatorText}>{lastSyncBadge}</Text>
           </View>
         </View>
       </View>
@@ -1523,10 +1509,11 @@ const styles = StyleSheet.create({
     color: Colors.coralCTA,
   },
   dbSummaryCard: {
-    backgroundColor: 'rgba(16, 26, 20, 0.78)',
+    backgroundColor: '#1E2320',
     borderRadius: 22,
     padding: 16,
-    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#2A302B',
     marginBottom: 20,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 10 },
@@ -1565,24 +1552,11 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 1,
   },
-  dbSyncActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(74, 184, 122, 0.14)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  dbSyncActionText: {
-    fontFamily: Typography.fontFamilies.sansBold,
-    fontSize: Typography.fontSizes.xs - 1,
-    color: Colors.forestGreenLight,
-  },
   dbMetricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginBottom: 12,
+    marginBottom: 0,
   },
   dbMetricTile: {
     flexBasis: '47%',
@@ -1623,39 +1597,5 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamilies.sansRegular,
     fontSize: 10,
     color: Colors.textSecondary,
-  },
-  dbStatusFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  dbStatusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  dbStatusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#7AE69E',
-    marginRight: 6,
-  },
-  dbStatusText: {
-    fontFamily: Typography.fontFamilies.sansRegular,
-    fontSize: 10,
-    color: Colors.textSecondary,
-  },
-  dbSyncIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dbSyncIndicatorText: {
-    fontFamily: Typography.fontFamilies.sansMedium,
-    fontSize: 10,
-    color: '#7AE69E',
   },
 });
