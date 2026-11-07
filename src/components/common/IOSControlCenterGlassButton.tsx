@@ -22,8 +22,6 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import { ChevronsUpDown } from 'lucide-react-native';
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 const SPECULAR_LEFT = require('../../../assets/liquidGlass/specular-map-left.png');
 const SPECULAR_RIGHT = require('../../../assets/liquidGlass/specular-map-right.png');
 const GRAIN_TEXTURE = require('../../../assets/images/glass_grain_texture.png');
@@ -116,134 +114,148 @@ export const IOSControlCenterGlassButton: React.FC<IOSControlCenterGlassButtonPr
   const iconPodSize = Math.max(height - 18, 42);
 
   return (
-    <AnimatedPressable
-      testID={testID}
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      disabled={disabled || loading}
+    <Animated.View
       style={[
-        styles.container,
+        styles.shadowContainer,
         { height, borderRadius },
-        variant === 'frostedDark' && styles.borderDark,
-        variant === 'frostedOlive' && styles.borderOlive,
-        variant === 'frostedCoral' && styles.borderCoral,
-        disabled && styles.disabled,
         animatedStyle,
         style,
       ]}
+      renderToHardwareTextureAndroid={true}
     >
-      {/* 1. Underlying Native Frosted Blur (expo-blur) */}
-      <View style={[StyleSheet.absoluteFill, { borderRadius, overflow: 'hidden' }]}>
-        <BlurView
-          intensity={Platform.OS === 'ios' ? 65 : 45}
-          tint={variant === 'frostedCoral' ? 'dark' : 'dark'}
-          style={StyleSheet.absoluteFill}
-        />
-        {/* Tint overlay layer for contrast over vibrant wallpapers */}
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            variant === 'frostedDark' && styles.tintDark,
-            variant === 'frostedOlive' && styles.tintOlive,
-            variant === 'frostedCoral' && styles.tintCoral,
-          ]}
-        />
-      </View>
-
-      {/* 2. Micro-etched Sandblasted Glass Grain Noise */}
-      <Image
-        source={GRAIN_TEXTURE}
-        style={[StyleSheet.absoluteFill, styles.grainTexture, { borderRadius }]}
-        contentFit="cover"
-        pointerEvents="none"
-      />
-
-      {/* 3. Inset 3D Specular Curvature Caps (from liquid-glass lens reflections) */}
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.specularWrapper, { borderRadius }]}>
-        <Image
-          source={SPECULAR_LEFT}
-          style={[styles.specularCap, { width: height / 2, height }]}
-          contentFit="fill"
-        />
-        <View style={styles.specularFlexSpacer} />
-        <Image
-          source={SPECULAR_RIGHT}
-          style={[styles.specularCap, { width: height / 2, height }]}
-          contentFit="fill"
-        />
-      </View>
-
-      {/* 4. Top Specular Sheen Line (Incidence Light) */}
-      <View pointerEvents="none" style={styles.topSheenLine} />
-
-      {/* 5. Capsule Content */}
-      {loading ? (
-        <View style={styles.contentRow}>
-          <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 10 }} />
-          {loadingText ? (
-            <Text style={[styles.titleText, textStyle]}>{loadingText}</Text>
-          ) : null}
+      <Pressable
+        testID={testID}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        unstable_pressDelay={0}
+        android_disableSound={true}
+        disabled={disabled || loading}
+        style={[
+          styles.container,
+          { height, borderRadius },
+          variant === 'frostedDark' && styles.borderDark,
+          variant === 'frostedOlive' && styles.borderOlive,
+          variant === 'frostedCoral' && styles.borderCoral,
+          disabled && styles.disabled,
+        ]}
+      >
+        {/* 1. Underlying Native Frosted Blur (expo-blur) */}
+        <View style={[StyleSheet.absoluteFill, { borderRadius, overflow: 'hidden' }]}>
+          <BlurView
+            intensity={Platform.OS === 'ios' ? 65 : 45}
+            tint="dark"
+            style={StyleSheet.absoluteFill}
+          />
+          {/* Tint overlay layer for contrast over vibrant wallpapers */}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              variant === 'frostedDark' && styles.tintDark,
+              variant === 'frostedOlive' && styles.tintOlive,
+              variant === 'frostedCoral' && styles.tintCoral,
+            ]}
+          />
         </View>
-      ) : children ? (
-        children
-      ) : (
-        <View style={styles.contentRow}>
-          {/* Left Inset Circular Frosted Glass Pod */}
-          {icon ? (
-            <View
-              style={[
-                styles.iconPod,
-                { width: iconPodSize, height: iconPodSize, borderRadius: iconPodSize / 2 },
-                variant === 'frostedOlive' && styles.iconPodOlive,
-                variant === 'frostedCoral' && styles.iconPodCoral,
-              ]}
+
+        {/* 2. Micro-etched Sandblasted Glass Grain Noise */}
+        <Image
+          source={GRAIN_TEXTURE}
+          style={[StyleSheet.absoluteFill, styles.grainTexture, { borderRadius }]}
+          contentFit="cover"
+          pointerEvents="none"
+        />
+
+        {/* 3. Inset 3D Specular Curvature Caps (from liquid-glass lens reflections) */}
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.specularWrapper, { borderRadius }]}>
+          <Image
+            source={SPECULAR_LEFT}
+            style={[styles.specularCap, { width: height / 2, height }]}
+            contentFit="fill"
+          />
+          <View style={styles.specularFlexSpacer} />
+          <Image
+            source={SPECULAR_RIGHT}
+            style={[styles.specularCap, { width: height / 2, height }]}
+            contentFit="fill"
+          />
+        </View>
+
+        {/* 4. Top Specular Sheen Line (Incidence Light) */}
+        <View pointerEvents="none" style={styles.topSheenLine} />
+
+        {/* 5. Capsule Content */}
+        {loading ? (
+          <View style={styles.contentRow}>
+            <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 10 }} />
+            {loadingText ? (
+              <Text style={[styles.titleText, textStyle]}>{loadingText}</Text>
+            ) : null}
+          </View>
+        ) : children ? (
+          children
+        ) : (
+          <View style={styles.contentRow}>
+            {/* Left Inset Circular Frosted Glass Pod */}
+            {icon ? (
+              <View
+                style={[
+                  styles.iconPod,
+                  { width: iconPodSize, height: iconPodSize, borderRadius: iconPodSize / 2 },
+                  variant === 'frostedOlive' && styles.iconPodOlive,
+                  variant === 'frostedCoral' && styles.iconPodCoral,
+                ]}
+              >
+                {icon}
+              </View>
+            ) : (
+              <View style={{ width: 14 }} />
+            )}
+
+            {/* Centered Typography */}
+            <Text
+              style={[styles.titleText, textStyle]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
             >
-              {icon}
-            </View>
-          ) : (
-            <View style={{ width: 14 }} />
-          )}
+              {title}
+            </Text>
 
-          {/* Centered Typography */}
-          <Text
-            style={[styles.titleText, textStyle]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {title}
-          </Text>
-
-          {/* Right Indicator (iOS Control Center chevrons) */}
-          {!hideRightIndicator ? (
-            <View style={styles.rightIndicatorContainer}>
-              {rightIndicator ? (
-                rightIndicator
-              ) : (
-                <ChevronsUpDown size={16} color="rgba(255, 255, 255, 0.62)" strokeWidth={2.4} />
-              )}
-            </View>
-          ) : (
-            <View style={{ width: 14 }} />
-          )}
-        </View>
-      )}
-    </AnimatedPressable>
+            {/* Right Indicator (iOS Control Center chevrons) */}
+            {!hideRightIndicator ? (
+              <View style={styles.rightIndicatorContainer}>
+                {rightIndicator ? (
+                  rightIndicator
+                ) : (
+                  <ChevronsUpDown size={16} color="rgba(255, 255, 255, 0.62)" strokeWidth={2.4} />
+                )}
+              </View>
+            ) : (
+              <View style={{ width: 14 }} />
+            )}
+          </View>
+        )}
+      </Pressable>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-    position: 'relative',
-    overflow: 'hidden',
+  shadowContainer: {
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.38,
     shadowRadius: 20,
     elevation: 8,
+  },
+  container: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    position: 'relative',
+    overflow: 'hidden',
   },
   // Variant Borders (Optical Glass Specular Rims)
   borderDark: {
