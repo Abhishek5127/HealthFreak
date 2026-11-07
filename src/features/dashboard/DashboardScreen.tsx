@@ -7,10 +7,6 @@ import {
   Pressable,
 } from 'react-native';
 import {
-  Svg,
-  Circle,
-} from 'react-native-svg';
-import {
   Bell,
   Crown,
   Footprints,
@@ -21,21 +17,15 @@ import {
   Zap,
   ChevronRight,
   Camera,
-  Utensils,
-  History,
   Droplet,
   Sliders,
   Heart,
   Check,
   Sun,
   Activity,
-  Trash2,
   Database,
   RefreshCw,
   CheckCheck,
-  Wheat,
-  Info,
-  ArrowRight,
 } from 'lucide-react-native';
 import { useApp } from '../../state/AppContext';
 import { ActivitySyncService } from '../activity/services/activitySyncService';
@@ -51,6 +41,7 @@ import { StepCounterCard } from '../activity/components/StepCounterCard';
 import { usePedometer } from '../activity/hooks/usePedometer';
 import { WaterBottleWidget } from './components/WaterBottleWidget';
 import { WaterTargetModal } from './components/WaterTargetModal';
+import { NutritionDetailModal } from './components/NutritionDetailModal';
 import { AppAvatar } from '../../components/common/AppAvatar';
 
 export const DashboardScreen: React.FC = () => {
@@ -75,6 +66,7 @@ export const DashboardScreen: React.FC = () => {
   } = useApp();
 
   const [showWaterTargetModal, setShowWaterTargetModal] = useState<boolean>(false);
+  const [showNutritionModal, setShowNutritionModal] = useState<boolean>(false);
   const [isSyncingData, setIsSyncingData] = useState<boolean>(false);
   const [lastSyncBadge, setLastSyncBadge] = useState<string>('Just now');
 
@@ -337,271 +329,147 @@ export const DashboardScreen: React.FC = () => {
         </View>
       </Pressable>
 
-      {/* 6. DAILY NUTRITION & AI MEAL SCANNER (PERSONALIZED MACRO TARGETS) */}
-      <View style={styles.nutritionSectionHeader}>
-        <Text style={styles.nutritionTitleWhite}>Personalized</Text>
-        <Text style={styles.nutritionTitleEmerald}>Nutrition & Macros</Text>
-        <Text style={styles.nutritionSubtitle}>Fuel your body the smart way ✨</Text>
+      {/* 6. DAILY NUTRITION & MACROS (COMPACT GLANCEABLE CARD) */}
+      <View style={styles.compactNutritionHeaderRow}>
+        <Text style={styles.compactSectionTitle}>Nutrition & Macros</Text>
+        <Pressable
+          style={styles.seeBreakdownBtn}
+          onPress={() => setShowNutritionModal(true)}
+        >
+          <Text style={styles.seeBreakdownText}>View Breakdown</Text>
+          <ChevronRight size={14} color={Colors.coralCTA} />
+        </Pressable>
       </View>
 
-      {/* Main Glass Card: Daily Energy Budget & Macros */}
-      <View style={styles.energyBudgetCard}>
-        {/* Top Header of Card */}
-        <View style={styles.energyBudgetTopRow}>
-          <Text style={styles.energyBudgetTitle}>Daily Energy Budget</Text>
-          <Text style={styles.energyBudgetSub}>Track your calories and stay on target</Text>
-        </View>
-
-        {/* Center Metrics: Circular Gauge + 3 Macro Columns */}
-        <View style={styles.energyBudgetMetricsRow}>
-          {/* Circular Progress Gauge */}
-          <View style={styles.circularGaugeBox}>
-            <Svg width={118} height={118} viewBox="0 0 120 120">
-              {/* Background Arc (260 deg) */}
-              <Circle
-                cx={60}
-                cy={60}
-                r={46}
-                stroke="rgba(34, 197, 94, 0.16)"
-                strokeWidth={7.5}
-                strokeDasharray="216.77 72.26"
-                strokeLinecap="round"
-                fill="none"
-                transform="rotate(135 60 60)"
-              />
-              {/* Active Progress Arc */}
-              <Circle
-                cx={60}
-                cy={60}
-                r={46}
-                stroke="#22C55E"
-                strokeWidth={7.5}
-                strokeDasharray={`${Math.max(0.1, (caloriePct / 100) * 216.77)} 300`}
-                strokeLinecap="round"
-                fill="none"
-                transform="rotate(135 60 60)"
-              />
-              {/* Accent marker dot at top */}
-              <Circle cx={60} cy={14} r={4.5} fill="#FFFFFF" />
-              <Circle cx={60} cy={14} r={7.5} stroke="rgba(34, 197, 94, 0.45)" strokeWidth={1.5} fill="none" />
-            </Svg>
-
-            <View style={styles.gaugeCenterContent}>
-              <Flame size={17} color="#22C55E" style={{ marginBottom: 2 }} />
-              <Text style={styles.gaugeKcalValue}>{todaysNutrition.caloriesTotal}</Text>
-              <Text style={styles.gaugeKcalTarget}>/ {todaysNutrition.caloriesTarget} kcal</Text>
-              <View style={styles.gaugePctBadge}>
-                <Text style={styles.gaugePctText}>{caloriePct}%</Text>
-              </View>
+      <Pressable
+        style={styles.compactNutritionCard}
+        onPress={() => setShowNutritionModal(true)}
+      >
+        <View style={styles.compactCardTopRow}>
+          <View style={styles.compactCalorieLeft}>
+            <View style={styles.compactFlameIconBox}>
+              <Flame size={16} color={Colors.coralCTA} />
+            </View>
+            <View>
+              <Text style={styles.compactKcalValue}>
+                {todaysNutrition.caloriesTotal}{' '}
+                <Text style={styles.compactKcalTarget}>/ {todaysNutrition.caloriesTarget} kcal</Text>
+              </Text>
+              <Text style={styles.compactKcalSub}>
+                {Math.max(0, todaysNutrition.caloriesTarget - todaysNutrition.caloriesTotal)} kcal left • {caloriePct}% consumed
+              </Text>
             </View>
           </View>
 
-          {/* 3 Macro Columns */}
-          <View style={styles.macroColumnsBox}>
+          <Pressable
+            style={styles.compactScanActionBtn}
+            onPress={(e) => {
+              e.stopPropagation();
+              openMealScanner();
+            }}
+          >
+            <Camera size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
+            <Text style={styles.compactScanActionText}>Scan Meal</Text>
+          </Pressable>
+        </View>
+
+        {/* Content Row: Parallel Macros on the Left, Food Image on the Right directly under Scan Meal */}
+        <View style={styles.compactCardBodyRow}>
+          {/* Left: Protein, Carbs, Fats stacked parallel to each other */}
+          <View style={styles.compactMacrosCol}>
             {/* Protein */}
-            <View style={styles.macroStatCol}>
-              <View style={styles.macroLabelRow}>
-                <Dumbbell size={13} color="#FB7185" style={{ marginRight: 4 }} />
-                <Text style={styles.macroStatName}>Protein</Text>
+            <View style={styles.compactMacroItem}>
+              <View style={styles.compactMacroLabelRow}>
+                <View style={styles.compactMacroTitleRow}>
+                  <View style={[styles.compactMacroDot, { backgroundColor: '#FB7185' }]} />
+                  <Text style={styles.compactMacroName}>Protein</Text>
+                </View>
+                <Text style={styles.compactMacroNumbers}>
+                  {todaysNutrition.proteinTotal}
+                  <Text style={styles.compactMacroTarget}>/{todaysNutrition.proteinTarget}g</Text>
+                </Text>
               </View>
-              <Text style={styles.macroStatAmount}>
-                {todaysNutrition.proteinTotal} / {todaysNutrition.proteinTarget}g
-              </Text>
-              <View style={styles.macroTrackBg}>
+              <View style={styles.compactMacroTrack}>
                 <View
                   style={[
-                    styles.macroTrackFill,
+                    styles.compactMacroFill,
                     { width: `${proteinPct}%`, backgroundColor: '#FB7185' },
                   ]}
                 />
               </View>
-              <Text style={styles.macroPctText}>{proteinPct}%</Text>
             </View>
 
-            {/* Vertical Divider */}
-            <View style={styles.macroDividerLine} />
-
             {/* Carbs */}
-            <View style={styles.macroStatCol}>
-              <View style={styles.macroLabelRow}>
-                <Wheat size={13} color="#FBBF24" style={{ marginRight: 4 }} />
-                <Text style={styles.macroStatName}>Carbs</Text>
+            <View style={styles.compactMacroItem}>
+              <View style={styles.compactMacroLabelRow}>
+                <View style={styles.compactMacroTitleRow}>
+                  <View style={[styles.compactMacroDot, { backgroundColor: '#FBBF24' }]} />
+                  <Text style={styles.compactMacroName}>Carbs</Text>
+                </View>
+                <Text style={styles.compactMacroNumbers}>
+                  {todaysNutrition.carbsTotal}
+                  <Text style={styles.compactMacroTarget}>/{todaysNutrition.carbsTarget}g</Text>
+                </Text>
               </View>
-              <Text style={styles.macroStatAmount}>
-                {todaysNutrition.carbsTotal} / {todaysNutrition.carbsTarget}g
-              </Text>
-              <View style={styles.macroTrackBg}>
+              <View style={styles.compactMacroTrack}>
                 <View
                   style={[
-                    styles.macroTrackFill,
+                    styles.compactMacroFill,
                     { width: `${carbsPct}%`, backgroundColor: '#FBBF24' },
                   ]}
                 />
               </View>
-              <Text style={styles.macroPctText}>{carbsPct}%</Text>
             </View>
 
-            {/* Vertical Divider */}
-            <View style={styles.macroDividerLine} />
-
             {/* Fats */}
-            <View style={styles.macroStatCol}>
-              <View style={styles.macroLabelRow}>
-                <Droplet size={13} color="#A78BFA" style={{ marginRight: 4 }} />
-                <Text style={styles.macroStatName}>Fats</Text>
+            <View style={styles.compactMacroItem}>
+              <View style={styles.compactMacroLabelRow}>
+                <View style={styles.compactMacroTitleRow}>
+                  <View style={[styles.compactMacroDot, { backgroundColor: '#A78BFA' }]} />
+                  <Text style={styles.compactMacroName}>Fats</Text>
+                </View>
+                <Text style={styles.compactMacroNumbers}>
+                  {todaysNutrition.fatTotal}
+                  <Text style={styles.compactMacroTarget}>/{todaysNutrition.fatTarget}g</Text>
+                </Text>
               </View>
-              <Text style={styles.macroStatAmount}>
-                {todaysNutrition.fatTotal} / {todaysNutrition.fatTarget}g
-              </Text>
-              <View style={styles.macroTrackBg}>
+              <View style={styles.compactMacroTrack}>
                 <View
                   style={[
-                    styles.macroTrackFill,
+                    styles.compactMacroFill,
                     { width: `${fatsPct}%`, backgroundColor: '#A78BFA' },
                   ]}
                 />
               </View>
-              <Text style={styles.macroPctText}>{fatsPct}%</Text>
             </View>
+          </View>
+
+          {/* Right: Food Image directly below Scan Meal */}
+          <View style={styles.compactFoodImageBox}>
+            <Image
+              source={require('../../../assets/images/nutrition/healthy_bowl_clean.png')}
+              style={styles.compactFoodImage}
+              resizeMode="cover"
+            />
           </View>
         </View>
-      </View>
+      </Pressable>
 
-      {/* Amber Target Advice Banner */}
-      <View style={styles.amberAdviceBanner}>
-        <View style={styles.amberIconCircle}>
-          <Info size={15} color="#F59E0B" />
-        </View>
-        <Text style={styles.amberAdviceText}>
-          {goalMacroExplainer}
-        </Text>
-        <Pressable style={styles.amberTipsBtn} onPress={() => setActiveTab('coach')}>
-          <Text style={styles.amberTipsText}>View Tips</Text>
-          <ArrowRight size={12} color="#F59E0B" style={{ marginLeft: 2 }} />
-        </Pressable>
-      </View>
+      {/* Full Detailed Nutrition Bottom Sheet Modal */}
+      <NutritionDetailModal
+        visible={showNutritionModal}
+        onClose={() => setShowNutritionModal(false)}
+        todaysNutrition={todaysNutrition}
+        recentMeals={recentMeals}
+        goalMacroExplainer={goalMacroExplainer}
+        onScanMeal={openMealScanner}
+        onOpenMealResult={openMealResult}
+        onDeleteMeal={deleteMealFromDiary}
+        onNavigateProgress={() => setActiveTab('progress')}
+        onNavigateCoach={() => setActiveTab('coach')}
+      />
 
-      {/* 30-Day Food Diary Card */}
-      <View style={styles.foodDiaryCard}>
-        <View style={styles.diaryHeaderRow}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <History size={16} color="#34D399" />
-            <Text style={styles.diaryHeaderTitle}>30-Day Food Diary</Text>
-            <View style={styles.diaryReadyBadge}>
-              <Text style={styles.diaryReadyText}>{recentMeals.length > 0 ? 'Active' : 'Ready'}</Text>
-            </View>
-          </View>
-          <Pressable
-            style={{ flexDirection: 'row', alignItems: 'center' }}
-            onPress={() => setActiveTab('progress')}
-          >
-            <Text style={styles.diaryViewHistoryText}>View History</Text>
-            <ArrowRight size={13} color="#34D399" style={{ marginLeft: 3 }} />
-          </Pressable>
-        </View>
-
-        <View style={styles.diaryContentRow}>
-          <Image
-            source={require('../../../assets/images/nutrition/healthy_bowl_clean.png')}
-            style={styles.diaryBowlImage}
-            resizeMode="contain"
-          />
-          <View style={{ flex: 1, paddingHorizontal: 10 }}>
-            <Text style={styles.diaryMainHeadline}>
-              {recentMeals.length} Meals Logged • {todaysNutrition.proteinTarget}g Target
-            </Text>
-            <Text style={styles.diarySubHeadline}>
-              Log your meals to track progress and hit your goals!
-            </Text>
-          </View>
-          <Pressable style={styles.diaryLogMealBtn} onPress={openMealScanner}>
-            <Camera size={13} color="#34D399" style={{ marginRight: 4 }} />
-            <Text style={styles.diaryLogMealBtnText}>Scan Meal</Text>
-          </Pressable>
-        </View>
-
-        {/* Logged Meals Details if items exist */}
-        {recentMeals.length > 0 && (
-          <View style={styles.loggedMealsContainer}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <Text style={styles.loggedMealsTitle}>Logged Today ({recentMeals.length}):</Text>
-              <Pressable onPress={openMealScanner}>
-                <Text style={{ fontSize: 11, color: '#34D399', fontWeight: '700' }}>+ Scan Another</Text>
-              </Pressable>
-            </View>
-            {recentMeals.map((meal) => (
-              <Pressable
-                key={meal.id}
-                style={styles.loggedMealItem}
-                onPress={() => openMealResult(meal)}
-              >
-                <View style={styles.loggedMealIcon}>
-                  <Utensils size={14} color={Colors.lightSage} />
-                </View>
-                <View style={styles.loggedMealInfo}>
-                  <Text style={styles.loggedMealName} numberOfLines={1}>{meal.mealName}</Text>
-                  <Text style={styles.loggedMealSub}>
-                    {meal.totalNutrition.calories} kcal • {meal.totalNutrition.proteinGrams}g P • {meal.totalNutrition.carbsGrams}g C • {meal.totalNutrition.fatGrams}g F
-                  </Text>
-                </View>
-                <Pressable
-                  style={{ padding: 6, marginLeft: 8 }}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    deleteMealFromDiary(meal.id);
-                  }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Trash2 size={16} color={Colors.coralCTA} />
-                </Pressable>
-              </Pressable>
-            ))}
-          </View>
-        )}
-      </View>
-
-      {/* 7. GOAL-SPECIFIC FEATURE MODULE (WEIGHT GAIN / LOSS / SKINCARE) */}
-      {currentGoal === 'weight_gain' && (
-        <View style={styles.goalFeatureCard}>
-          <View style={styles.goalFeatureHeader}>
-            <View style={styles.goalFeatureIcon}>
-              <Dumbbell size={18} color={Colors.forestGreenLight} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.goalFeatureTitle}>Hypertrophy Surplus & Mass Fuel</Text>
-              <Text style={styles.goalFeatureSub}>
-                {Math.max(0, todaysNutrition.caloriesTarget - todaysNutrition.caloriesTotal)} kcal left to hit today&apos;s surplus
-              </Text>
-            </View>
-            <View style={styles.featurePillTag}>
-              <Text style={styles.featurePillTagText}>+450 kcal</Text>
-            </View>
-          </View>
-
-          <View style={styles.massFoodsRow}>
-            <Pressable
-              style={styles.massFoodChip}
-              onPress={() => {
-                const s = SAMPLE_MEAL_TEMPLATES.find((t) => t.id === 'sample_meal_sattu_shake') || SAMPLE_MEAL_TEMPLATES[0];
-                openMealResult(s);
-              }}
-            >
-              <Text style={styles.massFoodChipTitle}>Banana Sattu Shake 👆</Text>
-              <Text style={styles.massFoodChipSub}>430 kcal • 24g Protein • Quick Log</Text>
-            </Pressable>
-            <Pressable
-              style={styles.massFoodChip}
-              onPress={() => {
-                const s = SAMPLE_MEAL_TEMPLATES.find((t) => t.id === 'sample_meal_paneer_roti') || SAMPLE_MEAL_TEMPLATES[0];
-                openMealResult(s);
-              }}
-            >
-              <Text style={styles.massFoodChipTitle}>Paneer Bhurji & 3 Roti 👆</Text>
-              <Text style={styles.massFoodChipSub}>540 kcal • 28g Protein • Quick Log</Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
+      {/* 7. GOAL-SPECIFIC FEATURE MODULE (WEIGHT LOSS / SKINCARE) */}
 
       {currentGoal === 'weight_loss' && (
         <View style={styles.goalFeatureCard}>
@@ -1181,323 +1049,161 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     marginTop: 8,
   },
-  nutritionTitleWhite: {
-    fontFamily: Typography.fontFamilies.serif,
-    fontSize: 21,
-    color: '#FFFFFF',
-    lineHeight: 25,
-    letterSpacing: -0.4,
-  },
-  nutritionTitleEmerald: {
-    fontFamily: Typography.fontFamilies.serif,
-    fontSize: 21,
-    color: '#34D399',
-    lineHeight: 25,
-    letterSpacing: -0.4,
-  },
-  nutritionSubtitle: {
-    fontFamily: Typography.fontFamilies.sansMedium,
-    fontSize: 12,
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-
-  // Daily Energy Budget Card
-  energyBudgetCard: {
-    backgroundColor: '#0D2017',
-    borderRadius: 22,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: 'rgba(52, 211, 153, 0.25)',
-    marginBottom: 12,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  energyBudgetTopRow: {
-    marginBottom: 14,
-  },
-  energyBudgetTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontFamily: Typography.fontFamilies.sansBold,
-  },
-  energyBudgetSub: {
-    color: '#94A3B8',
-    fontSize: 11.5,
-    fontFamily: Typography.fontFamilies.sansRegular,
-    marginTop: 2,
-  },
-  energyBudgetMetricsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  circularGaugeBox: {
-    width: 118,
-    height: 118,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  gaugeCenterContent: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  gaugeKcalValue: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontFamily: Typography.fontFamilies.sansBold,
-    lineHeight: 24,
-  },
-  gaugeKcalTarget: {
-    color: '#94A3B8',
-    fontSize: 10,
-    fontFamily: Typography.fontFamilies.sansRegular,
-    marginTop: 1,
-  },
-  gaugePctBadge: {
-    backgroundColor: '#091A11',
-    borderRadius: 10,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(52, 211, 153, 0.3)',
-    marginTop: 4,
-  },
-  gaugePctText: {
-    color: '#34D399',
-    fontSize: 9.5,
-    fontFamily: Typography.fontFamilies.sansBold,
-  },
-  macroColumnsBox: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginLeft: 12,
-  },
-  macroStatCol: {
-    flex: 1,
-    alignItems: 'flex-start',
-    paddingHorizontal: 4,
-  },
-  macroDividerLine: {
-    width: 1,
-    height: 48,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  macroLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  macroStatName: {
-    color: '#FFFFFF',
-    fontSize: 11.5,
-    fontFamily: Typography.fontFamilies.sansBold,
-  },
-  macroStatAmount: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontFamily: Typography.fontFamilies.sansBold,
-    marginTop: 3,
-    marginBottom: 5,
-  },
-  macroTrackBg: {
-    width: '100%',
-    height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.09)',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  macroTrackFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  macroPctText: {
-    color: '#94A3B8',
-    fontSize: 9.5,
-    fontFamily: Typography.fontFamilies.sansMedium,
-    marginTop: 4,
-  },
-
-  // Amber Advice Banner
-  amberAdviceBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(38, 25, 10, 0.75)',
-    borderWidth: 1.2,
-    borderColor: 'rgba(245, 158, 11, 0.45)',
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 12,
-  },
-  amberIconCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(245, 158, 11, 0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  amberAdviceText: {
-    flex: 1,
-    color: '#FDE68A',
-    fontSize: 11.5,
-    lineHeight: 15.5,
-    fontFamily: Typography.fontFamilies.sansMedium,
-  },
-  amberTipsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(56, 35, 12, 0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.4)',
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginLeft: 8,
-  },
-  amberTipsText: {
-    color: '#F59E0B',
-    fontSize: 11,
-    fontFamily: Typography.fontFamilies.sansBold,
-  },
-
-  // 30-Day Food Diary Card
-  foodDiaryCard: {
-    backgroundColor: '#0D2017',
-    borderRadius: 20,
-    padding: 14,
-    borderWidth: 1.2,
-    borderColor: 'rgba(52, 211, 153, 0.22)',
-    marginBottom: 12,
-  },
-  diaryHeaderRow: {
+  // Compact Nutrition Widget Styles
+  compactNutritionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  diaryHeaderTitle: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: Typography.fontFamilies.sansBold,
-    marginLeft: 6,
-  },
-  diaryReadyBadge: {
-    backgroundColor: 'rgba(52, 211, 153, 0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(52, 211, 153, 0.35)',
-    borderRadius: 10,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    marginLeft: 8,
-  },
-  diaryReadyText: {
-    color: '#34D399',
-    fontSize: 9.5,
-    fontFamily: Typography.fontFamilies.sansBold,
-  },
-  diaryViewHistoryText: {
-    color: '#34D399',
-    fontSize: 11.5,
-    fontFamily: Typography.fontFamilies.sansBold,
-  },
-  diaryContentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  diaryBowlImage: {
-    width: 68,
-    height: 54,
-    borderRadius: 10,
-  },
-  diaryMainHeadline: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontFamily: Typography.fontFamilies.sansBold,
-  },
-  diarySubHeadline: {
-    color: '#94A3B8',
-    fontSize: 11,
-    fontFamily: Typography.fontFamilies.sansRegular,
-    marginTop: 2,
-    lineHeight: 14,
-  },
-  diaryLogMealBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(52, 211, 153, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(52, 211, 153, 0.4)',
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  diaryLogMealBtnText: {
-    color: '#34D399',
-    fontSize: 11.5,
-    fontFamily: Typography.fontFamilies.sansBold,
-  },
-
-  // Logged Meals Styles
-  loggedMealsContainer: {
-    borderTopWidth: 1,
-    borderTopColor: '#1E3B2B',
-    paddingTop: 12,
-    marginTop: 12,
-  },
-  loggedMealsTitle: {
-    color: Colors.textSecondary,
-    fontSize: Typography.fontSizes.xs,
-    fontFamily: Typography.fontFamilies.sansBold,
     marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    marginTop: 6,
   },
-  loggedMealItem: {
+  compactSectionTitle: {
+    fontFamily: Typography.fontFamilies.serif,
+    fontSize: Typography.fontSizes.lg,
+    color: Colors.textPrimary,
+  },
+  seeBreakdownBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#122B1E',
-    padding: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     borderRadius: 12,
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(52, 211, 153, 0.12)',
+    backgroundColor: '#263128',
+    gap: 4,
   },
-  loggedMealIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#0D2017',
+  seeBreakdownText: {
+    fontFamily: Typography.fontFamilies.sansBold,
+    fontSize: Typography.fontSizes.xs - 1,
+    color: Colors.coralCTA,
+  },
+  compactNutritionCard: {
+    backgroundColor: '#1E2320',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#2A302B',
+    marginBottom: 16,
+  },
+  compactCardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  compactCalorieLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  compactFlameIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 113, 95, 0.14)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   },
-  loggedMealInfo: {
-    flex: 1,
-  },
-  loggedMealName: {
+  compactKcalValue: {
     color: Colors.textPrimary,
-    fontSize: Typography.fontSizes.sm,
+    fontSize: Typography.fontSizes.md,
     fontFamily: Typography.fontFamilies.sansBold,
   },
-  loggedMealSub: {
+  compactKcalTarget: {
     color: Colors.textSecondary,
-    fontSize: Typography.fontSizes.xs - 1,
+    fontSize: Typography.fontSizes.xs,
     fontFamily: Typography.fontFamilies.sansRegular,
-    marginTop: 2,
   },
-
+  compactKcalSub: {
+    color: Colors.textSecondary,
+    fontSize: 10.5,
+    fontFamily: Typography.fontFamilies.sansRegular,
+    marginTop: 1,
+  },
+  compactScanActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.forestGreenLight,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+  },
+  compactScanActionText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
+  compactCardBodyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 0,
+  },
+  compactMacrosCol: {
+    flex: 1,
+    marginRight: 14,
+  },
+  compactMacroItem: {
+    marginBottom: 6,
+  },
+  compactMacroLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 3,
+  },
+  compactMacroTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  compactMacroDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  compactMacroName: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    fontFamily: Typography.fontFamilies.sansMedium,
+  },
+  compactMacroNumbers: {
+    color: Colors.textPrimary,
+    fontSize: 11,
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
+  compactMacroTarget: {
+    color: Colors.textSecondary,
+    fontSize: 9.5,
+    fontFamily: Typography.fontFamilies.sansRegular,
+  },
+  compactMacroTrack: {
+    width: '100%',
+    height: 4,
+    backgroundColor: '#2B312C',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  compactMacroFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  compactFoodImageBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#161A17',
+    borderWidth: 1,
+    borderColor: '#2A302B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactFoodImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 14,
+  },
 
   goalFeatureCard: {
     backgroundColor: Colors.surfaceCard,
