@@ -151,7 +151,7 @@ export const PlanActivityCard: React.FC<PlanActivityCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#1C201D',
+    backgroundColor: '#1E2320',
     borderRadius: Spacing.borderRadius.lg,
     padding: 16,
     marginBottom: 12,
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
     borderColor: '#262D28',
   },
   cardCompleted: {
-    backgroundColor: '#181E19',
+    backgroundColor: '#1E2320',
     borderColor: '#27382B',
     opacity: 0.88,
   },

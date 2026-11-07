@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
   speakingIndicator: {
     position: 'absolute',
     bottom: -6,
-    backgroundColor: '#191C1A',
+    backgroundColor: '#1E2320',
     borderRadius: 10,
     padding: 3,
     borderWidth: 1,

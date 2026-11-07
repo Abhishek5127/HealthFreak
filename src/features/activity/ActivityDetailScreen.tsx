@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   stepDetailsCard: {
-    backgroundColor: '#1C201D',
+    backgroundColor: '#1E2320',
     borderRadius: Spacing.borderRadius.lg,
     padding: 20,
     marginVertical: 14,
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    backgroundColor: '#1C201D',
+    backgroundColor: '#1E2320',
     borderRadius: Spacing.borderRadius.lg,
     paddingVertical: 18,
     paddingHorizontal: 16,

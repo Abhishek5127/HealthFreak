@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   uploadCard: {
-    backgroundColor: '#1C221E',
+    backgroundColor: '#1E2320',
     borderRadius: Spacing.borderRadius.xl,
     padding: 22,
     alignItems: 'center',
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#202823',
+    backgroundColor: '#1E2320',
     borderRadius: Spacing.borderRadius.md,
     padding: 14,
     marginBottom: 16,
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamilies.sansMedium,
   },
   coachSummaryCard: {
-    backgroundColor: '#1E2721',
+    backgroundColor: '#1E2320',
     borderRadius: Spacing.borderRadius.xl,
     padding: 18,
     marginBottom: 20,
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamilies.sansRegular,
   },
   biomarkerCard: {
-    backgroundColor: '#1C201D',
+    backgroundColor: '#1E2320',
     borderRadius: Spacing.borderRadius.lg,
     padding: 16,
     marginBottom: 10,
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamilies.sansRegular,
   },
   insightBox: {
-    backgroundColor: '#181E19',
+    backgroundColor: '#1E2320',
     borderRadius: Spacing.borderRadius.sm,
     padding: 12,
     marginTop: 10,

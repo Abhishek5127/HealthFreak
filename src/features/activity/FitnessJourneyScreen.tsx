@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
   },
   segmentedContainer: {
     flexDirection: 'row',
-    backgroundColor: '#161D19',
+    backgroundColor: '#1E2320',
     borderRadius: 22,
     padding: 4,
     marginBottom: 14,
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
   dateCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#161D19',
+    backgroundColor: '#1E2320',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 14,
@@ -595,7 +595,7 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamilies.sansMedium,
   },
   stepsCard: {
-    backgroundColor: '#161D19',
+    backgroundColor: '#1E2320',
     borderRadius: 22,
     padding: 18,
     borderWidth: 1,
@@ -681,7 +681,7 @@ const styles = StyleSheet.create({
   },
   statCardHalf: {
     flex: 1,
-    backgroundColor: '#161D19',
+    backgroundColor: '#1E2320',
     borderRadius: 22,
     padding: 16,
     borderWidth: 1,
@@ -760,7 +760,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#161D19',
+    backgroundColor: '#1E2320',
     borderRadius: 20,
     padding: 16,
     borderWidth: 1,
@@ -816,7 +816,7 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: '100%',
-    backgroundColor: '#161D19',
+    backgroundColor: '#1E2320',
     borderRadius: 24,
     padding: 22,
     borderWidth: 1,

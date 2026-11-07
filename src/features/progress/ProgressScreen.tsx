@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamilies.sansMedium,
   },
   chartCard: {
-    backgroundColor: '#1C201D',
+    backgroundColor: '#1E2320',
     borderRadius: Spacing.borderRadius.xl,
     padding: 18,
     marginBottom: 20,
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   },
   gridCard: {
     width: '48%',
-    backgroundColor: '#1C201D',
+    backgroundColor: '#1E2320',
     borderRadius: Spacing.borderRadius.lg,
     padding: 16,
     borderWidth: 1,
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   nutritionTrendCard: {
-    backgroundColor: '#1C201D',
+    backgroundColor: '#1E2320',
     borderRadius: Spacing.borderRadius.xl,
     padding: 16,
     marginBottom: 20,

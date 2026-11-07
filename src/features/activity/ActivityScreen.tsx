@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   statusCard: {
-    backgroundColor: '#161A17',
+    backgroundColor: '#1E2320',
     borderRadius: 20,
     padding: 18,
     borderWidth: 1,

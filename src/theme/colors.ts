@@ -1,7 +1,7 @@
 export const Colors = {
   // Base backgrounds
   background: '#111311',
-  surfacePrimary: '#191C1A',
+  surfacePrimary: '#1E2320',
   surfaceSecondary: '#242925',
   surfaceElevated: '#2B312C',
   surfaceCard: '#1E2320',

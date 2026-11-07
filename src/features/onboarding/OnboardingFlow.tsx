@@ -1405,7 +1405,7 @@ const styles = StyleSheet.create({
     color: '#8A9E90',
   },
   goalCard: {
-    backgroundColor: '#18201B',
+    backgroundColor: '#1E2320',
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: '#26342B',
@@ -1461,7 +1461,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   noneOfTheAboveCard: {
-    backgroundColor: '#18201B',
+    backgroundColor: '#1E2320',
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: '#26342B',

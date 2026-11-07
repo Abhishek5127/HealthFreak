@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
   sessionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#161D19',
+    backgroundColor: '#1E2320',
     borderRadius: 18,
     padding: 14,
     borderWidth: 1,

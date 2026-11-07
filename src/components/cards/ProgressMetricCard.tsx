@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     minWidth: 104,
-    backgroundColor: '#1C201D',
+    backgroundColor: '#1E2320',
     borderRadius: Spacing.borderRadius.lg,
     paddingVertical: 14,
     paddingHorizontal: 10,

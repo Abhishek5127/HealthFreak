@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   avatarSectionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#161E18',
+    backgroundColor: '#1E2320',
     borderRadius: Spacing.borderRadius.lg,
     padding: 14,
     marginBottom: 18,
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     borderRadius: Spacing.borderRadius.md,
-    backgroundColor: '#1C201D',
+    backgroundColor: '#1E2320',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1C201D',
+    backgroundColor: '#1E2320',
     borderRadius: Spacing.borderRadius.lg,
     padding: 16,
     marginBottom: 10,
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
 
   // Privacy & Reset
   privacyBox: {
-    backgroundColor: '#181E19',
+    backgroundColor: '#1E2320',
     borderRadius: Spacing.borderRadius.md,
     padding: 14,
     marginVertical: 18,
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
   avatarCard: {
     width: '31%',
     alignItems: 'center',
-    backgroundColor: '#161F18',
+    backgroundColor: '#1E2320',
     borderRadius: 16,
     padding: 10,
     borderWidth: 1.2,
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
   },
   avatarCardSelected: {
     borderColor: '#52C480',
-    backgroundColor: '#18271C',
+    backgroundColor: '#1E2320',
     shadowColor: '#52C480',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
