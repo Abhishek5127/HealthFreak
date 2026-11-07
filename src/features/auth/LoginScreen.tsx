@@ -342,17 +342,17 @@ export const LoginScreen: React.FC = () => {
           })}
         </View>
 
-        {/* APPLE CONTROL CENTER STYLE #ff715f FULL GLASS BUTTON */}
+        {/* APPLE CONTROL CENTER STYLE GREEN FROSTED GLASS BUTTON (IMAGE 2) */}
         <Animated.View style={[styles.buttonOuterWrapper, animatedButton]}>
-          {/* Subtle diffuse coral aura */}
-          <View style={styles.coralGlowAura} />
+          {/* Subtle diffuse green aura */}
+          <View style={styles.greenGlowAura} />
 
           <Pressable
             onPress={handleButtonPress}
             disabled={isAuthenticating}
             style={styles.glassButton}
           >
-            {/* Frosted Glass SVG Gradient Fill */}
+            {/* Frosted Glass SVG Gradient Fill matching iOS 18 Control Center green */}
             <Svg
               style={StyleSheet.absoluteFill}
               width={BUTTON_WIDTH}
@@ -360,10 +360,10 @@ export const LoginScreen: React.FC = () => {
             >
               <Defs>
                 <SvgGradient id="iosGlassGrad" x1="0" y1="0" x2="1" y2="1">
-                  <Stop offset="0%" stopColor="#FF8573" stopOpacity={0.38} />
-                  <Stop offset="35%" stopColor="#FF715F" stopOpacity={0.28} />
-                  <Stop offset="75%" stopColor="#D94B38" stopOpacity={0.32} />
-                  <Stop offset="100%" stopColor="#A82818" stopOpacity={0.42} />
+                  <Stop offset="0%" stopColor="#85B26E" stopOpacity={0.48} />
+                  <Stop offset="35%" stopColor="#6A9755" stopOpacity={0.38} />
+                  <Stop offset="75%" stopColor="#477034" stopOpacity={0.44} />
+                  <Stop offset="100%" stopColor="#28441B" stopOpacity={0.58} />
                 </SvgGradient>
               </Defs>
               <Rect
@@ -398,10 +398,10 @@ export const LoginScreen: React.FC = () => {
                 <Defs>
                   <SvgGradient id="waveCrestGrad" x1="0" y1="0" x2="1" y2="0">
                     <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0} />
-                    <Stop offset="30%" stopColor="#FFFFFF" stopOpacity={0.7} />
-                    <Stop offset="50%" stopColor="#FFE0D9" stopOpacity={0.95} />
-                    <Stop offset="70%" stopColor="#FF715F" stopOpacity={0.75} />
-                    <Stop offset="100%" stopColor="#FF715F" stopOpacity={0} />
+                    <Stop offset="30%" stopColor="#FFFFFF" stopOpacity={0.75} />
+                    <Stop offset="50%" stopColor="#DFF5CE" stopOpacity={0.95} />
+                    <Stop offset="70%" stopColor="#6FA855" stopOpacity={0.80} />
+                    <Stop offset="100%" stopColor="#436F2E" stopOpacity={0} />
                   </SvgGradient>
                 </Defs>
                 <Path
@@ -503,8 +503,8 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     width: 24,
-    backgroundColor: '#FF715F',
-    shadowColor: '#FF715F',
+    backgroundColor: '#6FA855',
+    shadowColor: '#6FA855',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.7,
     shadowRadius: 6,
@@ -520,17 +520,17 @@ const styles = StyleSheet.create({
     borderRadius: 31,
     position: 'relative',
   },
-  coralGlowAura: {
+  greenGlowAura: {
     position: 'absolute',
     top: 4,
     left: 12,
     right: 12,
     bottom: 4,
     borderRadius: 31,
-    backgroundColor: 'rgba(255, 113, 95, 0.32)',
-    shadowColor: '#FF715F',
+    backgroundColor: 'rgba(110, 168, 85, 0.28)',
+    shadowColor: '#6FA855',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.55,
     shadowRadius: 20,
     elevation: 8,
   },
@@ -538,11 +538,11 @@ const styles = StyleSheet.create({
     width: BUTTON_WIDTH,
     height: BUTTON_HEIGHT,
     borderRadius: 31,
-    backgroundColor: 'rgba(26, 12, 10, 0.45)',
+    backgroundColor: 'rgba(20, 36, 18, 0.50)',
     borderWidth: 1.2,
-    borderColor: 'rgba(255, 255, 255, 0.28)',
-    borderTopColor: 'rgba(255, 255, 255, 0.65)',
-    borderBottomColor: 'rgba(255, 255, 255, 0.18)',
+    borderColor: 'rgba(255, 255, 255, 0.26)',
+    borderTopColor: 'rgba(255, 255, 255, 0.68)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.14)',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
