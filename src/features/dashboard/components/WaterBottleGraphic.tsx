@@ -76,9 +76,10 @@ export const WaterBottleGraphic: React.FC<WaterBottleGraphicProps> = ({
 
           {/* Glass Outer Highlight */}
           <LinearGradient id="glassShine" x1="0%" y1="0%" x2="100%" y2="0%">
-            <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.3" />
-            <Stop offset="40%" stopColor="#FFFFFF" stopOpacity="0.05" />
-            <Stop offset="100%" stopColor="#303C34" stopOpacity="0.2" />
+            <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.45" />
+            <Stop offset="25%" stopColor="#7AD3FA" stopOpacity="0.20" />
+            <Stop offset="60%" stopColor="#FFFFFF" stopOpacity="0.06" />
+            <Stop offset="100%" stopColor="#4FA3E2" stopOpacity="0.22" />
           </LinearGradient>
 
           {/* Cap Gradient */}
@@ -97,9 +98,9 @@ export const WaterBottleGraphic: React.FC<WaterBottleGraphicProps> = ({
         {/* 1. Bottle Glass Background (Empty Volume) */}
         <Path
           d={bottleInnerPath}
-          fill="#131B16"
-          stroke="#2A352D"
-          strokeWidth="3"
+          fill="rgba(18, 24, 22, 0.45)"
+          stroke="rgba(122, 211, 250, 0.35)"
+          strokeWidth="2.5"
         />
 
         {/* 2. Liquid Fill (Clipped inside bottle) */}

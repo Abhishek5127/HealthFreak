@@ -4,7 +4,10 @@ import {
   Text,
   StyleSheet,
   Pressable,
+  Platform,
 } from 'react-native';
+import { Image } from 'expo-image';
+import { BlurView } from 'expo-blur';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -24,6 +27,11 @@ import { WaterBottleGraphic } from './WaterBottleGraphic';
 import { Colors } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { GlassButton } from '../../../components/common/GlassButton';
+import {
+  SPECULAR_LEFT,
+  SPECULAR_RIGHT,
+  GRAIN_TEXTURE,
+} from '../../../utils/glassTheme';
 
 interface WaterBottleWidgetProps {
   waterLoggedMl: number;
@@ -109,29 +117,69 @@ export const WaterBottleWidget: React.FC<WaterBottleWidgetProps> = ({
   }));
 
   return (
-    <View style={styles.cardContainer}>
-      {/* Top Header */}
-      <View style={styles.headerRow}>
-        <View style={styles.headerLeft}>
-          <View style={[styles.iconCircle, isGoalMet && styles.iconCircleGoalMet]}>
-            <Droplet size={18} color={isGoalMet ? '#FFFFFF' : '#4FA3E2'} />
-          </View>
-          <View>
-            <Text style={styles.widgetSubLabel}>SMART HYDRATION WIDGET</Text>
-            <Text style={styles.widgetTitle}>Daily Water Bottle</Text>
-          </View>
+    <View style={styles.shadowContainer}>
+      <View style={styles.glassContainer}>
+        {/* 1. Underlying Native Frosted Blur */}
+        <View style={[StyleSheet.absoluteFill, styles.blurWrapper]}>
+          <BlurView
+            intensity={Platform.OS === 'ios' ? 65 : 45}
+            tint="dark"
+            style={StyleSheet.absoluteFill}
+          />
+          {/* Tint overlay layer for contrast and water blue luminescence */}
+          <View style={[StyleSheet.absoluteFill, styles.neutralDarkTint]} />
         </View>
 
-        <GlassButton
-          onPress={onOpenTargetModal}
-          title={`${(waterTargetMl / 1000).toFixed(1)}L Goal`}
-          titleColor={Colors.lightSage}
-          icon={<Sliders size={13} color={Colors.lightSage} />}
-          size="xs"
-          height={30}
-          borderRadius={10}
+        {/* 2. Micro-etched Sandblasted Glass Grain Noise */}
+        <Image
+          source={GRAIN_TEXTURE}
+          style={[StyleSheet.absoluteFill, styles.grainTexture]}
+          contentFit="cover"
+          pointerEvents="none"
         />
-      </View>
+
+        {/* 3. Inset 3D Specular Curvature Caps */}
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.specularWrapper]}>
+          <Image
+            source={SPECULAR_LEFT}
+            style={styles.specularCap}
+            contentFit="fill"
+          />
+          <View style={styles.specularFlexSpacer} />
+          <Image
+            source={SPECULAR_RIGHT}
+            style={styles.specularCap}
+            contentFit="fill"
+          />
+        </View>
+
+        {/* 4. Top Specular Sheen Line (Incidence Light) */}
+        <View pointerEvents="none" style={styles.topSheenLine} />
+
+        {/* 5. Card Content Inner */}
+        <View style={styles.contentInner}>
+          {/* Top Header */}
+          <View style={styles.headerRow}>
+            <View style={styles.headerLeft}>
+              <View style={[styles.iconCircle, isGoalMet && styles.iconCircleGoalMet]}>
+                <Droplet size={18} color={isGoalMet ? '#FFFFFF' : '#4FA3E2'} />
+              </View>
+              <View>
+                <Text style={styles.widgetSubLabel}>SMART HYDRATION WIDGET</Text>
+                <Text style={styles.widgetTitle}>Daily Water Bottle</Text>
+              </View>
+            </View>
+
+            <GlassButton
+              onPress={onOpenTargetModal}
+              title={`${(waterTargetMl / 1000).toFixed(1)}L Goal`}
+              titleColor={Colors.lightSage}
+              icon={<Sliders size={13} color={Colors.lightSage} />}
+              size="xs"
+              height={30}
+              borderRadius={10}
+            />
+          </View>
 
       {/* Main Interactive Bottle Section */}
       <View style={styles.mainContentRow}>
@@ -264,23 +312,80 @@ export const WaterBottleWidget: React.FC<WaterBottleWidgetProps> = ({
             : `Daily intake resets each morning • Tap to log • Stored in database`}
         </Text>
       </View>
+        </View>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  cardContainer: {
-    backgroundColor: '#1E2320',
-    borderRadius: 22,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#262F28',
+  shadowContainer: {
+    width: '100%',
+    borderRadius: 24,
     marginVertical: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 20,
-    elevation: 4,
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 6,
+  },
+  glassContainer: {
+    width: '100%',
+    borderRadius: 24,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 1.2,
+    borderColor: 'rgba(79, 163, 226, 0.35)',
+    borderTopColor: 'rgba(160, 215, 255, 0.78)',
+    borderBottomColor: 'rgba(79, 163, 226, 0.18)',
+    backgroundColor: Platform.select({
+      ios: 'rgba(79, 163, 226, 0.14)',
+      android: 'rgba(79, 163, 226, 0.25)',
+      default: 'rgba(79, 163, 226, 0.18)',
+    }),
+  },
+  blurWrapper: {
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  neutralDarkTint: {
+    backgroundColor: Platform.select({
+      ios: 'rgba(14, 20, 24, 0.52)',
+      android: 'rgba(18, 24, 28, 0.75)',
+      default: 'rgba(14, 20, 24, 0.58)',
+    }),
+  },
+  grainTexture: {
+    opacity: 0.055,
+    borderRadius: 24,
+  },
+  specularWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    opacity: 0.22,
+    borderRadius: 24,
+  },
+  specularCap: {
+    width: 24,
+    height: '100%',
+    opacity: 0.9,
+  },
+  specularFlexSpacer: {
+    flex: 1,
+  },
+  topSheenLine: {
+    position: 'absolute',
+    top: 1,
+    left: 24,
+    right: 24,
+    height: 1,
+    backgroundColor: 'rgba(160, 215, 255, 0.60)',
+    opacity: 0.8,
+  },
+  contentInner: {
+    padding: 16,
+    zIndex: 10,
   },
   headerRow: {
     flexDirection: 'row',
@@ -293,16 +398,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(79, 163, 226, 0.15)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(79, 163, 226, 0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(122, 211, 250, 0.40)',
+    borderTopColor: 'rgba(180, 230, 255, 0.75)',
+    borderBottomColor: 'rgba(79, 163, 226, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
   iconCircleGoalMet: {
-    backgroundColor: '#2C82C9',
+    backgroundColor: 'rgba(74, 184, 122, 0.35)',
+    borderColor: 'rgba(120, 240, 160, 0.50)',
+    borderTopColor: 'rgba(180, 255, 200, 0.85)',
   },
   widgetSubLabel: {
     color: '#4FA3E2',
@@ -365,12 +481,15 @@ const styles = StyleSheet.create({
     textShadowRadius: 10,
   },
   tapPromptPill: {
-    backgroundColor: 'rgba(74, 184, 122, 0.14)',
+    backgroundColor: 'rgba(79, 163, 226, 0.18)',
     paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: 10,
-    marginTop: 4,
-    borderWidth: 0,
+    borderRadius: 12,
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(79, 163, 226, 0.35)',
+    borderTopColor: 'rgba(160, 215, 255, 0.65)',
+    borderBottomColor: 'rgba(79, 163, 226, 0.18)',
   },
   tapPromptText: {
     color: '#4FA3E2',
@@ -411,10 +530,13 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamilies.sansRegular,
   },
   remainingCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: 'rgba(79, 163, 226, 0.12)',
     padding: 10,
-    borderRadius: 12,
-    borderWidth: 0,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(79, 163, 226, 0.28)',
+    borderTopColor: 'rgba(160, 215, 255, 0.55)',
+    borderBottomColor: 'rgba(79, 163, 226, 0.15)',
     marginBottom: 12,
   },
   remainingTitle: {
@@ -429,10 +551,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   goalAchievedCard: {
-    backgroundColor: 'rgba(79, 163, 226, 0.15)',
+    backgroundColor: 'rgba(74, 184, 122, 0.15)',
     padding: 10,
-    borderRadius: 12,
-    borderWidth: 0,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(74, 184, 122, 0.35)',
+    borderTopColor: 'rgba(180, 255, 200, 0.70)',
+    borderBottomColor: 'rgba(74, 184, 122, 0.15)',
     marginBottom: 12,
   },
   celebrationRow: {
