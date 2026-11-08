@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Water Bottle Desktop Widget</title>
+  <title>HealthFreak - Smart Hydration Frosted Glass Water Widget</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     * {
       box-sizing: border-box;
@@ -11,102 +14,281 @@
       padding: 0;
       user-select: none;
       -webkit-user-select: none;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
     }
 
     body {
       min-height: 100vh;
-      background: radial-gradient(circle at 35% 30%, #1a3324 0%, #0d1a12 40%, #060b08 100%);
+      background: radial-gradient(circle at 35% 25%, #16241c 0%, #0c1410 45%, #050806 100%);
+      color: #EBF3EC;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
-      overflow: hidden;
+      justify-content: flex-start;
+      padding: 40px 20px 60px 20px;
+      overflow-x: hidden;
       position: relative;
     }
 
     /* Ambient background glows */
     .bg-orb-1 {
       position: absolute;
-      width: 220px;
-      height: 220px;
-      background: radial-gradient(circle, rgba(74, 184, 122, 0.22) 0%, transparent 70%);
-      top: 30%;
-      left: 36%;
-      filter: blur(40px);
+      width: 380px;
+      height: 380px;
+      background: radial-gradient(circle, rgba(79, 163, 226, 0.16) 0%, transparent 70%);
+      top: 15%;
+      left: 20%;
+      filter: blur(55px);
       pointer-events: none;
     }
 
     .bg-orb-2 {
       position: absolute;
-      width: 180px;
-      height: 180px;
-      background: radial-gradient(circle, rgba(42, 142, 222, 0.2) 0%, transparent 70%);
-      bottom: 30%;
-      right: 36%;
-      filter: blur(35px);
+      width: 320px;
+      height: 320px;
+      background: radial-gradient(circle, rgba(74, 184, 122, 0.14) 0%, transparent 70%);
+      bottom: 20%;
+      right: 20%;
+      filter: blur(50px);
       pointer-events: none;
     }
 
+    /* Top Showcase Header */
+    .showcase-header {
+      text-align: center;
+      max-width: 680px;
+      margin-bottom: 30px;
+      z-index: 10;
+    }
+
+    .showcase-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(79, 163, 226, 0.14);
+      border: 1px solid rgba(79, 163, 226, 0.35);
+      padding: 4px 14px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #7AD3FA;
+      letter-spacing: 0.8px;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+
+    .showcase-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 32px;
+      color: #FFFFFF;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+
+    .showcase-sub {
+      font-size: 14px;
+      color: #9EAEA2;
+      line-height: 1.5;
+    }
+
+    /* Stage Container */
+    .stage-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+      width: 100%;
+      max-width: 440px;
+      z-index: 10;
+    }
+
     /* ==========================================================
-       SUPER GLASSY BORDERLESS WIDGET BOX (2x Compact Size)
+       AUTHENTIC APPLE CONTROL CENTER FROSTED GLASS WIDGET CARD
        ========================================================== */
-    .glass-widget-box {
-      width: 72px;
-      height: 98px;
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.03) 38%, rgba(10, 28, 18, 0.42) 100%);
-      backdrop-filter: blur(28px) saturate(220%);
-      -webkit-backdrop-filter: blur(28px) saturate(220%);
-      border-radius: 18px;
-      border: none;
-      outline: none;
+    .shadow-container {
+      width: 100%;
+      border-radius: 26px;
       box-shadow: 
-        0 18px 42px rgba(0, 0, 0, 0.55),
-        0 4px 12px rgba(0, 0, 0, 0.3),
-        inset 0 1.5px 2px rgba(255, 255, 255, 0.4),
-        inset 0 -1.5px 2px rgba(0, 0, 0, 0.25);
+        0 20px 48px rgba(0, 0, 0, 0.65),
+        0 6px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    .glass-widget-card {
+      position: relative;
+      width: 100%;
+      border-radius: 26px;
+      background: linear-gradient(135deg, rgba(79, 163, 226, 0.16) 0%, rgba(20, 26, 24, 0.72) 100%);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border: 1.2px solid rgba(79, 163, 226, 0.35);
+      border-top: 1.2px solid rgba(160, 215, 255, 0.78);
+      border-bottom: 1.2px solid rgba(79, 163, 226, 0.18);
+      overflow: hidden;
+      padding: 18px;
+    }
+
+    /* Optical Specular Sheen (Incidence Light) */
+    .top-sheen-line {
+      position: absolute;
+      top: 1px;
+      left: 28px;
+      right: 28px;
+      height: 1px;
+      background: rgba(160, 215, 255, 0.65);
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    /* Inset 3D Specular Curvature Caps */
+    .specular-cap-left {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 32px;
+      height: 100%;
+      background: url('assets/liquidGlass/specular-map-left.png') no-repeat left top / 100% 100%;
+      opacity: 0.22;
+      pointer-events: none;
+    }
+
+    .specular-cap-right {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 32px;
+      height: 100%;
+      background: url('assets/liquidGlass/specular-map-right.png') no-repeat right top / 100% 100%;
+      opacity: 0.22;
+      pointer-events: none;
+    }
+
+    .grain-overlay {
+      position: absolute;
+      inset: 0;
+      background: url('assets/images/glass_grain_texture.png') repeat;
+      opacity: 0.055;
+      pointer-events: none;
+    }
+
+    /* Header Row */
+    .widget-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      position: relative;
+      z-index: 5;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Inset Circular Glass Icon Pod */
+    .icon-pod {
+      width: 38px;
+      height: 38px;
+      border-radius: 19px;
+      background: rgba(79, 163, 226, 0.22);
+      border: 1px solid rgba(122, 211, 250, 0.40);
+      border-top: 1px solid rgba(180, 230, 255, 0.75);
+      border-bottom: 1px solid rgba(79, 163, 226, 0.15);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
       display: flex;
       align-items: center;
       justify-content: center;
-      position: relative;
+      color: #7AD3FA;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+
+    .icon-pod.goal-met {
+      background: rgba(74, 184, 122, 0.35);
+      border-color: rgba(120, 240, 160, 0.50);
+      border-top-color: rgba(180, 255, 200, 0.85);
+      color: #FFFFFF;
+    }
+
+    .widget-sublabel {
+      font-size: 10px;
+      font-weight: 800;
+      color: #4FA3E2;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    .widget-title {
+      font-size: 15.5px;
+      font-weight: 700;
+      color: #FFFDF9;
+      letter-spacing: -0.2px;
+    }
+
+    /* Header Glass Goal Pill Button */
+    .goal-pill-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(201, 217, 202, 0.16);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(201, 217, 202, 0.35);
+      border-top: 1px solid rgba(235, 245, 236, 0.75);
+      border-bottom: 1px solid rgba(201, 217, 202, 0.15);
+      padding: 5px 10px;
+      border-radius: 12px;
+      color: #C9D9CA;
+      font-size: 11px;
+      font-weight: 700;
       cursor: pointer;
-      transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease;
-      z-index: 2;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+      transition: transform 0.15s ease, background 0.2s ease;
     }
 
-    .glass-widget-box:hover {
-      box-shadow: 
-        0 20px 48px rgba(0, 0, 0, 0.65),
-        0 0 24px rgba(74, 184, 122, 0.22),
-        inset 0 1.5px 2px rgba(255, 255, 255, 0.5);
+    .goal-pill-btn:active {
+      transform: scale(0.96);
     }
 
-    .glass-widget-box:active {
+    /* Main Content Row */
+    .main-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      position: relative;
+      z-index: 5;
+    }
+
+    /* Interactive Bottle Section */
+    .bottle-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      width: 90px;
+      cursor: pointer;
+    }
+
+    .bottle-svg-wrapper {
+      position: relative;
+      width: 74px;
+      height: 122px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.12s ease;
+    }
+
+    .bottle-svg-wrapper:active {
       transform: scale(0.95);
     }
 
-    .glass-widget-box.goal-met {
-      box-shadow: 
-        0 18px 42px rgba(0, 0, 0, 0.55),
-        0 0 28px rgba(74, 184, 122, 0.35),
-        inset 0 1.5px 2px rgba(255, 255, 255, 0.6);
-    }
-
-    /* Bottle Container (1.5x Smaller: 52px x 81px) */
-    .bottle-wrapper {
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 52px;
-      height: 81px;
-    }
-
     .bottle-svg {
-      width: 52px;
-      height: 81px;
+      width: 74px;
+      height: 122px;
       display: block;
-      transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
-      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+      filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.5));
     }
 
     .squish {
@@ -115,53 +297,46 @@
 
     @keyframes bottleBounce {
       0% { transform: scale(1, 1); }
-      30% { transform: scale(1.06, 0.9); }
-      60% { transform: scale(0.96, 1.04); }
-      80% { transform: scale(1.01, 0.99); }
+      30% { transform: scale(1.08, 0.88); }
+      60% { transform: scale(0.95, 1.05); }
+      80% { transform: scale(1.02, 0.98); }
       100% { transform: scale(1, 1); }
     }
 
-    /* ==========================================================
-       SMOOTH & AESTHETIC FLOATING TEXT (+150ml)
-       Pure, clean typography with soft luminous vapor fade
-       ========================================================== */
-    .popup-container {
+    /* Floating Luminous Vapor Text (+150ml) */
+    .floating-text-container {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
       pointer-events: none;
-      overflow: visible;
+      z-index: 25;
     }
 
     .floating-text {
       position: absolute;
-      top: 48%;
+      top: 45%;
       left: 50%;
       transform: translate(-50%, -50%);
       color: #FFFFFF;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: -0.2px;
-      /* Refined specular luminous glow */
+      font-size: 13px;
+      font-weight: 800;
       text-shadow: 
-        0 2px 8px rgba(0, 0, 0, 0.7),
-        0 0 16px rgba(122, 211, 250, 0.65),
-        0 0 4px rgba(255, 255, 255, 0.8);
-      pointer-events: none;
+        0 2px 8px rgba(0, 0, 0, 0.85),
+        0 0 16px rgba(122, 211, 250, 0.85),
+        0 0 4px rgba(255, 255, 255, 0.95);
+      animation: smoothFloat 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       white-space: nowrap;
-      animation: smoothFloat 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      z-index: 10;
     }
 
     @keyframes smoothFloat {
       0% {
         opacity: 0;
-        transform: translate(-50%, -20%) scale(0.88);
+        transform: translate(-50%, -20%) scale(0.85);
         filter: blur(2px);
       }
-      18% {
+      20% {
         opacity: 1;
         transform: translate(-50%, -45%) scale(1);
         filter: blur(0px);
@@ -173,9 +348,264 @@
       }
       100% {
         opacity: 0;
-        transform: translate(-50%, -115%) scale(0.96);
+        transform: translate(-50%, -120%) scale(0.96);
         filter: blur(1.5px);
       }
+    }
+
+    /* Tap Prompt Pill Capsule */
+    .tap-prompt-pill {
+      margin-top: 6px;
+      background: rgba(79, 163, 226, 0.18);
+      border: 1px solid rgba(79, 163, 226, 0.35);
+      border-top: 1px solid rgba(160, 215, 255, 0.65);
+      border-bottom: 1px solid rgba(79, 163, 226, 0.18);
+      padding: 3px 9px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 800;
+      color: #7AD3FA;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      transition: background 0.2s ease;
+    }
+
+    /* Right Stats Column */
+    .stats-col {
+      flex: 1;
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .percent-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+
+    .percent-num {
+      font-family: 'DM Serif Display', serif;
+      font-size: 32px;
+      color: #FFFDF9;
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+
+    .percent-label {
+      font-size: 11px;
+      color: #9EAEA2;
+      font-weight: 500;
+    }
+
+    .volume-row {
+      font-size: 14px;
+      font-weight: 700;
+      color: #FFFDF9;
+      margin-bottom: 10px;
+    }
+
+    .volume-target {
+      color: #7D8E82;
+      font-weight: 400;
+      font-size: 12px;
+    }
+
+    /* Frosted Sub-Card (Remaining / Goal Achieved) */
+    .status-card {
+      background: rgba(79, 163, 226, 0.12);
+      border: 1px solid rgba(79, 163, 226, 0.28);
+      border-top: 1px solid rgba(160, 215, 255, 0.55);
+      border-bottom: 1px solid rgba(79, 163, 226, 0.15);
+      padding: 10px 12px;
+      border-radius: 14px;
+      margin-bottom: 12px;
+      transition: all 0.3s ease;
+    }
+
+    .status-card.goal-met {
+      background: rgba(74, 184, 122, 0.15);
+      border-color: rgba(74, 184, 122, 0.35);
+      border-top-color: rgba(180, 255, 200, 0.70);
+      border-bottom-color: rgba(74, 184, 122, 0.15);
+    }
+
+    .status-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #7AD3FA;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .status-card.goal-met .status-title {
+      color: #4AB87A;
+    }
+
+    .status-desc {
+      font-size: 10px;
+      color: #9EAEA2;
+      line-height: 1.35;
+    }
+
+    /* Dynamic Progress Bar Track */
+    .progress-track {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, #4FA3E2 0%, #7AD3FA 100%);
+      transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease;
+    }
+
+    .progress-bar-fill.goal-met {
+      background: linear-gradient(90deg, #4AB87A 0%, #7EE8A7 100%);
+    }
+
+    /* ==========================================================
+       ACTION BUTTONS ROW (WITH FULL GLASS RULES)
+       - White Title -> Transparent Frosted Glass
+       - Colored Title -> Lighter Shade Frosted Glass
+       ========================================================== */
+    .actions-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-top: 10px;
+      position: relative;
+      z-index: 5;
+    }
+
+    /* Generic Frosted Glass Capsule Button */
+    .glass-btn {
+      position: relative;
+      height: 38px;
+      border-radius: 13px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      cursor: pointer;
+      border: 1.2px solid transparent;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+      transition: transform 0.12s ease, filter 0.15s ease;
+      overflow: hidden;
+    }
+
+    .glass-btn:active {
+      transform: scale(0.965);
+    }
+
+    /* Substrate Specular Cap Reflections inside buttons */
+    .glass-btn::before {
+      content: '';
+      position: absolute;
+      top: 1px;
+      left: 10px;
+      right: 10px;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.55);
+      opacity: 0.75;
+      pointer-events: none;
+    }
+
+    /* BUTTON 1: +150ml (White Title -> TRANSPARENT FROSTED GLASS) */
+    .btn-white-glass {
+      flex: 1;
+      background: rgba(18, 22, 20, 0.45);
+      border-color: rgba(255, 255, 255, 0.28);
+      border-top-color: rgba(255, 255, 255, 0.68);
+      border-bottom-color: rgba(255, 255, 255, 0.16);
+      color: #FFFFFF;
+      font-size: 11.5px;
+      font-weight: 700;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    }
+
+    /* BUTTON 2 & 3: +250ml & +500ml (Colored Title #4FA3E2 -> LIGHTER SHADE GLASS) */
+    .btn-blue-glass {
+      flex: 1.25;
+      background: rgba(79, 163, 226, 0.20);
+      border-color: rgba(79, 163, 226, 0.38);
+      border-top-color: rgba(160, 215, 255, 0.78);
+      border-bottom-color: rgba(79, 163, 226, 0.18);
+      color: #7AD3FA;
+      font-size: 11.5px;
+      font-weight: 700;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    }
+
+    /* BUTTON 4: Undo 100ml (Transparent Frosted Glass) */
+    .btn-undo-glass {
+      width: 38px;
+      background: rgba(18, 22, 20, 0.45);
+      border-color: rgba(255, 255, 255, 0.28);
+      border-top-color: rgba(255, 255, 255, 0.68);
+      border-bottom-color: rgba(255, 255, 255, 0.16);
+      color: #FFFFFF;
+    }
+
+    /* Summary Footer */
+    .summary-footer {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 10.5px;
+      color: #8E9F93;
+      position: relative;
+      z-index: 5;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 3px;
+      background: #4AB87A;
+    }
+
+    /* Interactive Testing Controls Bar */
+    .testing-panel {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: rgba(18, 24, 20, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 10px 16px;
+      border-radius: 16px;
+      font-size: 12px;
+      color: #A0B0A4;
+    }
+
+    .test-pill-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #FFFFFF;
+      padding: 5px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      transition: background 0.2s ease;
+    }
+
+    .test-pill-btn:hover {
+      background: rgba(255, 255, 255, 0.14);
     }
   </style>
 </head>
@@ -184,34 +614,169 @@
   <div class="bg-orb-1"></div>
   <div class="bg-orb-2"></div>
 
-  <!-- GLASSMORPHISM DESKTOP WIDGET BOX -->
-  <div id="widgetBox" class="glass-widget-box" title="Click to drink water (+150ml) • Right-click to reset">
-    <div id="bottleContainer" class="bottle-wrapper"></div>
-    <div id="popupContainer" class="popup-container"></div>
+  <!-- Showcase Header -->
+  <div class="showcase-header">
+    <div class="showcase-badge">Apple iOS Control Center Frosted Glass System</div>
+    <h1 class="showcase-title">Smart Hydration Water Widget</h1>
+    <p class="showcase-sub">
+      Rendered with real native frosted blur substrate, specular curvature reflection caps, micro-etched sandblasted grain, and title-color lighter shade glass.
+    </p>
+  </div>
+
+  <div class="stage-container">
+    <!-- AUTHENTIC APPLE CONTROL CENTER FROSTED GLASS WIDGET CARD -->
+    <div class="shadow-container">
+      <div id="widgetCard" class="glass-widget-card">
+        <!-- 1. Top Specular Sheen Line -->
+        <div class="top-sheen-line"></div>
+
+        <!-- 2. Micro-etched Sandblasted Glass Grain Noise -->
+        <div class="grain-overlay"></div>
+
+        <!-- 3. Inset 3D Specular Curvature Caps -->
+        <div class="specular-cap-left"></div>
+        <div class="specular-cap-right"></div>
+
+        <!-- 4. Card Header -->
+        <div class="widget-header">
+          <div class="header-left">
+            <div id="iconPod" class="icon-pod">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+              </svg>
+            </div>
+            <div>
+              <div class="widget-sublabel">Smart Hydration Widget</div>
+              <div class="widget-title">Daily Water Bottle</div>
+            </div>
+          </div>
+
+          <button id="goalBtn" class="goal-pill-btn" onclick="cycleTarget()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <line x1="4" y1="21" x2="4" y2="14"></line>
+              <line x1="4" y1="10" x2="4" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12" y2="3"></line>
+              <line x1="20" y1="21" x2="20" y2="16"></line>
+              <line x1="20" y1="12" x2="20" y2="3"></line>
+              <line x1="1" y1="14" x2="7" y2="14"></line>
+              <line x1="9" y1="8" x2="15" y2="8"></line>
+              <line x1="17" y1="16" x2="23" y2="16"></line>
+            </svg>
+            <span id="targetGoalText">3.0L Goal</span>
+          </button>
+        </div>
+
+        <!-- 5. Main Interactive Bottle Section -->
+        <div class="main-row">
+          <!-- Left: Tappable Bottle with Reactive Facial Expressions -->
+          <div id="bottleCol" class="bottle-col" onclick="logWater(150)">
+            <div id="bottleWrapper" class="bottle-svg-wrapper">
+              <div id="bottleContainer"></div>
+              <div id="floatingTextContainer" class="floating-text-container"></div>
+            </div>
+            <div class="tap-prompt-pill">Tap +150ml</div>
+          </div>
+
+          <!-- Right: Live Hydration Telemetry Column -->
+          <div class="stats-col">
+            <div class="percent-row">
+              <span id="percentText" class="percent-num">0%</span>
+              <span class="percent-label">intake completed</span>
+            </div>
+
+            <div class="volume-row">
+              <span id="currentVolumeText">0</span> <span id="targetVolumeText" class="volume-target">/ 3,000 ml</span>
+            </div>
+
+            <div id="statusCard" class="status-card">
+              <div id="statusTitle" class="status-title">3,000 ml remaining</div>
+              <div id="statusDesc" class="status-desc">~12 glasses to hit daily metabolic target</div>
+            </div>
+
+            <!-- Dynamic Progress Bar -->
+            <div class="progress-track">
+              <div id="progressBarFill" class="progress-bar-fill" style="width: 3%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. Quick Action Logging Buttons (Full Glass Architecture) -->
+        <div class="actions-bar">
+          <!-- +150ml: White Title -> Transparent Frosted Glass -->
+          <button class="glass-btn btn-white-glass" onclick="logWater(150)" title="White title -> Transparent frosted glass">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            +150ml
+          </button>
+
+          <!-- +250ml Glass: Colored Title -> Lighter Shade Frosted Glass -->
+          <button class="glass-btn btn-blue-glass" onclick="logWater(250)" title="Colored title -> Lighter shade of title color glass">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            +250ml Glass
+          </button>
+
+          <!-- +500ml Bottle: Colored Title -> Lighter Shade Frosted Glass -->
+          <button class="glass-btn btn-blue-glass" onclick="logWater(500)" title="Colored title -> Lighter shade of title color glass">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            +500ml Bottle
+          </button>
+
+          <!-- Undo 100ml: Transparent Frosted Glass -->
+          <button id="undoBtn" class="glass-btn btn-undo-glass" onclick="logWater(-100)" title="Undo 100ml">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+        </div>
+
+        <!-- 7. Daily Summary Footer -->
+        <div class="summary-footer">
+          <div class="status-dot"></div>
+          <span id="summaryText">Daily intake resets each morning • Tap to log • Stored in cloud database</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Testing Toolbar -->
+    <div class="testing-panel">
+      <span>Interactive Controls:</span>
+      <button class="test-pill-btn" onclick="resetWater()">Reset to 0ml</button>
+      <button class="test-pill-btn" onclick="logWater(1000)">+1,000ml</button>
+      <button class="test-pill-btn" onclick="fillTarget()">Fill to 100% Goal</button>
+    </div>
   </div>
 
   <script>
-    let waterLoggedMl = 0; // Starts empty with sad expression
-    const addAmountMl = 150; // Default 150ml per click
-    const targetMl = 3000;   // Target goal
+    let waterLoggedMl = 1350; // Initial sample state: 45% (Gentle half-smile)
+    let targetMl = 3000;
 
-    const widgetBox = document.getElementById('widgetBox');
     const bottleContainer = document.getElementById('bottleContainer');
-    const popupContainer = document.getElementById('popupContainer');
+    const floatingTextContainer = document.getElementById('floatingTextContainer');
+    const bottleWrapper = document.getElementById('bottleWrapper');
+    const percentText = document.getElementById('percentText');
+    const currentVolumeText = document.getElementById('currentVolumeText');
+    const targetVolumeText = document.getElementById('targetVolumeText');
+    const progressBarFill = document.getElementById('progressBarFill');
+    const statusCard = document.getElementById('statusCard');
+    const statusTitle = document.getElementById('statusTitle');
+    const statusDesc = document.getElementById('statusDesc');
+    const iconPod = document.getElementById('iconPod');
+    const summaryText = document.getElementById('summaryText');
+    const targetGoalText = document.getElementById('targetGoalText');
 
-    /**
-     * Generates dynamic bottle SVG with facial expressions evolving at each bar:
-     * - < 15%: Sad / Dehydrated 🥺
-     * - Bar 1 (~15% - 44%): Neutral / Sipping 😐
-     * - Bar 2 (~45% - 74%): Gentle Half-Smile 🙂
-     * - Bar 3 (~75% - 99%): Big Cheerful Grin 😄
-     * - 100%+ Goal Bar: Radiant Ecstatic Smile 🥰✨
-     */
     function generateBottleSvg(fillPercentage) {
       const isGoalReached = fillPercentage >= 100;
       const clampedPercent = Math.min(Math.max(fillPercentage, 0), 100);
 
-      // Bottle Geometry
       const bottleTopY = 38;
       const bottleBottomY = 188;
       const bottleHeight = bottleBottomY - bottleTopY; // 150
@@ -238,23 +803,19 @@
       let faceSvg = '';
 
       if (clampedPercent < 15) {
-        // --- LEVEL 0: SAD / THIRSTY BOTTLE (< 15%) ---
+        // Level 0: Sad / Dehydrated (< 15%)
         faceSvg = `
           <g id="faceSad" transform="translate(0, 10)">
-            <!-- Droopy sad eyebrows -->
             <path d="M 44,103 Q 48,107 53,105" stroke="#1C384E" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.85" />
             <path d="M 67,105 Q 72,107 76,103" stroke="#1C384E" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.85" />
-            <!-- Droopy sad eyes -->
             <circle cx="48" cy="110" r="3" fill="#1C384E" />
             <circle cx="72" cy="110" r="3" fill="#1C384E" />
-            <!-- Sad downturned mouth -->
             <path d="M 53,124 Q 60,117 67,124" stroke="#1C384E" stroke-width="2.8" stroke-linecap="round" fill="none" />
-            <!-- Tiny sad dehydration tear drop -->
             <path d="M 76,113 C 74,116 74,119 76,120 C 78,119 78,116 76,113 Z" fill="#64B5F6" opacity="0.9" />
           </g>
         `;
       } else if (clampedPercent < 45) {
-        // --- LEVEL 1: REACHING BAR 1 (15% - 44%) ---
+        // Level 1: Neutral / Sipping (15% - 44%)
         faceSvg = `
           <g id="faceNeutral" transform="translate(0, 8)" opacity="0.75">
             <circle cx="48" cy="109" r="3" fill="#1C384E" />
@@ -263,7 +824,7 @@
           </g>
         `;
       } else if (clampedPercent < 75) {
-        // --- LEVEL 2: REACHING BAR 2 (45% - 74%) ---
+        // Level 2: Gentle Half-Smile (45% - 74%)
         faceSvg = `
           <g id="faceHalfSmile" transform="translate(0, 9)">
             <circle cx="48" cy="108" r="3.2" fill="#1C384E" />
@@ -274,7 +835,7 @@
           </g>
         `;
       } else if (clampedPercent < 100) {
-        // --- LEVEL 3: REACHING BAR 3 (75% - 99%) ---
+        // Level 3: Big Cheerful Grin (75% - 99%)
         faceSvg = `
           <g id="faceBigGrin" transform="translate(0, 9)">
             <path d="M 44,106 Q 49,99 54,106" stroke="#0D2E49" stroke-width="3" stroke-linecap="round" fill="none" />
@@ -286,7 +847,7 @@
           </g>
         `;
       } else {
-        // --- LEVEL 4: GOAL ACHIEVED (100%+) ---
+        // Level 4: Goal Achieved (100%+)
         faceSvg = `
           <g id="faceEcstatic" transform="translate(0, 9)">
             <path d="M 43,105 Q 49,97 55,105" stroke="#0D2E49" stroke-width="3.6" stroke-linecap="round" fill="none" />
@@ -301,7 +862,6 @@
         `;
       }
 
-      // Dynamic surface wave
       const wave = clampedPercent > 0 && clampedPercent < 100
         ? `
           <path d="
@@ -328,10 +888,10 @@
             </clipPath>
           </defs>
 
-          <!-- Bottle Outer Glass Silhouette -->
-          <path d="${bottleInnerPath}" fill="#142018" stroke="#2D4233" stroke-width="3.5" />
+          <!-- Bottle Outer Glass Silhouette with Translucent Substrate -->
+          <path d="${bottleInnerPath}" fill="rgba(18, 24, 22, 0.45)" stroke="rgba(122, 211, 250, 0.35)" stroke-width="2.5" />
 
-          <!-- Clipped Water Fill & Expressions -->
+          <!-- Clipped Water Fill & Reactive Facial Expressions -->
           <g clip-path="url(#bClip)">
             <rect x="10" y="${liquidTopY}" width="100" height="${liquidHeight + 25}" fill="url(#wGrad)" />
             ${wave}
@@ -341,15 +901,11 @@
           <!-- Cap Collar & Thread -->
           <rect x="42" y="27" width="36" height="11" rx="3" fill="#3D4B40" stroke="#546558" stroke-width="1.5" />
           <rect x="47" y="15" width="26" height="12" rx="4" fill="#2B362E" stroke="#546558" stroke-width="1.5" />
-          <!-- Cap Loop Handle -->
           <path d="M 54,15 C 54,8 66,8 66,15" stroke="#546558" stroke-width="3" fill="none" stroke-linecap="round" />
 
           <!-- Graduation Bar Ticks -->
-          <!-- Bar 1 (Bottom): Y=140 -->
           <line x1="26" y1="140" x2="36" y2="140" stroke="#FFFFFF" stroke-width="1.8" opacity="0.4" />
-          <!-- Bar 2 (Middle): Y=100 -->
           <line x1="26" y1="100" x2="39" y2="100" stroke="#FFFFFF" stroke-width="2.2" opacity="0.55" />
-          <!-- Bar 3 (Top): Y=65 -->
           <line x1="26" y1="65" x2="36" y2="65" stroke="#FFFFFF" stroke-width="1.8" opacity="0.4" />
         </svg>
       `;
@@ -358,55 +914,84 @@
     function render() {
       const percentage = Math.round((waterLoggedMl / targetMl) * 100);
       const isGoalMet = waterLoggedMl >= targetMl;
+      const remainingMl = Math.max(0, targetMl - waterLoggedMl);
 
       bottleContainer.innerHTML = generateBottleSvg(percentage);
 
+      percentText.textContent = `${percentage}%`;
+      currentVolumeText.textContent = waterLoggedMl.toLocaleString();
+      targetVolumeText.textContent = `/ ${targetMl.toLocaleString()} ml`;
+      targetGoalText.textContent = `${(targetMl / 1000).toFixed(1)}L Goal`;
+
+      const barWidth = Math.min(100, Math.max(3, percentage));
+      progressBarFill.style.width = `${barWidth}%`;
+
       if (isGoalMet) {
-        widgetBox.classList.add('goal-met');
+        progressBarFill.classList.add('goal-met');
+        statusCard.classList.add('goal-met');
+        iconPod.classList.add('goal-met');
+        statusTitle.textContent = 'Target Achieved!';
+        statusDesc.textContent = 'Cellular hydration optimized for metabolic peak performance.';
+        summaryText.textContent = `Daily intake: ${waterLoggedMl} ml (${percentage}%) • Target reached • Stored in cloud database`;
       } else {
-        widgetBox.classList.remove('goal-met');
+        progressBarFill.classList.remove('goal-met');
+        statusCard.classList.remove('goal-met');
+        iconPod.classList.remove('goal-met');
+        statusTitle.textContent = `${remainingMl.toLocaleString()} ml remaining`;
+        statusDesc.textContent = remainingMl > 0 ? `~${Math.ceil(remainingMl / 250)} glasses to hit daily target` : 'Almost there!';
+        summaryText.textContent = waterLoggedMl > 0
+          ? `Daily intake: ${waterLoggedMl} ml (${percentage}%) • Resets at midnight • Stored in cloud database`
+          : 'Daily intake resets each morning • Tap to log • Stored in cloud database';
       }
     }
 
-    /**
-     * Spawns a smooth, aesthetic floating text element (no clunky pill box, no emojis).
-     * Floats upward smoothly with cubic-bezier easing and graceful vapor fade.
-     */
-    function spawnAestheticText(amount) {
-      const textElem = document.createElement('div');
-      textElem.className = 'floating-text';
-      textElem.textContent = `+${amount}ml`;
-      popupContainer.appendChild(textElem);
+    function spawnFloatingText(amount) {
+      const sign = amount > 0 ? `+${amount}ml` : `${amount}ml`;
+      const elem = document.createElement('div');
+      elem.className = 'floating-text';
+      elem.textContent = sign;
+      floatingTextContainer.appendChild(elem);
 
       setTimeout(() => {
-        textElem.remove();
-      }, 700);
+        elem.remove();
+      }, 750);
     }
 
     function triggerSquish() {
       const svg = bottleContainer.querySelector('.bottle-svg');
       if (svg) {
         svg.classList.remove('squish');
-        void svg.offsetWidth; // Force CSS reflow
+        void svg.offsetWidth;
         svg.classList.add('squish');
       }
     }
 
-    // Left-Click: Add 150ml, squish bottle, float aesthetic text, update expression
-    widgetBox.addEventListener('click', () => {
-      waterLoggedMl += addAmountMl;
+    function logWater(amount) {
+      waterLoggedMl = Math.max(0, waterLoggedMl + amount);
       triggerSquish();
-      spawnAestheticText(addAmountMl);
+      spawnFloatingText(amount);
       render();
-    });
+    }
 
-    // Right-Click: Reset back to 0ml to test from the sad empty state again!
-    widgetBox.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
+    function resetWater() {
       waterLoggedMl = 0;
       triggerSquish();
       render();
-    });
+    }
+
+    function fillTarget() {
+      waterLoggedMl = targetMl;
+      triggerSquish();
+      spawnFloatingText(targetMl);
+      render();
+    }
+
+    function cycleTarget() {
+      if (targetMl === 3000) targetMl = 3500;
+      else if (targetMl === 3500) targetMl = 2500;
+      else targetMl = 3000;
+      render();
+    }
 
     // Initial render
     render();
