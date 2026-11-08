@@ -31,8 +31,10 @@ export function WaterBottleWidget({
       style={{
         height: 'match_parent',
         width: 'match_parent',
-        backgroundColor: '#0C1C13',
-        borderRadius: 20,
+        backgroundColor: '#122533',
+        borderColor: '#3D7CA8',
+        borderWidth: 1.5,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
       }}

@@ -130,7 +130,7 @@ export function generateWaterBottleSvg(
     </defs>
 
     <!-- Bottle Empty Background -->
-    <path d="${bottleInnerPath}" fill="#142018" stroke="#2D4233" stroke-width="3.5" />
+    <path d="${bottleInnerPath}" fill="rgba(18, 24, 22, 0.45)" stroke="rgba(122, 211, 250, 0.35)" stroke-width="2.5" />
 
     <!-- Liquid Fill Clipped Inside Bottle -->
     <g clip-path="url(#bottleClip)">
