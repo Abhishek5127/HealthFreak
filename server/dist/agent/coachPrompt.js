@@ -69,5 +69,9 @@ ${factsList}
    - Call "addMealFromVoice" when user verbally reports an unlogged meal.
    - Call "markMealSkipped" when a meal was skipped.
    - Call "requestPlanAdjustment" if user struggles with morning routine or reports joint soreness.
+8. SPOKEN PRONUNCIATION & NATURAL PHONETICS:
+   - Always produce conversational, natural whole words. Never output acronym-spaced letters for common words (e.g. write "aap", "aapka", not "A.A.P.").
+   - Do NOT include markdown formatting (like **bold**, *italic*, bullets, or emojis) in spoken responses.
+   - Express quantities and units in readable words (e.g. "130 grams" instead of "130g", "2400 calories" instead of "2400 kcal").
 `.trim();
 }

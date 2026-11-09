@@ -7,6 +7,7 @@ import { PlanService } from '../services/planService.js';
 import { CostAndPrivacyTracker } from '../services/costTracker.js';
 import { config } from '../config/index.js';
 import { buildCoachSystemPrompt } from '../agent/coachPrompt.js';
+import { normalizeForSpeech } from '../utils/voiceTextNormalizer.js';
 
 export const voiceRouter = Router();
 
@@ -273,81 +274,88 @@ voiceRouter.get('/audio/:id.wav', (req: Request, res: Response) => {
 
 /**
  * Synthesizes natural human speech with authentic Indian accent and cadence
- * using a high-quota multi-model TTS chain with Aoede voice.
+ * using Gemini neural voice models (Kore/Aoede) with pre-synthesis text normalization.
  */
 export async function synthesizeSpeechWithGemini(
   text: string
 ): Promise<{ audioBase64: string; audioMime: string; audioUrl: string } | null> {
-  if (!config.gemini.apiKey) return null;
+  if (!config.gemini.apiKey || !text || !text.trim()) return null;
+
+  // Linguistic normalization for clean pronunciation and natural sentence cadence
+  const spokenText = normalizeForSpeech(text);
+  if (!spokenText.trim()) return null;
 
   const ttsModels = [
-    'gemini-3.8-flash-tts',
     'gemini-3.8-flash-lite-tts',
+    'gemini-3.8-flash-tts',
     'gemini-3.1-flash-tts-preview',
-    'gemini-2.5-flash-preview-tts',
   ];
 
-  for (const model of ttsModels) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 9500);
+  const candidateVoices = ['Kore', 'Aoede'];
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.gemini.apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: 'user',
-                parts: [{ text }],
-              },
-            ],
-            generationConfig: {
-              responseModalities: ['AUDIO'],
-              speechConfig: {
-                voiceConfig: {
-                  prebuiltVoiceConfig: {
-                    voiceName: 'Aoede',
+  for (const model of ttsModels) {
+    for (const voiceName of candidateVoices) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8500);
+
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.gemini.apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [
+                {
+                  role: 'user',
+                  parts: [{ text: spokenText }],
+                },
+              ],
+              generationConfig: {
+                responseModalities: ['AUDIO'],
+                speechConfig: {
+                  voiceConfig: {
+                    prebuiltVoiceConfig: {
+                      voiceName,
+                    },
                   },
                 },
               },
-            },
-          }),
-          signal: controller.signal,
-        }
-      );
-      clearTimeout(timeout);
-
-      if (res.ok) {
-        const data: any = await res.json();
-        const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
-        if (inlineData?.data) {
-          let audioBuffer: Buffer = Buffer.from(inlineData.data, 'base64');
-          const mime = inlineData.mimeType || '';
-
-          // If raw PCM (L16), convert to standard playable WAV with RIFF header
-          if (mime.includes('l16') || mime.includes('pcm') || !mime.includes('wav')) {
-            audioBuffer = pcmToWav(audioBuffer, 24000, 1, 16) as Buffer;
+            }),
+            signal: controller.signal,
           }
+        );
+        clearTimeout(timeout);
 
-          const clipId = `clip_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-          audioCache.set(clipId, {
-            buffer: audioBuffer,
-            mime: 'audio/wav',
-            createdAt: Date.now(),
-          });
+        if (res.ok) {
+          const data: any = await res.json();
+          const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+          if (inlineData?.data) {
+            let audioBuffer: Buffer = Buffer.from(inlineData.data, 'base64');
+            const mime = inlineData.mimeType || '';
 
-          return {
-            audioBase64: audioBuffer.toString('base64'),
-            audioMime: 'audio/wav',
-            audioUrl: `/api/voice/audio/${clipId}.wav`,
-          };
+            // If raw PCM (L16), convert to standard playable WAV with RIFF header
+            if (mime.includes('l16') || mime.includes('pcm') || !mime.includes('wav')) {
+              audioBuffer = pcmToWav(audioBuffer, 24000, 1, 16) as Buffer;
+            }
+
+            const clipId = `clip_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+            audioCache.set(clipId, {
+              buffer: audioBuffer,
+              mime: 'audio/wav',
+              createdAt: Date.now(),
+            });
+
+            return {
+              audioBase64: audioBuffer.toString('base64'),
+              audioMime: 'audio/wav',
+              audioUrl: `/api/voice/audio/${clipId}.wav`,
+            };
+          }
         }
+      } catch (err: any) {
+        console.warn(`⚠️  [TTS MODEL ${model} | VOICE ${voiceName}]:`, err?.message || err);
       }
-    } catch (err: any) {
-      console.warn(`⚠️  [TTS MODEL ${model}]:`, err?.message || err);
     }
   }
   return null;
@@ -612,21 +620,21 @@ Otherwise, if a real human user is speaking:`
     const instruction = `${systemPrompt}
 Listen carefully to the attached user voice recording.
 ${antiEchoPrompt}
-1. Transcribe what the user said verbatim in English, Hindi, or conversational Hinglish. Be sensitive to soft speech, quick words (e.g. "haan", "nahi", "theek hai", "yes", "hello", "knee pain"), and casual Indian phrasing.
-2. If the user spoke, respond warmly, empathetically, and concisely in 1 coaching sentence (under 20 words) as Coach Alex.
-   - If user spoke in Hindi or Hinglish, reply in natural conversational Hinglish with warm Hindi expressions.
+1. Transcribe what the user said verbatim in English, Hindi, or conversational Hinglish.
+2. If user spoke, respond warmly, directly, and concisely in 1 coaching sentence (under 15 words) as Coach Alex.
+   - If user spoke in Hindi or Hinglish, reply in friendly natural Hinglish without acronym letters (e.g. use 'aap', 'aapka').
    - If user spoke in English, reply in friendly, natural Indian English.
-3. If and only if there is absolutely no vocal sound at all (pure ambient silence):
+   - Give direct guidance first. Never repeat the user's question or offer long preamble.
+3. If pure silence:
    - userTranscript: "(Silence or brief pause)"
    - coachReply: "Main sun rahi hoon Alex, please go ahead!"
 
 CRITICAL REQUIREMENT:
 'coachReply' must strictly contain ONLY Coach Alex's spoken answer to the user.
-NEVER repeat, quote, or echo the user's question inside coachReply.
 Return strictly a valid JSON object in this format:
 {
   "userTranscript": "<exact words user spoke or (Speaker echo)>",
-  "coachReply": "<Coach Alex's answer only, never repeating user question>"
+  "coachReply": "<Coach Alex's answer only, max 15 words>"
 }`;
 
     let cleanMime = (mimeType || 'audio/webm').split(';')[0].trim().toLowerCase();
@@ -636,15 +644,15 @@ Return strictly a valid JSON object in this format:
 
     const candidateModels = Array.from(
       new Set([
-        config.gemini.model,
+        'gemini-3.5-flash-lite',
+        'gemini-flash-lite-latest',
         'gemini-3.8-flash',
-        'gemini-3.5-flash',
-        'gemini-3.1-flash-lite',
+        config.gemini.model,
       ])
     ).filter(Boolean);
 
     let data: any = null;
-    let selectedModel = config.gemini.model;
+    let selectedModel = 'gemini-3.5-flash-lite';
 
     for (const modelCandidate of candidateModels) {
       try {
@@ -668,8 +676,8 @@ Return strictly a valid JSON object in this format:
               },
             ],
             generationConfig: {
-              maxOutputTokens: 300,
-              temperature: 0.6,
+              maxOutputTokens: 65,
+              temperature: 0.35,
               responseMimeType: 'application/json',
             },
           }),
@@ -691,14 +699,15 @@ Return strictly a valid JSON object in this format:
       }
     }
 
-    const elapsed = Date.now() - start;
+    const tTextReady = Date.now();
+    const textLatencyMs = tTextReady - start;
 
     if (!data) {
       console.warn('⚠️  All Gemini models experiencing high demand spikes. Returning friendly coaching fallback.');
       res.json({
         userTranscript: 'Voice query received',
         coachReply: 'Namaste Alex! Main sun rahi hoon. Cloud audio network par temporary demand spike hai—aap kaisa feel kar rahe hain?',
-        latencyMs: elapsed,
+        latencyMs: textLatencyMs,
       });
       return;
     }
@@ -765,14 +774,14 @@ Return strictly a valid JSON object in this format:
         userTranscript: '(Speaker feedback suppressed)',
         coachReply: '',
         isEcho: true,
-        latencyMs: elapsed,
+        latencyMs: textLatencyMs,
       });
       return;
     }
 
     console.log(`📝  TRANSCRIPTION: "${userTranscript}"`);
     console.log(`🤖  HEALTHFREAK AI RESPONSE (${selectedModel}): "${coachReply}"`);
-    console.log(`⚡  Live Turn Latency: ${elapsed}ms`);
+    console.log(`⚡  Live Text Turn Latency: ${textLatencyMs}ms`);
     console.log('============================================================\n');
 
     // Progressive memory extraction for symptoms or energy
@@ -791,16 +800,22 @@ Return strictly a valid JSON object in this format:
     let audioBase64Out: string | undefined = undefined;
     let audioMimeOut: string | undefined = undefined;
     let audioUrlOut: string | undefined = undefined;
+    let ttsLatencyMs = 0;
 
     if (shouldSynthesizeAudio && coachReply.trim()) {
+      const tTtsStart = Date.now();
       const speechResult = await synthesizeSpeechWithGemini(coachReply);
+      ttsLatencyMs = Date.now() - tTtsStart;
       if (speechResult) {
         audioBase64Out = speechResult.audioBase64;
         audioMimeOut = speechResult.audioMime;
         audioUrlOut = speechResult.audioUrl;
-        console.log(`🔊  [GEMINI NEURAL AUDIO READY]: ${audioMimeOut} (${audioUrlOut})`);
+        console.log(`🔊  [GEMINI NEURAL AUDIO READY in ${ttsLatencyMs}ms]: ${audioMimeOut} (${audioUrlOut})`);
       }
     }
+
+    const totalServerLatencyMs = Date.now() - start;
+    console.log(`⚡  [PERF: AUDIO TURN COMPLETE]: Text: ${textLatencyMs}ms | TTS: ${ttsLatencyMs}ms | Total: ${totalServerLatencyMs}ms\n`);
 
     res.json({
       userTranscript,
@@ -808,7 +823,12 @@ Return strictly a valid JSON object in this format:
       audioBase64: audioBase64Out,
       audioMime: audioMimeOut,
       audioUrl: audioUrlOut,
-      latencyMs: elapsed,
+      latencyMs: totalServerLatencyMs,
+      metrics: {
+        textMs: textLatencyMs,
+        ttsMs: ttsLatencyMs,
+        totalMs: totalServerLatencyMs,
+      },
     });
   } catch (err: any) {
     console.error('❌  [AUDIO TURN ERROR]:', err.message);

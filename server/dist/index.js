@@ -7,6 +7,7 @@ exports.app = void 0;
 exports.startServer = startServer;
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
+const path_1 = __importDefault(require("path"));
 const index_js_1 = require("./config/index.js");
 const voiceRoutes_js_1 = require("./routes/voiceRoutes.js");
 const mealRoutes_js_1 = require("./routes/mealRoutes.js");
@@ -30,6 +31,8 @@ exports.app = app;
 app.use((0, cors_1.default)());
 app.use(express_1.default.json({ limit: '25mb' }));
 app.use(express_1.default.urlencoded({ extended: true, limit: '25mb' }));
+// Serve static assets (images, graphics, media)
+app.use('/assets', express_1.default.static(path_1.default.resolve(__dirname, '../../../assets')));
 // Health Check
 app.get('/health', (_req, res) => {
     res.json({

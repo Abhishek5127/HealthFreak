@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { normalizeForSpeech, pcmBase64ToWavBase64 } from '../utils/voiceTextNormalizer';
 
 const DIRECT_GEMINI_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 const GEMINI_MODEL = process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-3.5-flash-lite';
@@ -99,10 +100,11 @@ ${activityStr}
 Rules:
 1. Always be conversational, warm, empathetic, and encouraging.
 2. Reply concisely in 1-2 sentences.
-3. If user speaks in Hindi/Hinglish, reply in friendly natural Hinglish.
+3. If user speaks in Hindi/Hinglish, reply in friendly natural Hinglish (using natural words like 'aap', 'aapka').
 4. Never prescribe medication or give clinical medical diagnosis.
 5. Provide actionable wellness, nutrition, or movement guidance.
-6. When user asks about steps, distance, or activity goals, use the exact recorded metrics above deterministically.`;
+6. When user asks about steps, distance, or activity goals, use the exact recorded metrics above deterministically.
+7. Spoken clarity: Do not use markdown (no **, no bullets, no emojis). Use whole words for units ('grams', 'calories', 'liters').`;
 
       const candidateModels = Array.from(
         new Set([
@@ -147,6 +149,16 @@ Rules:
 
           const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
           if (reply) {
+            let audioBase64Out: string | undefined = undefined;
+            let audioMimeOut: string | undefined = undefined;
+            try {
+              const speech = await synthesizeSpeechDirectClient(reply.trim());
+              if (speech?.audioBase64) {
+                audioBase64Out = speech.audioBase64;
+                audioMimeOut = speech.audioMime;
+              }
+            } catch {}
+
             return {
               text: reply.trim(),
               suggestions: [
@@ -154,6 +166,8 @@ Rules:
                 'Suggest a balanced dinner',
                 'Check my active plan',
               ],
+              audioBase64: audioBase64Out,
+              audioMime: audioMimeOut,
             };
           }
         } catch (mErr) {
@@ -229,6 +243,84 @@ export function isSelfEcho(userText: string, coachText: string): boolean {
 }
 
 /**
+ * Synthesizes high-fidelity human speech directly via Gemini Audio API
+ * on the client side when backend server is bypassed or unreachable.
+ */
+export async function synthesizeSpeechDirectClient(
+  text: string,
+  preferredVoice: string = 'Kore'
+): Promise<{ audioBase64: string; audioMime: string } | null> {
+  if (!DIRECT_GEMINI_KEY || !text || !text.trim()) return null;
+
+  const spokenText = normalizeForSpeech(text);
+  if (!spokenText.trim()) return null;
+
+  const ttsModels = [
+    'gemini-3.8-flash-lite-tts',
+    'gemini-3.8-flash-tts',
+    'gemini-3.1-flash-tts-preview',
+  ];
+  const candidateVoices = [preferredVoice, preferredVoice === 'Kore' ? 'Aoede' : 'Kore'];
+
+  for (const model of ttsModels) {
+    for (const voiceName of candidateVoices) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 7500);
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${DIRECT_GEMINI_KEY}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: spokenText }],
+              },
+            ],
+            generationConfig: {
+              responseModalities: ['AUDIO'],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: {
+                    voiceName,
+                  },
+                },
+              },
+            },
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (res.ok) {
+          const data = await res.json();
+          const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+          if (inlineData?.data) {
+            let base64 = inlineData.data;
+            const mime = (inlineData.mimeType || '').toLowerCase();
+
+            // If raw PCM L16, convert to standard playable WAV with RIFF header
+            if (mime.includes('l16') || mime.includes('pcm') || !mime.includes('wav')) {
+              base64 = pcmBase64ToWavBase64(base64, 24000, 1, 16);
+            }
+
+            return {
+              audioBase64: base64,
+              audioMime: 'audio/wav',
+            };
+          }
+        }
+      } catch (err: any) {
+        console.warn(`[Direct TTS ${model} ${voiceName}]:`, err?.message || err);
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Strips any accidental JSON wrappers, userTranscript, or speaker labels
  * so the AI coach ONLY speaks their own clinical answer to the user.
  */
@@ -279,7 +371,7 @@ export async function transcribeAndReplyAudio(
   if (!isLocalhostOnNative) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const timeoutId = setTimeout(() => controller.abort(), 9500);
 
       const res = await fetch(`${backendUrl}/api/voice/audio-turn`, {
         method: 'POST',
@@ -350,6 +442,8 @@ ${antiEchoPrompt}
 Listen carefully to the audio.
 1. Transcribe what the user said verbatim (support English, Hindi, Hinglish). If silent or unintelligible, set userTranscript to "(Ambient sound or brief pause)".
 2. As Coach Alex, generate a warm, concise, empathetic 1-2 sentence response guiding their nutrition, movement, or daily health habits.
+   - For spoken voice clarity: Do not use markdown (**bold**, bullet points, emojis). Speak units in whole words ("130 grams", "2400 calories").
+   - In Hinglish, use natural lowercase conversational words like 'aap', 'aapka' without acronym capitalization.
 3. Return STRICTLY a valid JSON object with keys:
 {
   "userTranscript": "<exact words user spoke or (Speaker echo)>",
@@ -358,11 +452,10 @@ Listen carefully to the audio.
 
       const candidateModels = Array.from(
         new Set([
-          GEMINI_MODEL,
           'gemini-3.5-flash-lite',
           'gemini-flash-lite-latest',
           'gemini-3.8-flash',
-          'gemini-3.5-flash',
+          GEMINI_MODEL,
         ])
       ).filter(Boolean);
 
@@ -389,8 +482,8 @@ Listen carefully to the audio.
                 },
               ],
               generationConfig: {
-                maxOutputTokens: 300,
-                temperature: 0.6,
+                maxOutputTokens: 65,
+                temperature: 0.35,
                 responseMimeType: 'application/json',
               },
             }),
@@ -465,9 +558,25 @@ Listen carefully to the audio.
                 };
               }
 
+              let audioBase64Out: string | undefined = undefined;
+              let audioMimeOut: string | undefined = undefined;
+              if (coachReply.trim()) {
+                try {
+                  const speech = await synthesizeSpeechDirectClient(coachReply);
+                  if (speech?.audioBase64) {
+                    audioBase64Out = speech.audioBase64;
+                    audioMimeOut = speech.audioMime;
+                  }
+                } catch (err) {
+                  console.warn('[Direct Speech Synthesis Warning]:', err);
+                }
+              }
+
               return {
                 userTranscript: userTranscript || 'Voice note recorded',
                 coachReply,
+                audioBase64: audioBase64Out,
+                audioMime: audioMimeOut,
                 isEcho: false,
               };
             }

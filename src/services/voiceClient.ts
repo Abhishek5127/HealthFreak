@@ -11,7 +11,8 @@ import {
   type AudioPlayer,
 } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
-import { askHealthCoachAI, transcribeAndReplyAudio, getBackendBaseUrl, isSelfEcho, cleanCoachReplyOnly } from './aiChatService';
+import { askHealthCoachAI, transcribeAndReplyAudio, getBackendBaseUrl, isSelfEcho, cleanCoachReplyOnly, synthesizeSpeechDirectClient } from './aiChatService';
+import { normalizeForSpeech, isHinglishOrHindi } from '../utils/voiceTextNormalizer';
 
 export type VoiceConnectionStatus =
   | 'idle'
@@ -78,6 +79,7 @@ export class VoiceClientService {
   private currentWebAudio: any = null;
   private cachedIndianVoices: { hindi?: string; indianEnglish?: string } = {};
   private lastCoachReply: string = '';
+  private lastSpeechEndTime: number = 0;
 
   constructor() {
     this.initAvailableVoices();
@@ -198,9 +200,10 @@ export class VoiceClientService {
     fallbackText = '',
     audioUrl?: string
   ): Promise<void> {
+    const cleanFallback = normalizeForSpeech(fallbackText);
     this.status = 'speaking';
-    if (fallbackText) {
-      this.lastCoachReply = fallbackText;
+    if (cleanFallback) {
+      this.lastCoachReply = cleanFallback;
     }
     this.notify();
 
@@ -237,7 +240,7 @@ export class VoiceClientService {
           const audio = new Audio(webSrc);
           this.currentWebAudio = audio;
 
-          const wordCount = (fallbackText || '').split(/\s+/).length;
+          const wordCount = (cleanFallback || '').split(/\s+/).length;
           const watchdogMs = Math.max(5000, wordCount * 550 + 2500);
           const watchdog = setTimeout(() => {
             if (this.currentWebAudio === audio) {
@@ -256,9 +259,10 @@ export class VoiceClientService {
             clearTimeout(watchdog);
             console.warn('[VoiceClient] Web audio error, using speech fallback:', e);
             this.currentWebAudio = null;
-            this.speakAloud(fallbackText);
+            this.speakAloud(cleanFallback);
           };
 
+          console.log(`🔊  [PERF: WEB AUDIO PLAYBACK STARTED]: ${this.lastSpeechEndTime ? (Date.now() - this.lastSpeechEndTime) + 'ms since user speech ended' : 'playing'}`);
           await audio.play();
           return;
         }
@@ -305,7 +309,7 @@ export class VoiceClientService {
         const player = createAudioPlayer(playerSource);
         this.currentPlayer = player;
 
-        const wordCount = (fallbackText || '').split(/\s+/).length;
+        const wordCount = (cleanFallback || '').split(/\s+/).length;
         const watchdogMs = Math.max(5000, wordCount * 550 + 2500);
         const watchdog = setTimeout(() => {
           if (this.currentPlayer === player) {
@@ -332,6 +336,7 @@ export class VoiceClientService {
           }
         });
 
+        console.log(`🔊  [PERF: NATIVE AUDIO PLAYBACK STARTED]: ${this.lastSpeechEndTime ? (Date.now() - this.lastSpeechEndTime) + 'ms since user speech ended' : 'playing'}`);
         player.play();
         return;
       }
@@ -340,11 +345,11 @@ export class VoiceClientService {
     }
 
     // 3. Fallback to device speech engine
-    this.speakAloud(fallbackText);
+    this.speakAloud(cleanFallback);
   }
 
   /**
-   * Speaks text aloud through device speakers with safety watchdog timer to prevent UI hanging.
+   * Speaks normalized text aloud through device speakers with safety watchdog timer to prevent UI hanging.
    */
   public async speakAloud(text: string, onEnd?: () => void) {
     if (!text || !text.trim()) {
@@ -352,8 +357,15 @@ export class VoiceClientService {
       return;
     }
 
+    // Normalize text to remove symbols, expand units, and fix acronym casing
+    const spokenText = normalizeForSpeech(text);
+    if (!spokenText.trim()) {
+      if (onEnd) onEnd();
+      return;
+    }
+
     this.status = 'speaking';
-    this.lastCoachReply = text;
+    this.lastCoachReply = spokenText;
     this.notify();
 
     let finished = false;
@@ -379,15 +391,28 @@ export class VoiceClientService {
       if (onEnd) onEnd();
     };
 
-    const wordCount = text.split(/\s+/).length;
+    const wordCount = spokenText.split(/\s+/).length;
     const estimatedDurationMs = Math.max(4500, wordCount * 550 + 2500);
     const watchdogTimer = setTimeout(finishSpeaking, estimatedDurationMs);
 
-    // If text has actual Devanagari Unicode characters, use 'hi-IN'.
-    // If text is Hinglish / English written in Latin alphabet, use 'en-IN' (Indian English accent),
-    // which cleanly pronounces Hinglish words without crashing or muting on Android TTS!
-    const hasDevanagari = /[\u0900-\u097F]/.test(text);
-    const speechLang = hasDevanagari ? 'hi-IN' : 'en-IN';
+    // Language and voice selection
+    const isHinglish = isHinglishOrHindi(spokenText);
+    const hasDevanagari = /[\u0900-\u097F]/.test(spokenText);
+    let speechLang = 'en-IN';
+    let selectedVoice = this.cachedIndianVoices.indianEnglish;
+
+    if (hasDevanagari) {
+      speechLang = 'hi-IN';
+      selectedVoice = this.cachedIndianVoices.hindi || this.cachedIndianVoices.indianEnglish;
+    } else if (isHinglish) {
+      if (this.cachedIndianVoices.hindi) {
+        speechLang = 'hi-IN';
+        selectedVoice = this.cachedIndianVoices.hindi;
+      } else {
+        speechLang = 'en-IN';
+        selectedVoice = this.cachedIndianVoices.indianEnglish;
+      }
+    }
 
     // 1. Web Speech Synthesis
     if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -395,14 +420,15 @@ export class VoiceClientService {
         window.speechSynthesis.cancel();
         window.speechSynthesis.resume();
 
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.98;
-        utterance.pitch = 1.05;
+        const utterance = new SpeechSynthesisUtterance(spokenText);
+        utterance.rate = 0.95;
+        utterance.pitch = 1.02;
 
         const voices = window.speechSynthesis.getVoices();
         if (voices && voices.length > 0) {
           const matchedVoice =
-            voices.find((v) => v.lang === speechLang || v.lang.startsWith(hasDevanagari ? 'hi' : 'en-IN')) ||
+            voices.find((v) => (selectedVoice && v.name === selectedVoice) || v.lang === speechLang) ||
+            voices.find((v) => v.lang.startsWith(hasDevanagari || isHinglish ? 'hi' : 'en-IN')) ||
             voices.find(
               (v) =>
                 v.name.toLowerCase().includes('india') ||
@@ -452,12 +478,13 @@ export class VoiceClientService {
       }
 
       Speech.stop();
-      Speech.speak(text, {
+      Speech.speak(spokenText, {
         language: speechLang,
+        voice: selectedVoice,
         pitch: 1.02,
-        rate: 0.96,
+        rate: 0.94,
         onStart: () => {
-          console.log(`[VoiceClient] Native Speech playback started (lang: ${speechLang})`);
+          console.log(`[VoiceClient] Native Speech playback started (lang: ${speechLang}, voice: ${selectedVoice || 'default'})`);
         },
         onDone: () => {
           clearTimeout(watchdogTimer);
@@ -465,10 +492,11 @@ export class VoiceClientService {
         },
         onError: (err) => {
           console.warn('[VoiceClient] Speech.speak primary error:', err);
-          // Fallback: Retry without language restriction
+          // Fallback: Retry with base en-IN
           try {
-            Speech.speak(text, {
-              rate: 0.96,
+            Speech.speak(spokenText, {
+              language: 'en-IN',
+              rate: 0.94,
               onDone: () => {
                 clearTimeout(watchdogTimer);
                 finishSpeaking();
@@ -738,7 +766,9 @@ export class VoiceClientService {
           const now = Date.now();
           if (this.vadSilenceStart === 0) {
             this.vadSilenceStart = now;
-          } else if (now - this.vadSilenceStart > 750) {
+          } else if (now - this.vadSilenceStart > 320) {
+            this.lastSpeechEndTime = now;
+            console.log(`[VoiceClient] 🎙️ [VAD Web]: End of user speech detected (${now - this.vadSilenceStart}ms silence). Submitting turn...`);
             this.isUserSpeakingVAD = false;
             this.vadSilenceStart = 0;
             if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
@@ -775,7 +805,9 @@ export class VoiceClientService {
         this.lastCoachReply,
         this.currentUserId || 'usr_synthetic_alex'
       );
-      console.log(`[VoiceClient] Turn response received from backend in ${Date.now() - turnStartTime}ms`);
+      const networkInferenceMs = Date.now() - turnStartTime;
+      const endToEndMs = this.lastSpeechEndTime ? Date.now() - this.lastSpeechEndTime : networkInferenceMs;
+      console.log(`⚡  [PERF: VOICE TURN FINISHED]: Total Turnaround: ${endToEndMs}ms (Inference: ${networkInferenceMs}ms) | Coach: "${result.coachReply?.slice(0, 45)}..."`);
 
       // Anti-Echo Guard: If result is an echo of Coach's previous utterance, suppress it!
       if (
@@ -802,6 +834,14 @@ export class VoiceClientService {
       if (result.audioUrl || result.audioBase64) {
         await this.playGeneratedAudio(result.audioBase64, result.audioMime || 'audio/wav', cleanReply, result.audioUrl);
       } else {
+        // Direct neural audio synthesis fallback before device TTS
+        try {
+          const directSpeech = await synthesizeSpeechDirectClient(cleanReply);
+          if (directSpeech?.audioBase64) {
+            await this.playGeneratedAudio(directSpeech.audioBase64, directSpeech.audioMime || 'audio/wav', cleanReply);
+            return;
+          }
+        } catch {}
         this.speakAloud(cleanReply);
       }
     } catch (err) {
@@ -811,6 +851,13 @@ export class VoiceClientService {
       this.coachTranscript = fallback;
       this.status = 'speaking';
       this.notify();
+      try {
+        const directSpeech = await synthesizeSpeechDirectClient(fallback);
+        if (directSpeech?.audioBase64) {
+          await this.playGeneratedAudio(directSpeech.audioBase64, directSpeech.audioMime || 'audio/wav', fallback);
+          return;
+        }
+      } catch {}
       this.speakAloud(fallback);
     }
   }
@@ -973,12 +1020,13 @@ export class VoiceClientService {
                 if (isQuietNow) {
                   silenceDurationMs += 80;
 
-                  // Rapid real-time conversational turn completion:
-                  // 500ms of quiet after speaking confirms turn completion
-                  const requiredSilenceMs = speechDurationMs >= 350 ? 500 : 700;
+                  // Ultra-fast conversational turn completion:
+                  // 320ms of quiet after speaking confirms turn completion
+                  const requiredSilenceMs = speechDurationMs >= 350 ? 320 : 480;
 
                   if (silenceDurationMs >= requiredSilenceMs) {
-                    console.log(`[VoiceClient] End of user speech detected (${speechDurationMs}ms speech, ${silenceDurationMs}ms silence). Submitting turn...`);
+                    this.lastSpeechEndTime = Date.now();
+                    console.log(`[VoiceClient] 🎙️ [VAD Native]: End of user speech detected (${speechDurationMs}ms speech, ${silenceDurationMs}ms silence). Submitting turn...`);
                     speechDetected = false;
                     silenceDurationMs = 0;
                     this.stopListening();
@@ -1143,6 +1191,13 @@ export class VoiceClientService {
       if (aiResponse.audioUrl || aiResponse.audioBase64) {
         await this.playGeneratedAudio(aiResponse.audioBase64, aiResponse.audioMime || 'audio/wav', replyText, aiResponse.audioUrl);
       } else {
+        try {
+          const directSpeech = await synthesizeSpeechDirectClient(replyText);
+          if (directSpeech?.audioBase64) {
+            await this.playGeneratedAudio(directSpeech.audioBase64, directSpeech.audioMime || 'audio/wav', replyText);
+            return;
+          }
+        } catch {}
         this.speakAloud(replyText);
       }
     } catch (err) {
@@ -1255,6 +1310,17 @@ export class VoiceClientService {
     }
 
     this.coachTranscript = greeting;
+    // Attempt high-quality neural greeting synthesis before falling back to local device TTS
+    try {
+      const directGreeting = await synthesizeSpeechDirectClient(greeting);
+      if (directGreeting?.audioBase64) {
+        this.status = 'speaking';
+        this.notify();
+        await this.playGeneratedAudio(directGreeting.audioBase64, directGreeting.audioMime || 'audio/wav', greeting);
+        return;
+      }
+    } catch {}
+
     this.speakAloud(greeting);
   }
 
