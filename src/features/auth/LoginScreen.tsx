@@ -74,7 +74,7 @@ const SLIDES = [
 
 export const LoginScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const { authState, error, signInWithGoogle, clearError } = useAuth();
+  const { authState, error, signInWithGoogle, signInAsDemoUser, clearError } = useAuth();
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [isTransformedToGoogle, setIsTransformedToGoogle] = useState<boolean>(false);
   const [isWaveRunning, setIsWaveRunning] = useState<boolean>(false);
@@ -574,6 +574,22 @@ export const LoginScreen: React.FC = () => {
             </View>
           </View>
         </IOSControlCenterGlassButton>
+
+        {/* Guest / Demo Mode Quick Access Bypass */}
+        <Pressable
+          onPress={() => {
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            } catch {}
+            signInAsDemoUser();
+          }}
+          hitSlop={12}
+          style={styles.demoGuestButton}
+        >
+          <Text style={styles.demoGuestText}>
+            Explore as Guest / Demo Mode
+          </Text>
+        </Pressable>
       </View>
     </Animated.View>
   );
@@ -794,5 +810,19 @@ const styles = StyleSheet.create({
     color: '#FF9E9E',
     fontSize: 11,
     fontFamily: Typography.fontFamilies.sansMedium,
+  },
+  demoGuestButton: {
+    marginTop: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  demoGuestText: {
+    fontFamily: Typography.fontFamilies.sansMedium,
+    fontSize: 13,
+    color: 'rgba(255, 253, 249, 0.72)',
+    textDecorationLine: 'underline',
+    letterSpacing: 0.2,
   },
 });

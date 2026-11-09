@@ -230,7 +230,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     async function initializeAuth() {
       try {
-        const { data, error: sessionError } = await supabase.auth.getSession();
+        // Enforce a strict 2.5 second timeout on Supabase session lookup to prevent hanging on mobile
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<{ data: { session: null }; error: null }>((resolve) =>
+          setTimeout(() => resolve({ data: { session: null }, error: null }), 2500)
+        );
+
+        const { data, error: sessionError } = await Promise.race([sessionPromise, timeoutPromise]);
 
         if (sessionError) {
           console.warn('[AuthContext] Error restoring session:', sessionError.message);
@@ -263,6 +269,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     }
+
+    // Safety fallback: if anything hangs, force unlock to logged_out after 3.2s
+    const fallbackTimer = setTimeout(() => {
+      if (isMounted) {
+        setAuthState((current) => (current === 'initializing' ? 'logged_out' : current));
+      }
+    }, 3200);
 
     initializeAuth();
 
@@ -344,6 +357,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       isMounted = false;
+      clearTimeout(fallbackTimer);
       subscription.unsubscribe();
       linkSubscription.remove();
     };

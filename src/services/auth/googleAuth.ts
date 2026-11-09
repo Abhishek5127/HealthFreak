@@ -128,7 +128,12 @@ export async function signInWithGoogle(): Promise<GoogleAuthResult> {
 
         // B. Check if server relay bridge received tokens from the callback page
         try {
-          const relayRes = await fetch(`${backendUrl}/api/auth/latest-session`);
+          const controller = new AbortController();
+          const fetchTimeout = setTimeout(() => controller.abort(), 2000);
+          const relayRes = await fetch(`${backendUrl}/api/auth/latest-session`, {
+            signal: controller.signal,
+          });
+          clearTimeout(fetchTimeout);
           if (relayRes.ok) {
             const relayData = await relayRes.json();
             if (relayData.success && (relayData.access_token || relayData.code)) {
