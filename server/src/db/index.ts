@@ -57,7 +57,7 @@ export interface CallSession {
   userId: string;
   type: 'in_app' | 'pstn_outbound';
   status: 'scheduled' | 'initiating' | 'ringing' | 'connected' | 'completed' | 'busy' | 'rejected' | 'failed' | 'unanswered';
-  provider: 'gemini' | 'openai';
+  provider: 'sarvam' | 'gemini' | 'openai';
   startedAt?: string;
   endedAt?: string;
   durationSeconds?: number;

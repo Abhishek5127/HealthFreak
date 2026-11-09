@@ -10,7 +10,7 @@ export interface AgentWorkerSession {
   sessionId: string;
   roomName: string;
   userId: string;
-  provider: 'gemini' | 'openai';
+  provider: 'sarvam' | 'gemini' | 'openai';
   status: 'active' | 'completed' | 'interrupted' | 'error';
   startedAt: number;
 }

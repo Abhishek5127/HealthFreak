@@ -25,7 +25,13 @@ export interface ServerConfig {
     apiSecret: string;
     sipTrunkId: string;
   };
-  voiceProvider: 'gemini' | 'openai';
+  voiceProvider: 'sarvam' | 'gemini' | 'openai';
+  sarvam: {
+    apiKey: string;
+    speaker: string;
+    chatModel: string;
+    ttsModel: string;
+  };
   gemini: {
     apiKey: string;
     model: string;
@@ -81,7 +87,17 @@ export const config: ServerConfig = {
     apiSecret: process.env.LIVEKIT_API_SECRET || 'secret_healthfreak_livekit_agent_2026',
     sipTrunkId: process.env.LIVEKIT_SIP_TRUNK_ID || 'ST_EXOTEL_INDIA_01',
   },
-  voiceProvider: (process.env.VOICE_PROVIDER === 'openai' ? 'openai' : 'gemini'),
+  voiceProvider: (process.env.VOICE_PROVIDER === 'openai'
+    ? 'openai'
+    : process.env.VOICE_PROVIDER === 'gemini'
+    ? 'gemini'
+    : 'sarvam') as 'sarvam' | 'gemini' | 'openai',
+  sarvam: {
+    apiKey: process.env.SARVAM_API_KEY || '',
+    speaker: process.env.SARVAM_SPEAKER || 'shubh',
+    chatModel: process.env.SARVAM_CHAT_MODEL || 'sarvam-105b-conversations',
+    ttsModel: process.env.SARVAM_TTS_MODEL || 'bulbul:v3',
+  },
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || 'AIzaSyDemoKeyForGeminiLiveFreeTier2026',
     model: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',

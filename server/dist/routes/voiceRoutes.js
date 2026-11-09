@@ -13,6 +13,7 @@ const planService_js_1 = require("../services/planService.js");
 const costTracker_js_1 = require("../services/costTracker.js");
 const index_js_2 = require("../config/index.js");
 const voiceAgentProcess_js_1 = require("../services/voiceAgentProcess.js");
+const sarvamService_js_1 = require("../services/sarvamService.js");
 let geminiClient = null;
 function getGeminiClient() {
     if (!geminiClient) {
@@ -273,7 +274,7 @@ exports.voiceRouter.get('/audio/:id.wav', (req, res) => {
     });
     res.send(item.buffer);
 });
-// 12. Dynamic Health Coach Greeting (Hinglish Voice Persona)
+// 12. Dynamic Health Coach Greeting (Sarvam AI Hinglish Voice Persona)
 exports.voiceRouter.post('/greeting', async (req, res) => {
     try {
         const { userId = 'usr_synthetic_alex' } = req.body;
@@ -286,16 +287,22 @@ exports.voiceRouter.post('/greeting', async (req, res) => {
         else if (hour >= 18 && hour < 22)
             timeGreeting = 'Shubh Sandhya';
         const greeting = `${timeGreeting} ${firstName}! Main Coach Alex bol raha hoon, aapka HealthFreak AI coach. Aaj aapki fitness aur diet mein kya help karoon?`;
+        let audioBase64;
+        if (sarvamService_js_1.SarvamService.isConfigured()) {
+            audioBase64 = await sarvamService_js_1.SarvamService.synthesizeSpeech(greeting);
+        }
         res.json({
             greeting,
-            provider: 'gemini',
+            audioBase64,
+            audioMime: 'audio/wav',
+            provider: sarvamService_js_1.SarvamService.isConfigured() ? 'sarvam' : 'gemini',
         });
     }
     catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
-// 13. Health Coach Chat Turn (Google Gemini 3.5 Flash-Lite & Personalized Memory)
+// 13. Health Coach Chat Turn (Sarvam AI 105B + Bulbul Neural Voice)
 exports.voiceRouter.post('/chat', async (req, res) => {
     try {
         const { message, userId = 'usr_synthetic_alex', activityContext } = req.body;
@@ -318,26 +325,44 @@ exports.voiceRouter.post('/chat', async (req, res) => {
                 index_js_1.db.updateMemoryFact(user.id, 'nutrition_query', 'Asked about meals in chat', 0.85);
             }
         }
-        // 2. Check recent events from active console agent if running
-        const events = voiceAgentProcess_js_1.VoiceAgentProcess.getLatestTranscripts();
-        const lastCoachEvent = [...events].reverse().find((e) => e.coach_reply);
+        const activeFacts = user ? healthMemoryStore_js_1.healthMemoryStore.getActiveProfileFacts(user.id) : [];
+        const memorySnippet = activeFacts.length > 0
+            ? activeFacts.map((f) => `${f.key}: ${f.value}`).join('; ')
+            : '';
+        const activitySnippet = activityContext
+            ? `Today steps: ${activityContext.todaySteps || 0} / ${activityContext.stepGoal || 10000}, active calories: ${activityContext.caloriesBurned || 0} kcal`
+            : '';
+        // 2. PRIMARY: Generate conversational reply and neural voice directly via Sarvam AI
+        if (sarvamService_js_1.SarvamService.isConfigured()) {
+            const sarvamResult = await sarvamService_js_1.SarvamService.generateChatReply({
+                message,
+                userName,
+                conditions: user?.knownConditions || [],
+                memorySnippet,
+                activitySnippet,
+                synthesizeVoice: true,
+            });
+            if (sarvamResult) {
+                res.json({
+                    text: sarvamResult.text,
+                    suggestions: sarvamResult.suggestions,
+                    audioBase64: sarvamResult.audioBase64,
+                    audioMime: 'audio/wav',
+                    provider: 'sarvam',
+                });
+                return;
+            }
+        }
+        // 3. SECONDARY FALLBACK: Google Gemini
         let replyText = '';
         let suggestions = [];
-        // 3. Generate dynamic, personalized reply using Google Gemini
         if (index_js_2.config.gemini.apiKey) {
-            const activeFacts = user ? healthMemoryStore_js_1.healthMemoryStore.getActiveProfileFacts(user.id) : [];
-            const memorySnippet = activeFacts.length > 0
-                ? activeFacts.map((f) => `${f.key}: ${f.value}`).join('; ')
-                : 'None recorded';
-            const activitySnippet = activityContext
-                ? `Today steps: ${activityContext.todaySteps || 0} / ${activityContext.stepGoal || 10000}, active calories: ${activityContext.caloriesBurned || 0} kcal`
-                : 'Steps not synced yet';
             const systemPrompt = `You are Coach Alex, an elite AI Health and Wellness Coach at HealthFreak.
 You are speaking directly with ${userName}.
 User Profile:
 - Known conditions/injuries: ${user?.knownConditions?.join(', ') || 'None'}
-- Memory facts: ${memorySnippet}
-- Physical activity today: ${activitySnippet}
+- Memory facts: ${memorySnippet || 'None'}
+- Physical activity today: ${activitySnippet || 'None'}
 
 Rules:
 1. Respond in natural, warm, empathetic Hinglish using Latin alphabet (e.g. 'Arre ${userName}!').
@@ -380,7 +405,7 @@ Rules:
                 }
             }
         }
-        // 4. Clinical contextual fallback if Gemini was offline or rate-limited
+        // 4. Clinical contextual fallback if all APIs are unavailable
         if (!replyText) {
             const lower = message.toLowerCase();
             if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
@@ -398,10 +423,6 @@ Rules:
             else if (lower.includes('sleep') || lower.includes('tired') || lower.includes('thak')) {
                 replyText = `Recovery is key, ${userName}! Make sure to drink a glass of water, keep screens away 30 minutes before bed, and get 7-8 hours of quality sleep tonight.`;
                 suggestions = ['Sleep meditation', 'Log bedtime', 'Set wake-up goal'];
-            }
-            else if (lastCoachEvent?.coach_reply) {
-                replyText = lastCoachEvent.coach_reply;
-                suggestions = ['Check my active plan', 'How is my hydration today?', 'Adjust my workout intensity'];
             }
             else {
                 replyText = `Namaste ${userName}! Main Coach Alex bol raha hoon. Maine aapka message note kar liya hai—aaj diet ya workout mein kis cheez par focus karein?`;

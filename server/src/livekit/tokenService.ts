@@ -6,7 +6,7 @@ import { SupabaseDb } from '../db/supabaseClient.js';
 export interface TokenRequestParams {
   userId: string;
   callType: 'in_app' | 'pstn_outbound';
-  providerOverride?: 'gemini' | 'openai';
+  providerOverride?: 'sarvam' | 'gemini' | 'openai';
   roomNameOverride?: string;
   callIdOverride?: string;
   purpose?: 'checkin' | 'scheduled' | 'plan' | 'adhoc';

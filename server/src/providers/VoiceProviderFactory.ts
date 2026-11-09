@@ -7,7 +7,7 @@ export class VoiceProviderFactory {
   private static geminiInstance: GeminiRealtimeProvider | null = null;
   private static openaiInstance: OpenAIRealtimeProvider | null = null;
 
-  public static getProvider(overrideProvider?: 'gemini' | 'openai'): IVoiceProvider {
+  public static getProvider(overrideProvider?: 'sarvam' | 'gemini' | 'openai'): IVoiceProvider {
     const selected = overrideProvider || config.voiceProvider;
 
     if (selected === 'openai') {

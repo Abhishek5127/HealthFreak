@@ -36,7 +36,7 @@ export class CostAndPrivacyTracker {
   private static openaiMinutes = 0;
   private static exotelCalls = 0;
 
-  public static recordCallCompleted(provider: 'gemini' | 'openai', durationSeconds: number, isPstn: boolean) {
+  public static recordCallCompleted(provider: 'sarvam' | 'gemini' | 'openai', durationSeconds: number, isPstn: boolean) {
     const mins = Math.ceil(durationSeconds / 60);
     if (provider === 'gemini') {
       this.geminiMinutes += mins;
