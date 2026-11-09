@@ -11,8 +11,9 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { Typography } from '../../theme/typography';
+import { RemoteAssets } from '../../constants/remoteAssets';
 
-const LOGO_GIF = require('../../../assets/logo/HealthFreakLogoTranasparent.gif');
+const FALLBACK_STATIC_LOGO = require('../../../assets/logo/HealthFreakLogoBlackbg.png');
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const LOGO_CONTAINER_SIZE = Math.min(Math.round(SCREEN_WIDTH * 0.78), 300);
@@ -98,11 +99,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
         {/* Mascot GIF (Prominent size, tightly cropped to character) */}
         <Animated.View style={[styles.logoContainer, animatedLogo]}>
           <Image
-            source={LOGO_GIF}
+            source={{ uri: RemoteAssets.logo.mascotGif }}
+            placeholder={FALLBACK_STATIC_LOGO}
             style={styles.logoImage}
             contentFit="cover"
             autoplay
             cachePolicy="memory-disk"
+            priority="high"
           />
         </Animated.View>
 

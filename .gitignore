@@ -43,3 +43,19 @@ yarn-error.*
 /ios
 /android
 .gradle/
+
+# Python virtual environments & bytecode
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Executables & binary artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Local test previews & scratch artifacts
+*.html
+dist-test/

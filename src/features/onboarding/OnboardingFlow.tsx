@@ -9,8 +9,6 @@ import {
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { RemoteAssets } from '../../constants/remoteAssets';
-
-const LOGO_GIF = require('../../../assets/logo/HealthFreakLogoTranasparent.gif');
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ChevronLeft,
@@ -354,10 +352,11 @@ export const OnboardingFlow: React.FC = () => {
           isImagesLoading ? (
             <View style={styles.centerLoadingContainer}>
               <ExpoImage
-                source={LOGO_GIF}
+                source={{ uri: RemoteAssets.logo.mascotGif }}
                 style={styles.loadingLogoGif}
                 contentFit="contain"
                 autoplay
+                cachePolicy="memory-disk"
               />
               <Text style={styles.loadingBrandTitle}>Health Freak</Text>
               <Text style={styles.loadingSubtitle}>Personalizing your wellness journey...</Text>

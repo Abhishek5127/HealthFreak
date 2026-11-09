@@ -26,5 +26,8 @@ export const RemoteAssets = {
     nutritionCollage: `${SUPABASE_STORAGE_BASE}/login-ui/healthfreak-nutrition-doodle-collage.png`,
     neonCallDoodle: `${SUPABASE_STORAGE_BASE}/login-ui/neon-healthfreak-call-doodle-wallpaper.png`,
   },
+  logo: {
+    mascotGif: `${SUPABASE_STORAGE_BASE}/logo/healthfreak-logo.gif`,
+  },
 } as const;
 
