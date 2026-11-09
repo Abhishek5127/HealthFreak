@@ -39,7 +39,7 @@ export async function askHealthCoachAI(
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     const res = await fetch(`${backendUrl}/api/voice/chat`, {
       method: 'POST',
@@ -73,9 +73,35 @@ export async function askHealthCoachAI(
     // Backend unreachable from current network
   }
 
-  // Fast, instant offline fallback matching Sarvam voice coach persona
+  // Fast, intelligent offline fallback matching Coach Alex Hinglish persona
+  const lower = message.toLowerCase();
+  if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
+    return {
+      text: `Arre ${userName}, please stop heavy leg movements right now! Rest your knee, apply an ice pack, and stick to gentle stretches today.`,
+      suggestions: ['Gentle leg stretch', 'Rest day routine', 'Log pain severity'],
+    };
+  }
+  if (lower.includes('dinner') || lower.includes('khana') || lower.includes('food') || lower.includes('eat')) {
+    return {
+      text: `For a healthy dinner ${userName}, go for light protein and veggies like grilled paneer, dal, and a bowl of salad. Avoid heavy carbs late at night!`,
+      suggestions: ['High protein dinner', 'Low carb recipes', 'Log my dinner'],
+    };
+  }
+  if (lower.includes('workout') || lower.includes('exercise') || lower.includes('gym')) {
+    return {
+      text: `Great enthusiasm ${userName}! Let's focus on a 20-minute brisk walk followed by light mobility work to keep your joints healthy.`,
+      suggestions: ['Start 20m walk', 'Mobility warmup', 'Log workout'],
+    };
+  }
+  if (lower.includes('sleep') || lower.includes('tired') || lower.includes('thak') || lower.includes('neend')) {
+    return {
+      text: `Recovery is key, ${userName}! Make sure to drink a glass of water, keep screens away 30 minutes before bed, and get 7-8 hours of quality sleep tonight.`,
+      suggestions: ['Sleep meditation', 'Log bedtime', 'Set wake-up goal'],
+    };
+  }
+
   return {
-    text: `नमस्ते ${userName}! मैं HealthFreak voice coach हूँ। आपका message note हो गया है—आज आपकी diet और workout में क्या help करूँ?`,
+    text: `Namaste ${userName}! Main Coach Alex bol raha hoon. Maine aapka message note kar liya hai—aaj diet ya workout mein kis cheez par help karoon?`,
     suggestions: [
       'Log my lunch',
       'Check today\'s workout',

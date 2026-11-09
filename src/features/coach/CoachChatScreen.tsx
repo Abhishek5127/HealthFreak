@@ -17,6 +17,7 @@ import {
   Paperclip,
   ArrowUpRight,
   Calendar,
+  Volume2,
 } from 'lucide-react-native';
 import { useApp } from '../../state/AppContext';
 import { Colors } from '../../theme/colors';
@@ -167,14 +168,29 @@ export const CoachChatScreen: React.FC = () => {
                   </Pressable>
                 )}
 
-                <Text
-                  style={[
-                    styles.timestampText,
-                    isUser ? styles.timestampUser : styles.timestampCoach,
-                  ]}
-                >
-                  {msg.timestamp}
-                </Text>
+                <View style={styles.bubbleFooterRow}>
+                  <Text
+                    style={[
+                      styles.timestampText,
+                      isUser ? styles.timestampUser : styles.timestampCoach,
+                    ]}
+                  >
+                    {msg.timestamp}
+                  </Text>
+                  {!isUser && (
+                    <Pressable
+                      style={styles.listenBtn}
+                      hitSlop={8}
+                      onPress={() => {
+                        voiceClient.unlockAudio();
+                        voiceClient.speakAloud(msg.text);
+                      }}
+                    >
+                      <Volume2 size={13} color={Colors.coralCTA} />
+                      <Text style={styles.listenBtnText}>Listen</Text>
+                    </Pressable>
+                  )}
+                </View>
               </View>
             </View>
           );
@@ -416,9 +432,29 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSizes.xs,
     fontFamily: Typography.fontFamilies.sansBold,
   },
+  bubbleFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    gap: 8,
+  },
+  listenBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 113, 95, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  listenBtnText: {
+    color: Colors.coralCTA,
+    fontSize: 10,
+    fontFamily: Typography.fontFamilies.sansMedium,
+  },
   timestampText: {
     fontSize: 10,
-    marginTop: 6,
     alignSelf: 'flex-end',
   },
   timestampUser: {

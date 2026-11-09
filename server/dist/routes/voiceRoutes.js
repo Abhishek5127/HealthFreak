@@ -3,13 +3,23 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.voiceRouter = void 0;
 exports.isSelfEcho = isSelfEcho;
 const express_1 = require("express");
+const genai_1 = require("@google/genai");
 const tokenService_js_1 = require("../livekit/tokenService.js");
 const exotelSipService_js_1 = require("../sip/exotelSipService.js");
 const scheduledCallQueue_js_1 = require("../queue/scheduledCallQueue.js");
 const index_js_1 = require("../db/index.js");
+const healthMemoryStore_js_1 = require("../db/healthMemoryStore.js");
 const planService_js_1 = require("../services/planService.js");
 const costTracker_js_1 = require("../services/costTracker.js");
+const index_js_2 = require("../config/index.js");
 const voiceAgentProcess_js_1 = require("../services/voiceAgentProcess.js");
+let geminiClient = null;
+function getGeminiClient() {
+    if (!geminiClient) {
+        geminiClient = new genai_1.GoogleGenAI({ apiKey: index_js_2.config.gemini.apiKey });
+    }
+    return geminiClient;
+}
 exports.voiceRouter = (0, express_1.Router)();
 // 1. In-App Call Session Token
 exports.voiceRouter.post('/session', async (req, res) => {
@@ -263,48 +273,148 @@ exports.voiceRouter.get('/audio/:id.wav', (req, res) => {
     });
     res.send(item.buffer);
 });
-// 12. Dynamic Health Coach Greeting (Sarvam AI Hinglish Voice Persona)
+// 12. Dynamic Health Coach Greeting (Hinglish Voice Persona)
 exports.voiceRouter.post('/greeting', async (req, res) => {
     try {
-        const greeting = 'नमस्ते! मैं HealthFreak voice coach हूँ। आज आपकी fitness और diet में क्या help कर सकता हूँ?';
+        const { userId = 'usr_synthetic_alex' } = req.body;
+        const user = index_js_1.db.getUser(userId) || index_js_1.db.getUser('usr_synthetic_alex');
+        const firstName = user?.name ? user.name.split(' ')[0] : 'there';
+        const hour = new Date().getHours();
+        let timeGreeting = 'Namaste';
+        if (hour >= 5 && hour < 12)
+            timeGreeting = 'Suprabhat';
+        else if (hour >= 18 && hour < 22)
+            timeGreeting = 'Shubh Sandhya';
+        const greeting = `${timeGreeting} ${firstName}! Main Coach Alex bol raha hoon, aapka HealthFreak AI coach. Aaj aapki fitness aur diet mein kya help karoon?`;
         res.json({
             greeting,
-            provider: 'sarvam',
+            provider: 'gemini',
         });
     }
     catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
-// 13. Health Coach Chat Turn (Sarvam AI & LiveKit Voice Agent)
+// 13. Health Coach Chat Turn (Google Gemini 3.5 Flash-Lite & Personalized Memory)
 exports.voiceRouter.post('/chat', async (req, res) => {
     try {
-        const { message, userId = 'usr_synthetic_alex' } = req.body;
+        const { message, userId = 'usr_synthetic_alex', activityContext } = req.body;
         if (!message || typeof message !== 'string') {
             res.status(400).json({ error: 'message is required' });
             return;
         }
         const user = index_js_1.db.getUser(userId) || index_js_1.db.getUser('usr_synthetic_alex');
-        // Check recent events from active console agent
-        const events = voiceAgentProcess_js_1.VoiceAgentProcess.getLatestTranscripts();
-        const lastCoachEvent = [...events].reverse().find((e) => e.coach_reply);
-        let replyText = lastCoachEvent?.coach_reply;
-        if (!replyText) {
-            replyText = 'नमस्ते! मैंने आपका message note कर लिया है। आज आपकी fitness और diet में क्या plan है?';
-        }
+        const userName = user?.name ? user.name.split(' ')[0] : 'friend';
+        // 1. Check if user mentioned pain, fatigue or dietary symptoms and update memory facts
         if (user) {
             const lower = message.toLowerCase();
             if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
-                index_js_1.db.updateMemoryFact(user.id, 'symptom_knee_discomfort', 'Reported discomfort during chat', 0.9);
+                index_js_1.db.updateMemoryFact(user.id, 'symptom_knee_discomfort', 'Reported discomfort: ' + message, 0.9);
             }
-            if (lower.includes('tired') || lower.includes('fatigue')) {
+            if (lower.includes('tired') || lower.includes('fatigue') || lower.includes('thak')) {
                 index_js_1.db.updateMemoryFact(user.id, 'energy_status', 'Low energy reported in chat', 0.9);
             }
+            if (lower.includes('dinner') || lower.includes('lunch') || lower.includes('diet') || lower.includes('khana')) {
+                index_js_1.db.updateMemoryFact(user.id, 'nutrition_query', 'Asked about meals in chat', 0.85);
+            }
+        }
+        // 2. Check recent events from active console agent if running
+        const events = voiceAgentProcess_js_1.VoiceAgentProcess.getLatestTranscripts();
+        const lastCoachEvent = [...events].reverse().find((e) => e.coach_reply);
+        let replyText = '';
+        let suggestions = [];
+        // 3. Generate dynamic, personalized reply using Google Gemini
+        if (index_js_2.config.gemini.apiKey) {
+            const activeFacts = user ? healthMemoryStore_js_1.healthMemoryStore.getActiveProfileFacts(user.id) : [];
+            const memorySnippet = activeFacts.length > 0
+                ? activeFacts.map((f) => `${f.key}: ${f.value}`).join('; ')
+                : 'None recorded';
+            const activitySnippet = activityContext
+                ? `Today steps: ${activityContext.todaySteps || 0} / ${activityContext.stepGoal || 10000}, active calories: ${activityContext.caloriesBurned || 0} kcal`
+                : 'Steps not synced yet';
+            const systemPrompt = `You are Coach Alex, an elite AI Health and Wellness Coach at HealthFreak.
+You are speaking directly with ${userName}.
+User Profile:
+- Known conditions/injuries: ${user?.knownConditions?.join(', ') || 'None'}
+- Memory facts: ${memorySnippet}
+- Physical activity today: ${activitySnippet}
+
+Rules:
+1. Respond in natural, warm, empathetic Hinglish using Latin alphabet (e.g. 'Arre ${userName}!').
+2. Keep your answer concise: 2 to 3 short sentences maximum. Be clinically sound, motivating, and actionable.
+3. Provide 3 short relevant follow-up suggestions (under 4 words each).
+4. Return strict JSON: { "text": "...", "suggestions": ["...", "...", "..."] }`;
+            const modelsToTry = [
+                index_js_2.config.gemini.model || 'gemini-3.5-flash-lite',
+                'gemini-3.8-flash',
+                'gemini-3.1-flash-lite',
+                'gemini-flash-latest',
+            ];
+            for (const m of modelsToTry) {
+                try {
+                    const ai = getGeminiClient();
+                    const response = await ai.models.generateContent({
+                        model: m,
+                        contents: [
+                            {
+                                role: 'user',
+                                parts: [{ text: `${systemPrompt}\n\nUser says: ${message}` }],
+                            },
+                        ],
+                        config: {
+                            responseMimeType: 'application/json',
+                        },
+                    });
+                    const rawText = response.text?.trim();
+                    if (rawText) {
+                        const parsed = JSON.parse(rawText);
+                        if (parsed.text) {
+                            replyText = parsed.text;
+                            suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
+                            break;
+                        }
+                    }
+                }
+                catch (err) {
+                    console.warn(`[VoiceRoutes] Gemini model ${m} notice:`, err?.message || err);
+                }
+            }
+        }
+        // 4. Clinical contextual fallback if Gemini was offline or rate-limited
+        if (!replyText) {
+            const lower = message.toLowerCase();
+            if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
+                replyText = `Arre ${userName}, please stop heavy exercises right now! Rest your knee, apply a cold pack, and stick to gentle stretches today.`;
+                suggestions = ['Gentle leg stretch', 'Rest day routine', 'Log pain severity'];
+            }
+            else if (lower.includes('dinner') || lower.includes('khana') || lower.includes('food') || lower.includes('eat')) {
+                replyText = `For a healthy dinner ${userName}, go for light protein and veggies like grilled paneer, dal, and a small bowl of salad. Avoid heavy carbs late at night!`;
+                suggestions = ['High protein dinner', 'Low carb recipes', 'Log my dinner'];
+            }
+            else if (lower.includes('workout') || lower.includes('exercise') || lower.includes('gym')) {
+                replyText = `Great enthusiasm ${userName}! Let's focus on a 20-minute brisk walk followed by light mobility work to keep your joints healthy.`;
+                suggestions = ['Start 20m walk', 'Mobility warmup', 'Log workout'];
+            }
+            else if (lower.includes('sleep') || lower.includes('tired') || lower.includes('thak')) {
+                replyText = `Recovery is key, ${userName}! Make sure to drink a glass of water, keep screens away 30 minutes before bed, and get 7-8 hours of quality sleep tonight.`;
+                suggestions = ['Sleep meditation', 'Log bedtime', 'Set wake-up goal'];
+            }
+            else if (lastCoachEvent?.coach_reply) {
+                replyText = lastCoachEvent.coach_reply;
+                suggestions = ['Check my active plan', 'How is my hydration today?', 'Adjust my workout intensity'];
+            }
+            else {
+                replyText = `Namaste ${userName}! Main Coach Alex bol raha hoon. Maine aapka message note kar liya hai—aaj diet ya workout mein kis cheez par focus karein?`;
+                suggestions = ['Log my lunch', 'Check today workout', 'Suggest high protein snack'];
+            }
+        }
+        if (suggestions.length === 0) {
+            suggestions = ['Check my active plan', 'How is my hydration today?', 'Adjust my workout intensity'];
         }
         res.json({
             text: replyText.trim(),
-            provider: 'sarvam',
-            suggestions: ['Check my active plan', 'How is my hydration today?', 'Adjust my workout intensity'],
+            provider: 'gemini',
+            suggestions,
         });
     }
     catch (err) {

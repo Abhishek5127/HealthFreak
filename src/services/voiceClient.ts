@@ -87,7 +87,17 @@ export class VoiceClientService {
 
   public async initAvailableVoices(): Promise<void> {
     try {
-      if (Platform.OS !== 'web') {
+      if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        const loadWebVoices = () => {
+          try {
+            window.speechSynthesis.getVoices();
+          } catch {}
+        };
+        loadWebVoices();
+        if (window.speechSynthesis.onvoiceschanged !== undefined) {
+          window.speechSynthesis.onvoiceschanged = loadWebVoices;
+        }
+      } else if (Platform.OS !== 'web') {
         const voices = await Speech.getAvailableVoicesAsync();
         if (voices && voices.length > 0) {
           // Prefer instant on-device local voices to eliminate 3-5s network TTS buffering
@@ -394,27 +404,66 @@ export class VoiceClientService {
     // 1. Web Speech Synthesis
     if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.resume();
+        if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+          window.speechSynthesis.cancel();
+        }
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
 
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.98;
-        utterance.pitch = 1.05;
+        const voices = window.speechSynthesis.getVoices() || [];
+        const hasHindiVoice = voices.some((v) => v.lang.startsWith('hi'));
 
-        const voices = window.speechSynthesis.getVoices();
-        if (voices && voices.length > 0) {
+        // If browser has no Hindi voice and text has Devanagari, convert known common terms so English SAPI5 voices don't mute
+        let speakableText = text;
+        if (hasDevanagari && !hasHindiVoice) {
+          speakableText = text
+            .replace(/नमस्ते/g, 'Namaste')
+            .replace(/मैं/g, 'Main')
+            .replace(/हूँ/g, 'hoon')
+            .replace(/है/g, 'hai')
+            .replace(/आज/g, 'aaj')
+            .replace(/आपकी/g, 'aapki')
+            .replace(/क्या/g, 'kya')
+            .replace(/करूँ/g, 'karoon')
+            .replace(/सकता/g, 'sakta')
+            .replace(/सकती/g, 'sakti')
+            .replace(/आपका/g, 'aapka')
+            .replace(/नोट/g, 'note')
+            .replace(/हो/g, 'ho')
+            .replace(/गया/g, 'gaya')
+            .replace(/और/g, 'aur')
+            .replace(/में/g, 'mein')
+            .replace(/मैसेज/g, 'message')
+            .replace(/सुप्रभात/g, 'Suprabhat')
+            .replace(/शुभ रात्रि/g, 'Shubh Ratri');
+        }
+
+        const utterance = new SpeechSynthesisUtterance(speakableText);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.lang = hasHindiVoice && hasDevanagari ? 'hi-IN' : 'en-IN';
+
+        if (voices.length > 0) {
           const matchedVoice =
-            voices.find((v) => v.lang === speechLang || v.lang.startsWith(hasDevanagari ? 'hi' : 'en-IN')) ||
+            (hasHindiVoice && hasDevanagari
+              ? voices.find((v) => v.lang === 'hi-IN' || v.lang.startsWith('hi'))
+              : null) ||
+            voices.find((v) => v.lang === 'en-IN' || v.lang.includes('IN') || v.name.toLowerCase().includes('india')) ||
             voices.find(
               (v) =>
-                v.name.toLowerCase().includes('india') ||
+                v.name.toLowerCase().includes('google') ||
+                v.name.toLowerCase().includes('natural') ||
                 v.name.toLowerCase().includes('zira') ||
-                v.name.toLowerCase().includes('google')
+                v.name.toLowerCase().includes('david')
             ) ||
             voices[0];
 
           if (matchedVoice) {
             utterance.voice = matchedVoice;
+            if (matchedVoice.lang) {
+              utterance.lang = matchedVoice.lang;
+            }
           }
         }
 
@@ -434,7 +483,16 @@ export class VoiceClientService {
           finishSpeaking();
         };
 
-        window.speechSynthesis.speak(utterance);
+        setTimeout(() => {
+          try {
+            window.speechSynthesis.resume();
+            window.speechSynthesis.speak(utterance);
+          } catch (err) {
+            console.warn('[VoiceClient] Web Speech speak error:', err);
+            finishSpeaking();
+          }
+        }, 50);
+
         return;
       } catch (err) {
         console.warn('[VoiceClient] window.speechSynthesis error:', err);
