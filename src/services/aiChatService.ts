@@ -2,16 +2,24 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
 export function getBackendBaseUrl(): string {
+  const envUrl = process.env.EXPO_PUBLIC_BACKEND_URL?.trim();
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl.replace(/\/$/, '');
+  }
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    if (envUrl) return envUrl.replace(/\/$/, '');
     const host = window.location.hostname || 'localhost';
     return `http://${host}:3001`;
+  }
+  if (envUrl) {
+    return envUrl.replace(/\/$/, '');
   }
   const hostUri = Constants.expoConfig?.hostUri;
   if (hostUri) {
     const ip = hostUri.split(':')[0];
     return `http://${ip}:3001`;
   }
-  return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+  return 'https://healthfreak-1.onrender.com';
 }
 
 export async function askHealthCoachAI(

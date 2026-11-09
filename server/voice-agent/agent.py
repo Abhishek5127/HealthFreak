@@ -36,6 +36,19 @@ try:
 except ImportError:
     noise_cancellation = None
 
+import aiohttp
+from context_pack import (
+    CoachState,
+    ContextPack,
+    ProfileEssential,
+    DayMetrics,
+    SevenDaySummary,
+    ActivePlan,
+    OpenIssue,
+    LastCall,
+    NextCall,
+)
+
 logger = logging.getLogger("HealthFreakVoiceAgent")
 
 load_dotenv()
@@ -64,14 +77,15 @@ def _get_speaker_gender() -> str:
             return "female"
     return "male"
 
-def _build_instructions() -> str:
+def _build_instructions(context_pack: Optional[ContextPack] = None, is_anonymous: bool = False) -> str:
     gender = _get_speaker_gender()
     gender_rule = (
         "Match your grammatical gender to the voice: use feminine verb forms (सकती, करूँगी, बताऊँगी)."
         if gender == "female"
         else "Match your grammatical gender to the voice: use masculine verb forms (सकता, करूँगा, बताऊँगा)."
     )
-    return (
+
+    base = (
         "You are the HealthFreak voice coach: a warm, practical Indian fitness and nutrition coach. "
         "You are not a doctor and never diagnose. For chest pain, trouble breathing, fainting, "
         "severe or sudden symptoms, tell the user to seek urgent medical care.\n"
@@ -83,10 +97,20 @@ def _build_instructions() -> str:
         'Say "आप" and "जी". No markdown, lists, emoji, symbols or abbreviations. '
         'Spell out units ("किलो", "ग्राम", "कैलोरी"). End sentences with "।" or ".". '
         'Use fillers sparingly ("हाँ जी", "अच्छा", "ठीक है").\n'
+        "Call opening: greet briefly in one short sentence, then follow up on the single highest-priority open issue with ONE short question. "
+        'Never recite all data. Mention numbers naturally ("kal aapne 8 हज़ार steps किए").\n'
+        "Wrap-up: Before ending the call, recap commitments made, confirm the next call time (if any), then end the call with the end_call tool.\n"
         "Transcripts may contain mishearings or spelling variants. Before saving any meal, workout or health detail "
         "with a tool, read back food names and quantities and get a yes. If unsure, ask instead of guessing.\n"
         f"{gender_rule}"
     )
+
+    if not is_anonymous and context_pack:
+        rendered_pack = context_pack.render_prompt_text()
+        return f"{base}\n\n{rendered_pack}"
+    elif is_anonymous:
+        return f"{base}\n\n[ANONYMOUS CALL MODE: No persistent health memory or database writes.]"
+    return base
 
 def _build_stt():
     stt_choice = os.getenv("STT_CHOICE", "sarvam").lower()
@@ -151,15 +175,36 @@ def _setup_eval_logging(session: AgentSession, stt_language: str) -> None:
             last_user_turn["start_time"] = 0.0
 
 class HealthFreakCoachAgent(Agent):
-    def __init__(self) -> None:
+    def __init__(self, instructions: str, coach_state: CoachState) -> None:
         super().__init__(
-            instructions=_build_instructions(),
+            instructions=instructions,
             tools=[EndCallTool()],
         )
+        self.coach_state = coach_state
 
     async def on_enter(self) -> None:
         gender = _get_speaker_gender()
         suffix = "सकती हूँ" if gender == "female" else "सकता हूँ"
+
+        # Check for single highest-priority open issue to follow up on
+        if not self.coach_state.is_anonymous and self.coach_state.context_pack:
+            pack = self.coach_state.context_pack
+            first_name = pack.profile.first_name
+
+            if pack.open_issues and pack.open_issues[0].follow_up_question:
+                question = pack.open_issues[0].follow_up_question
+                instructions = (
+                    f'Greet {first_name} warmly in one short sentence, then ask this follow-up question naturally: "{question}"'
+                )
+                self.session.generate_reply(instructions=instructions)
+                return
+            elif first_name and first_name != "Friend":
+                instructions = (
+                    f'Greet {first_name} warmly in one short sentence and ask how their energy and activity are going today.'
+                )
+                self.session.generate_reply(instructions=instructions)
+                return
+
         greeting = f"नमस्ते! मैं HealthFreak voice coach हूँ। आज आपकी fitness और diet में क्या help कर {suffix}?"
         self.session.generate_reply(instructions=f'Greet the user warmly: "{greeting}"')
 
@@ -186,15 +231,124 @@ class HealthFreakCoachAgent(Agent):
         logger.info(f"Logging workout: {exercise_name} for {duration_minutes} mins")
         return f"शाबाश! आपका {duration_minutes} मिनट का {exercise_name} session save हो गया है।"
 
+async def _fetch_context_pack(user_id: str) -> ContextPack:
+    port = os.getenv("PORT", "3001")
+    backend_url = os.getenv("BACKEND_URL", f"http://127.0.0.1:{port}").rstrip("/")
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2.5)) as http_session:
+            async with http_session.get(f"{backend_url}/api/health/context-pack?userId={user_id}") as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if data.get("success") and data.get("contextPack"):
+                        return ContextPack.model_validate(data["contextPack"])
+    except Exception as err:
+        logger.warning(f"Could not fetch context pack from backend ({err}); using calibrated default pack.")
+
+    return ContextPack(
+        profile=ProfileEssential(
+            first_name="Alex",
+            language="hinglish",
+            goal="Weight management & functional knee stability",
+            tz="Asia/Kolkata",
+            preferred_call_time="10:00",
+        ),
+        today=DayMetrics(steps=8240, step_goal=10000, calories_in=1950, calorie_target=2100, protein_g=112, water_ml=2600),
+        yesterday=DayMetrics(steps=9500, step_goal=10000, calories_in=2050, protein_g=120),
+        seven_day_summary=SevenDaySummary(avg_steps=8750, steps_goal_hit_count=5, avg_calories=2010, avg_protein_g=115, adherence_rate_pct=82),
+        active_plan=ActivePlan(
+            title="4-Week Metabolic Reboot",
+            today_workout="Lower body mobility and 25-min brisk interval walking",
+            seven_day_completion_count=4,
+        ),
+        open_issues=[
+            OpenIssue(
+                id="issue_knee_01",
+                title="Right knee soreness after plyometrics",
+                category="pain",
+                severity="mild-to-moderate",
+                last_mentioned="2 days ago",
+                follow_up_question="Aapke right knee ka pain jumping ke baad ab kaisa hai?",
+            ),
+        ],
+        last_call=LastCall(
+            summary="Discussed knee tenderness during jumps and hydration target.",
+            commitments=["Swapped plyometrics for flat walking", "Drink minimum 2.5L water daily"],
+            date="2 days ago",
+        ),
+        next_call=NextCall(scheduled_for="Tomorrow 10:00 AM", channel="app", reason="Mid-week check-in"),
+    )
+
 server = AgentServer()
 
-@server.rtc_session()
+AGENT_NAME = os.getenv("LIVEKIT_AGENT_NAME", "healthfreak-coach")
+if os.getenv("COACH_EXPLICIT_DISPATCH_ENABLED", "true").lower() == "false":
+    AGENT_NAME = ""
+
+@server.rtc_session(agent_name=AGENT_NAME)
 async def entrypoint(ctx: JobContext) -> None:
     ctx.log_context_fields = {"room": ctx.room.name}
     stt_language = os.getenv("STT_LANGUAGE", "hi")
     stt_instance = _build_stt()
     tts_instance = _build_tts()
     llm_instance = inference.LLM(os.getenv("LLM_MODEL", "openai/gpt-4.1-mini"))
+
+    is_console = cli.AgentsConsole.get_instance().enabled or ctx.room.name == "console-room"
+
+    # 1. Read metadata from server dispatch
+    metadata_raw = ctx.job.metadata or ""
+    metadata = {}
+    if metadata_raw:
+        try:
+            metadata = json.loads(metadata_raw)
+        except Exception as e:
+            logger.warning(f"Failed to parse job metadata JSON: {e}")
+
+    meta_user_id = metadata.get("user_id")
+    call_id = metadata.get("call_id")
+    purpose = metadata.get("purpose", "checkin")
+    scheduled_call_id = metadata.get("scheduled_call_id")
+
+    if is_console and not meta_user_id:
+        meta_user_id = os.getenv("DEFAULT_USER_ID", "usr_synthetic_alex")
+        call_id = f"console_{int(time.time())}"
+
+    # 2. Connect room and validate participant identity
+    await ctx.connect()
+    participant = await ctx.wait_for_participant()
+    participant_identity = participant.identity
+
+    is_anonymous = False
+    validated_user_id = None
+
+    if meta_user_id:
+        # Check against participant identity
+        if participant_identity in (meta_user_id, f"user_{meta_user_id}") or is_console:
+            validated_user_id = meta_user_id
+            logger.info(f"Verified participant identity '{participant_identity}' matches metadata user '{validated_user_id}'")
+        else:
+            logger.warning(f"Identity mismatch! Participant '{participant_identity}' != metadata user '{meta_user_id}'. Engaging anonymous mode.")
+            is_anonymous = True
+    else:
+        logger.info("No dispatch metadata provided. Engaging anonymous mode.")
+        is_anonymous = True
+
+    # 3. Context Pack
+    context_pack = None
+    if not is_anonymous and validated_user_id:
+        context_pack = await _fetch_context_pack(validated_user_id)
+
+    # 4. Typed Session Userdata
+    coach_state = CoachState(
+        user_id=validated_user_id,
+        call_id=call_id,
+        purpose=purpose,
+        scheduled_call_id=scheduled_call_id,
+        context_pack=context_pack,
+        issues_touched=[],
+        commitments=[],
+        language=stt_language,
+        is_anonymous=is_anonymous,
+    )
 
     turn_handling = TurnHandlingOptions(
         turn_detection=inference.TurnDetector(),
@@ -215,10 +369,10 @@ async def entrypoint(ctx: JobContext) -> None:
         tts=tts_instance,
         turn_handling=turn_handling,
     )
+    session.userdata = coach_state
 
     _setup_eval_logging(session, stt_language)
 
-    is_console = cli.AgentsConsole.get_instance().enabled or ctx.room.name == "console-room"
     room_options = None
     if not is_console and noise_cancellation is not None:
         try:
@@ -233,7 +387,10 @@ async def entrypoint(ctx: JobContext) -> None:
         except Exception as e:
             logger.warning(f"Noise cancellation unavailable: {e}")
 
-    await session.start(agent=HealthFreakCoachAgent(), room=ctx.room, room_options=room_options)
+    instructions = _build_instructions(context_pack, is_anonymous)
+    coach_agent = HealthFreakCoachAgent(instructions=instructions, coach_state=coach_state)
+
+    await session.start(agent=coach_agent, room=ctx.room, room_options=room_options)
 
 if __name__ == "__main__":
     cli.run_app(server)

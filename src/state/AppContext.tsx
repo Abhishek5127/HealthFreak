@@ -33,6 +33,8 @@ import { sleepService, SleepSession } from '../services/sleepService';
 import { syncWidgetStateToHomeScreen, getWaterWidgetState } from '../widgets/widgetStorage';
 import { ActivitySyncService } from '../features/activity/services/activitySyncService';
 import { getLocalDateString } from '../features/activity/utils/stepDateUtils';
+import { HealthSyncService } from '../services/healthSyncService';
+import { keepAliveService } from '../services/keepAliveService';
 
 export function computeProgressMetrics(
   currentSteps: number,
@@ -587,6 +589,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
     loadSavedAssessment();
+    keepAliveService.start();
+
+    return () => {
+      keepAliveService.stop();
+    };
   }, []);
 
   // Sync hydration state when app comes to foreground from home screen widget interaction
@@ -618,6 +625,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } catch (e) {
           console.warn('[AppContext] Error syncing widget state on foreground:', e);
         }
+
+        // Daily health snapshot sync to server on app open
+        HealthSyncService.syncDailySnapshot(userProfile?.id || 'usr_synthetic_alex').catch(() => {});
       }
     };
 

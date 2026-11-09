@@ -56,6 +56,15 @@ export interface ServerConfig {
     syntheticDataMode: boolean;
     transcriptRetentionDays: number;
   };
+  coach: {
+    memoryEnabled: boolean;
+    planEnabled: boolean;
+    schedulingEnabled: boolean;
+    proactiveMessagesEnabled: boolean;
+    phoneCallsEnabled: boolean;
+    agentName: string;
+    explicitDispatchEnabled: boolean;
+  };
   supabase: {
     url: string;
     anonKey: string;
@@ -101,7 +110,16 @@ export const config: ServerConfig = {
   },
   privacy: {
     syntheticDataMode: process.env.SYNTHETIC_DATA_MODE !== 'false', // default true
-    transcriptRetentionDays: 30,
+    transcriptRetentionDays: parseInt(process.env.TRANSCRIPT_RETENTION_DAYS || '90', 10),
+  },
+  coach: {
+    memoryEnabled: process.env.COACH_MEMORY_ENABLED !== 'false',
+    planEnabled: process.env.COACH_PLAN_ENABLED !== 'false',
+    schedulingEnabled: process.env.COACH_SCHEDULING_ENABLED !== 'false',
+    proactiveMessagesEnabled: process.env.COACH_PROACTIVE_MESSAGES_ENABLED === 'true',
+    phoneCallsEnabled: process.env.COACH_PHONE_CALLS_ENABLED === 'true',
+    agentName: process.env.LIVEKIT_AGENT_NAME || 'healthfreak-coach',
+    explicitDispatchEnabled: process.env.COACH_EXPLICIT_DISPATCH_ENABLED !== 'false',
   },
   supabase: {
     url: process.env.SUPABASE_URL || '',

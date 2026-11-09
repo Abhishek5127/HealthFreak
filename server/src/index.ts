@@ -6,6 +6,7 @@ import { voiceRouter } from './routes/voiceRoutes.js';
 import { mealRouter } from './routes/mealRoutes.js';
 import { nutritionRouter } from './routes/nutritionRoutes.js';
 import { healthMemoryRouter } from './routes/healthMemoryRoutes.js';
+import { healthRouter } from './routes/healthRoutes.js';
 import { planRouter } from './routes/planRoutes.js';
 import { followupRouter } from './routes/followupRoutes.js';
 import { authRouter } from './routes/authRoutes.js';
@@ -221,6 +222,10 @@ app.use('/api/meals', mealRouter);
 
 // 30-Day Nutrition Intelligence & Analytics Routes
 app.use('/api/nutrition', nutritionRouter);
+
+// Daily Health Snapshots & Context Pack Routes
+app.use('/api/health', healthRouter);
+app.use('/health', healthRouter);
 
 // Personal Health Memory & 50-Entity Profile Routes
 app.use('/api/health', healthMemoryRouter);

@@ -13,6 +13,7 @@ const voiceRoutes_js_1 = require("./routes/voiceRoutes.js");
 const mealRoutes_js_1 = require("./routes/mealRoutes.js");
 const nutritionRoutes_js_1 = require("./routes/nutritionRoutes.js");
 const healthMemoryRoutes_js_1 = require("./routes/healthMemoryRoutes.js");
+const healthRoutes_js_1 = require("./routes/healthRoutes.js");
 const planRoutes_js_1 = require("./routes/planRoutes.js");
 const followupRoutes_js_1 = require("./routes/followupRoutes.js");
 const authRoutes_js_1 = require("./routes/authRoutes.js");
@@ -217,6 +218,9 @@ app.use('/api/ai-calls', aiCallRoutes_js_1.aiCallRouter);
 app.use('/api/meals', mealRoutes_js_1.mealRouter);
 // 30-Day Nutrition Intelligence & Analytics Routes
 app.use('/api/nutrition', nutritionRoutes_js_1.nutritionRouter);
+// Daily Health Snapshots & Context Pack Routes
+app.use('/api/health', healthRoutes_js_1.healthRouter);
+app.use('/health', healthRoutes_js_1.healthRouter);
 // Personal Health Memory & 50-Entity Profile Routes
 app.use('/api/health', healthMemoryRoutes_js_1.healthMemoryRouter);
 // Adaptive Plan Engine Routes

@@ -4,6 +4,7 @@ exports.LiveKitTokenService = void 0;
 const livekit_server_sdk_1 = require("livekit-server-sdk");
 const index_js_1 = require("../config/index.js");
 const index_js_2 = require("../db/index.js");
+const supabaseClient_js_1 = require("../db/supabaseClient.js");
 class LiveKitTokenService {
     /**
      * Generates a short-lived LiveKit token with admission control and concurrency checks.
@@ -61,6 +62,12 @@ class LiveKitTokenService {
         const roomName = params.roomNameOverride || `room_${params.userId}_${Date.now()}`;
         const participantIdentity = `user_${params.userId}`;
         const provider = params.providerOverride || index_js_1.config.voiceProvider;
+        const dispatchMetadata = JSON.stringify({
+            user_id: user.id,
+            call_id: callId,
+            purpose: params.purpose || 'checkin',
+            scheduled_call_id: params.scheduledCallId || null,
+        });
         // 5. Generate LiveKit AccessToken
         const at = new livekit_server_sdk_1.AccessToken(index_js_1.config.livekit.apiKey, index_js_1.config.livekit.apiSecret, {
             identity: participantIdentity,
@@ -70,6 +77,8 @@ class LiveKitTokenService {
                 userId: user.id,
                 callId,
                 callType: params.callType,
+                purpose: params.purpose || 'checkin',
+                scheduledCallId: params.scheduledCallId || null,
                 provider,
                 syntheticMode: index_js_1.config.privacy.syntheticDataMode,
             }),
@@ -82,6 +91,20 @@ class LiveKitTokenService {
             canPublishData: true,
         });
         const jwtToken = await at.toJwt();
+        // 5b. Explicit Agent Dispatch with server-minted metadata
+        if (index_js_1.config.coach.explicitDispatchEnabled && index_js_1.config.livekit.apiKey && index_js_1.config.livekit.apiSecret) {
+            try {
+                const hostUrl = index_js_1.config.livekit.url.replace(/^ws/, 'http');
+                const dispatchClient = new livekit_server_sdk_1.AgentDispatchClient(hostUrl, index_js_1.config.livekit.apiKey, index_js_1.config.livekit.apiSecret);
+                await dispatchClient.createDispatch(roomName, index_js_1.config.coach.agentName, {
+                    metadata: dispatchMetadata,
+                });
+                console.log(`[LiveKitTokenService] Explicit agent dispatch created for '${index_js_1.config.coach.agentName}' in room '${roomName}'`);
+            }
+            catch (err) {
+                console.warn(`[LiveKitTokenService] Explicit agent dispatch notice (dev/fallback active):`, err.message);
+            }
+        }
         // 6. Record or update session in DB
         const existing = index_js_2.db.getCallSession(callId);
         if (existing) {
@@ -103,6 +126,24 @@ class LiveKitTokenService {
                 transcript: [],
                 attemptNumber: 1,
             });
+        }
+        // Sync to PostgreSQL calls table
+        const pool = supabaseClient_js_1.SupabaseDb.getPool();
+        if (pool) {
+            try {
+                await pool.query(`INSERT INTO calls (id, user_id, channel, purpose, scheduled_call_id, status, started_at)
+           VALUES ($1, $2, $3, $4, $5, 'initiating', NOW())
+           ON CONFLICT (id) DO UPDATE SET status = 'initiating', updated_at = NOW();`, [
+                    callId,
+                    user.id,
+                    params.callType === 'pstn_outbound' ? 'phone' : 'app',
+                    params.purpose || 'checkin',
+                    params.scheduledCallId || null,
+                ]);
+            }
+            catch (err) {
+                console.warn('[LiveKitTokenService] Notice writing call row to Postgres:', err.message);
+            }
         }
         return {
             success: true,

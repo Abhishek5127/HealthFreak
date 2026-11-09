@@ -14,7 +14,7 @@ exports.voiceRouter = (0, express_1.Router)();
 // 1. In-App Call Session Token
 exports.voiceRouter.post('/session', async (req, res) => {
     try {
-        const { userId, providerOverride } = req.body;
+        const { userId, providerOverride, purpose, scheduledCallId } = req.body;
         if (!userId) {
             res.status(400).json({ error: 'userId is required' });
             return;
@@ -23,6 +23,8 @@ exports.voiceRouter.post('/session', async (req, res) => {
             userId,
             callType: 'in_app',
             providerOverride,
+            purpose,
+            scheduledCallId,
         });
         if (!result.success) {
             const statusCode = result.errorCode === 'CONCURRENCY_LIMIT' || result.errorCode === 'DAILY_QUOTA_EXCEEDED' ? 429 : 400;

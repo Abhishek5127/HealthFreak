@@ -14,7 +14,7 @@ export const voiceRouter = Router();
 // 1. In-App Call Session Token
 voiceRouter.post('/session', async (req: Request, res: Response) => {
   try {
-    const { userId, providerOverride } = req.body;
+    const { userId, providerOverride, purpose, scheduledCallId } = req.body;
     if (!userId) {
       res.status(400).json({ error: 'userId is required' });
       return;
@@ -24,6 +24,8 @@ voiceRouter.post('/session', async (req: Request, res: Response) => {
       userId,
       callType: 'in_app',
       providerOverride,
+      purpose,
+      scheduledCallId,
     });
 
     if (!result.success) {
