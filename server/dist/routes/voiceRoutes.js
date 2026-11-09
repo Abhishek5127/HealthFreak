@@ -43,8 +43,8 @@ exports.voiceRouter.post('/session', async (req, res) => {
             res.status(statusCode).json({ error: result.errorMessage, code: result.errorCode });
             return;
         }
-        // Auto-launch Standalone LiveKit + Sarvam AI Voice Agent in console mode
-        if (req.body.startConsole !== false) {
+        // Standalone console mode only launched if explicitly requested by developer
+        if (req.body.startConsole === true) {
             voiceAgentProcess_js_1.VoiceAgentProcess.startConsole();
         }
         res.json(result.data);

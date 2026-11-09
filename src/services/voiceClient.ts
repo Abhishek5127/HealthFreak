@@ -1342,54 +1342,12 @@ export class VoiceClientService {
       Platform.OS !== 'web' &&
       (backendUrl.includes('localhost') || backendUrl.includes('127.0.0.1'));
 
-    // 1. Automatically launch LiveKit + Sarvam AI console agent on host when mic button is pressed
-    if (!isLocalhostOnNative) {
-      try {
-        fetch(`${backendUrl}/api/voice/console/start`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId }),
-        }).catch((err) => console.log('[VoiceClient] Console start trigger error:', err));
-      } catch {}
-    }
-
-    // 2. High-speed event polling (every 200ms) to stream transcripts from agent.py in real time
-    if (this.consolePollTimer) clearInterval(this.consolePollTimer);
-    if (!isLocalhostOnNative) {
-      this.consolePollTimer = setInterval(async () => {
-        try {
-          const res = await fetch(`${backendUrl}/api/voice/console/events?since=${this.lastEventTimestamp}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.events && Array.isArray(data.events) && data.events.length > 0) {
-              for (const ev of data.events) {
-                if (ev.timestamp && ev.timestamp > this.lastEventTimestamp) {
-                  this.lastEventTimestamp = ev.timestamp;
-                }
-                if (ev.user_transcript && ev.user_transcript !== this.userTranscript) {
-                  this.userTranscript = ev.user_transcript;
-                  this.status = 'listening';
-                  this.notify();
-                }
-                if (ev.coach_reply && ev.coach_reply !== this.coachTranscript) {
-                  this.coachTranscript = ev.coach_reply;
-                  this.lastCoachReply = ev.coach_reply;
-                  this.status = 'speaking';
-                  this.notify();
-                }
-              }
-            }
-          }
-        } catch {}
-      }, 200);
-    }
-
     if (!isLocalhostOnNative) {
       try {
         const res = await fetch(`${backendUrl}/api/voice/session`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, startConsole: true }),
+          body: JSON.stringify({ userId }),
         });
 
         if (res.ok) {
