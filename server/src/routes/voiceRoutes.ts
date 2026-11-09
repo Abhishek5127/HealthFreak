@@ -7,6 +7,7 @@ import { PlanService } from '../services/planService.js';
 import { CostAndPrivacyTracker } from '../services/costTracker.js';
 import { config } from '../config/index.js';
 import { buildCoachSystemPrompt } from '../agent/coachPrompt.js';
+import { VoiceAgentProcess } from '../services/voiceAgentProcess.js';
 
 export const voiceRouter = Router();
 
@@ -31,10 +32,35 @@ voiceRouter.post('/session', async (req: Request, res: Response) => {
       return;
     }
 
+    // Auto-launch Standalone LiveKit + Sarvam AI Voice Agent in console mode
+    if (req.body.startConsole !== false) {
+      VoiceAgentProcess.startConsole();
+    }
+
     res.json(result.data);
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Server error creating session' });
   }
+});
+
+// 1b. Start Standalone LiveKit + Sarvam AI Voice Agent Console Mode
+voiceRouter.post('/console/start', (_req: Request, res: Response) => {
+  const result = VoiceAgentProcess.startConsole();
+  res.json(result);
+});
+
+// 1c. Stop Standalone LiveKit + Sarvam AI Voice Agent Console Mode
+voiceRouter.post('/console/stop', (_req: Request, res: Response) => {
+  const result = VoiceAgentProcess.stopConsole();
+  res.json(result);
+});
+
+// 1d. Live Transcripts & Events from Standalone Voice Agent
+voiceRouter.get('/console/events', (req: Request, res: Response) => {
+  const since = parseFloat(req.query.since as string) || 0;
+  const events = VoiceAgentProcess.getLatestTranscripts(since);
+  const status = VoiceAgentProcess.getStatus();
+  res.json({ success: true, events, status });
 });
 
 // 2. Outbound PSTN Call (Direct)
@@ -271,123 +297,21 @@ voiceRouter.get('/audio/:id.wav', (req: Request, res: Response) => {
   res.send(item.buffer);
 });
 
-/**
- * Synthesizes natural human speech with authentic Indian accent and cadence
- * using a high-quota multi-model TTS chain with Aoede voice.
- */
-export async function synthesizeSpeechWithGemini(
-  text: string
-): Promise<{ audioBase64: string; audioMime: string; audioUrl: string } | null> {
-  if (!config.gemini.apiKey) return null;
-
-  const ttsModels = [
-    'gemini-3.8-flash-tts',
-    'gemini-3.8-flash-lite-tts',
-    'gemini-3.1-flash-tts-preview',
-    'gemini-2.5-flash-preview-tts',
-  ];
-
-  for (const model of ttsModels) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 9500);
-
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.gemini.apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: 'user',
-                parts: [{ text }],
-              },
-            ],
-            generationConfig: {
-              responseModalities: ['AUDIO'],
-              speechConfig: {
-                voiceConfig: {
-                  prebuiltVoiceConfig: {
-                    voiceName: 'Aoede',
-                  },
-                },
-              },
-            },
-          }),
-          signal: controller.signal,
-        }
-      );
-      clearTimeout(timeout);
-
-      if (res.ok) {
-        const data: any = await res.json();
-        const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
-        if (inlineData?.data) {
-          let audioBuffer: Buffer = Buffer.from(inlineData.data, 'base64');
-          const mime = inlineData.mimeType || '';
-
-          // If raw PCM (L16), convert to standard playable WAV with RIFF header
-          if (mime.includes('l16') || mime.includes('pcm') || !mime.includes('wav')) {
-            audioBuffer = pcmToWav(audioBuffer, 24000, 1, 16) as Buffer;
-          }
-
-          const clipId = `clip_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-          audioCache.set(clipId, {
-            buffer: audioBuffer,
-            mime: 'audio/wav',
-            createdAt: Date.now(),
-          });
-
-          return {
-            audioBase64: audioBuffer.toString('base64'),
-            audioMime: 'audio/wav',
-            audioUrl: `/api/voice/audio/${clipId}.wav`,
-          };
-        }
-      }
-    } catch (err: any) {
-      console.warn(`⚠️  [TTS MODEL ${model}]:`, err?.message || err);
-    }
-  }
-  return null;
-}
-
-// 12. Dynamic Neural Greeting Audio
+// 12. Dynamic Health Coach Greeting (Sarvam AI Hinglish Voice Persona)
 voiceRouter.post('/greeting', async (req: Request, res: Response) => {
   try {
-    const { userId = 'usr_synthetic_alex' } = req.body;
-    const user = db.getUser(userId) || db.getUser('usr_synthetic_alex');
-    const name = user ? user.name.split(' ')[0] : 'Alex';
-
-    const hour = new Date().getHours();
-    let greeting = '';
-    if (hour >= 5 && hour < 12) {
-      greeting = `Good morning ${name}! Coach Alex here, your HealthFreak AI coach. How did you sleep, and how is your morning energy today?`;
-    } else if (hour >= 12 && hour < 17) {
-      greeting = `Hello ${name}! Coach Alex here. Taking a quick wellness check-in—how was your lunch and routine so far?`;
-    } else if (hour >= 17 && hour < 22) {
-      greeting = `Good evening ${name}! Coach Alex here. How are you feeling after today's activities? Any discomfort or meal questions tonight?`;
-    } else {
-      greeting = `Hello ${name}! Coach Alex here. Time for a peaceful wind-down. How did your day go overall?`;
-    }
-
-    const speech = await synthesizeSpeechWithGemini(greeting);
-
+    const greeting = 'नमस्ते! मैं HealthFreak voice coach हूँ। आज आपकी fitness और diet में क्या help कर सकता हूँ?';
     res.json({
       greeting,
-      audioBase64: speech?.audioBase64,
-      audioMime: speech?.audioMime || 'audio/wav',
-      audioUrl: speech?.audioUrl,
+      provider: 'sarvam',
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// 12. Real-time Gemini AI Coach Chat
+// 13. Health Coach Chat Turn (Sarvam AI & LiveKit Voice Agent)
 voiceRouter.post('/chat', async (req: Request, res: Response) => {
-  const start = Date.now();
   try {
     const { message, userId = 'usr_synthetic_alex' } = req.body;
     if (!message || typeof message !== 'string') {
@@ -396,83 +320,16 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
     }
 
     const user = db.getUser(userId) || db.getUser('usr_synthetic_alex');
-    const memory = user ? db.getUserMemory(user.id) : {};
-    const systemPrompt = user ? buildCoachSystemPrompt(user, memory) : 'You are Coach Alex, an AI health coach.';
 
-    console.log('\n============================================================');
-    console.log('🎙️  [LIVE INPUT RECEIVED - CHAT/VOICE TURN]');
-    console.log(`👤  User: ${user?.name || 'Alex'} (${userId})`);
-    console.log(`📝  TRANSCRIPTION / MESSAGE: "${message}"`);
-    console.log(`⏳  Querying Gemini AI Coach (${config.gemini.model} with auto-failover)...`);
+    // Check recent events from active console agent
+    const events = VoiceAgentProcess.getLatestTranscripts();
+    const lastCoachEvent = [...events].reverse().find((e) => e.coach_reply);
 
-    const promptText = `${systemPrompt}\n\nUser says: "${message}"\nRespond directly as Coach Alex in 1 concise, warm, actionable coaching sentence (max 25 words).`;
-
-    const candidateModels = Array.from(
-      new Set([
-        config.gemini.model,
-        'gemini-3.8-flash',
-        'gemini-3.5-flash',
-        'gemini-3.1-flash-lite',
-      ])
-    ).filter(Boolean);
-
-    let data: any = null;
-    let selectedModel = config.gemini.model;
-
-    for (const modelCandidate of candidateModels) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelCandidate}:generateContent?key=${config.gemini.apiKey}`;
-        const geminiRes = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: 'user',
-                parts: [{ text: promptText }],
-              },
-            ],
-            generationConfig: {
-              maxOutputTokens: 90,
-              temperature: 0.6,
-            },
-          }),
-        });
-
-        const resJson: any = await geminiRes.json();
-        if (resJson.error) {
-          console.warn(`⚠️  [GEMINI ${modelCandidate} BUSY/SPIKE]: ${resJson.error.message}. Switching to next model...`);
-          continue;
-        }
-
-        if (resJson.candidates?.[0]?.content?.parts?.[0]?.text) {
-          data = resJson;
-          selectedModel = modelCandidate;
-          break;
-        }
-      } catch (err: any) {
-        console.warn(`⚠️  [GEMINI ${modelCandidate} FETCH ERROR]:`, err?.message || err);
-      }
+    let replyText = lastCoachEvent?.coach_reply;
+    if (!replyText) {
+      replyText = 'नमस्ते! मैंने आपका message note कर लिया है। आज आपकी fitness और diet में क्या plan है?';
     }
 
-    const elapsed = Date.now() - start;
-
-    if (!data) {
-      console.warn('⚠️  All Gemini models experiencing high demand. Returning graceful coaching fallback.');
-      res.json({
-        text: 'Namaste Alex! Main sun rahi hoon. Cloud network par brief traffic spike hai—aaj aap kaisa feel kar rahe hain?',
-        suggestions: ['Check my active plan', 'How is my hydration today?', 'Adjust my workout intensity'],
-      });
-      return;
-    }
-
-    const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'I am here with you. How can I support your routine today?';
-
-    console.log(`🤖  HEALTHFREAK AI RESPONSE (${selectedModel}): "${replyText.trim()}"`);
-    console.log(`⚡  Latency: ${elapsed}ms`);
-    console.log('============================================================\n');
-
-    // Progressive memory extraction for symptoms or energy
     if (user) {
       const lower = message.toLowerCase();
       if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
@@ -483,31 +340,14 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
       }
     }
 
-    let audioBase64Out: string | undefined = undefined;
-    let audioMimeOut: string | undefined = undefined;
-    let audioUrlOut: string | undefined = undefined;
-
-    const shouldSynthesizeVoice = req.body.generateCloudAudio !== false;
-    if (shouldSynthesizeVoice && replyText.trim()) {
-      const speechResult = await synthesizeSpeechWithGemini(replyText.trim());
-      if (speechResult) {
-        audioBase64Out = speechResult.audioBase64;
-        audioMimeOut = speechResult.audioMime;
-        audioUrlOut = speechResult.audioUrl;
-        console.log(`🔊  [CHAT NEURAL AUDIO READY]: ${audioMimeOut} (${audioUrlOut})`);
-      }
-    }
-
     res.json({
       text: replyText.trim(),
-      audioBase64: audioBase64Out,
-      audioMime: audioMimeOut,
-      audioUrl: audioUrlOut,
+      provider: 'sarvam',
       suggestions: ['Check my active plan', 'How is my hydration today?', 'Adjust my workout intensity'],
     });
   } catch (err: any) {
     console.error('❌  [CHAT PROCESSING ERROR]:', err.message);
-    res.status(500).json({ error: err.message || 'Error processing AI chat' });
+    res.status(500).json({ error: err.message || 'Error processing chat' });
   }
 });
 
@@ -567,258 +407,31 @@ export function isSelfEcho(userText: string, coachText: string): boolean {
   return false;
 }
 
-// 12. Audio Stream Multimodal Transcription & Response
+// 14. Audio Turn (Live Standalone Sarvam AI Voice Agent)
 voiceRouter.post('/audio-turn', async (req: Request, res: Response) => {
-  const start = Date.now();
   try {
-    const {
-      audioBase64,
-      mimeType = 'audio/webm',
-      userId = 'usr_synthetic_alex',
-      lastCoachReply = '',
-    } = req.body;
-    if (!audioBase64) {
-      res.status(400).json({ error: 'audioBase64 is required' });
-      return;
-    }
-
-    const user = db.getUser(userId) || db.getUser('usr_synthetic_alex');
-    const memory = user ? db.getUserMemory(user.id) : {};
-    const sizeKb = ((audioBase64.length * 0.75) / 1024).toFixed(1);
-
-    console.log('\n============================================================');
-    console.log('🎙️  [LIVE AUDIO STREAM RECEIVED FOR TRANSCRIPTION]');
-    console.log(`👤  User: ${user?.name || 'Alex'} (${userId})`);
-    console.log(`📦  Audio Size: ${sizeKb} KB | MIME Type: ${mimeType}`);
-    if (lastCoachReply) {
-      console.log(`🛡️  Last Coach Reply Tracked: "${lastCoachReply.slice(0, 45)}..."`);
-    }
-    console.log('⏳  Transcribing & analyzing with Gemini Multimodal Audio...');
-
-    const systemPrompt = user ? buildCoachSystemPrompt(user, memory) : 'You are Coach Alex, an AI health coach.';
-
-    const antiEchoPrompt = lastCoachReply
-      ? `CRITICAL ANTI-ECHO GUARD:
-The AI coach (Coach Alex) just finished speaking this exact phrase aloud through the phone loudspeaker:
-"${lastCoachReply}"
-If the attached audio recording is just the microphone picking up the coach's own voice or speaker echo repeating back:
-- Set userTranscript: "(Speaker echo)"
-- Set coachReply: ""
-DO NOT reply to your own voice or previous words under any circumstance! Never create a self-conversation echo loop!
-
-Otherwise, if a real human user is speaking:`
-      : '';
-
-    const instruction = `${systemPrompt}
-Listen carefully to the attached user voice recording.
-${antiEchoPrompt}
-1. Transcribe what the user said verbatim in English, Hindi, or conversational Hinglish. Be sensitive to soft speech, quick words (e.g. "haan", "nahi", "theek hai", "yes", "hello", "knee pain"), and casual Indian phrasing.
-2. If the user spoke, respond warmly, empathetically, and concisely in 1 coaching sentence (under 20 words) as Coach Alex.
-   - If user spoke in Hindi or Hinglish, reply in natural conversational Hinglish with warm Hindi expressions.
-   - If user spoke in English, reply in friendly, natural Indian English.
-3. If and only if there is absolutely no vocal sound at all (pure ambient silence):
-   - userTranscript: "(Silence or brief pause)"
-   - coachReply: "Main sun rahi hoon Alex, please go ahead!"
-
-CRITICAL REQUIREMENT:
-'coachReply' must strictly contain ONLY Coach Alex's spoken answer to the user.
-NEVER repeat, quote, or echo the user's question inside coachReply.
-Return strictly a valid JSON object in this format:
-{
-  "userTranscript": "<exact words user spoke or (Speaker echo)>",
-  "coachReply": "<Coach Alex's answer only, never repeating user question>"
-}`;
-
-    let cleanMime = (mimeType || 'audio/webm').split(';')[0].trim().toLowerCase();
-    if (cleanMime === 'audio/m4a' || cleanMime === 'audio/x-m4a' || cleanMime.endsWith('m4a')) {
-      cleanMime = 'audio/mp4';
-    }
-
-    const candidateModels = Array.from(
-      new Set([
-        config.gemini.model,
-        'gemini-3.8-flash',
-        'gemini-3.5-flash',
-        'gemini-3.1-flash-lite',
-      ])
-    ).filter(Boolean);
-
-    let data: any = null;
-    let selectedModel = config.gemini.model;
-
-    for (const modelCandidate of candidateModels) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelCandidate}:generateContent?key=${config.gemini.apiKey}`;
-        const geminiRes = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: 'user',
-                parts: [
-                  { text: instruction },
-                  {
-                    inlineData: {
-                      mimeType: cleanMime,
-                      data: audioBase64,
-                    },
-                  },
-                ],
-              },
-            ],
-            generationConfig: {
-              maxOutputTokens: 300,
-              temperature: 0.6,
-              responseMimeType: 'application/json',
-            },
-          }),
-        });
-
-        const resJson: any = await geminiRes.json();
-        if (resJson.error) {
-          console.warn(`⚠️  [GEMINI AUDIO ${modelCandidate} HIGH DEMAND / BUSY]: ${resJson.error.message}. Trying next fallback model...`);
-          continue;
-        }
-
-        if (resJson.candidates?.[0]?.content?.parts?.[0]?.text) {
-          data = resJson;
-          selectedModel = modelCandidate;
-          break;
-        }
-      } catch (err: any) {
-        console.warn(`⚠️  [GEMINI AUDIO ${modelCandidate} FETCH ERROR]:`, err?.message || err);
-      }
-    }
-
-    const elapsed = Date.now() - start;
-
-    if (!data) {
-      console.warn('⚠️  All Gemini models experiencing high demand spikes. Returning friendly coaching fallback.');
-      res.json({
-        userTranscript: 'Voice query received',
-        coachReply: 'Namaste Alex! Main sun rahi hoon. Cloud audio network par temporary demand spike hai—aap kaisa feel kar rahe hain?',
-        latencyMs: elapsed,
-      });
-      return;
-    }
-
-    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    let userTranscript = 'Voice message';
-    let coachReply = 'Namaste Alex! Main sun rahi hoon. Aaj aap kaisa feel kar rahe hain?';
-
-    const cleaned = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-    try {
-      const parsed = JSON.parse(cleaned);
-      if (parsed.userTranscript) userTranscript = parsed.userTranscript.trim();
-      if (parsed.coachReply) coachReply = parsed.coachReply.trim();
-    } catch {
-      // Resilient Regex extraction for malformed JSON or trailing syntax
-      const userMatch =
-        cleaned.match(/"userTranscript"\s*:\s*"([\s\S]*?)(?:",|"\s*\n|"\s*})/i) ||
-        cleaned.match(/"userTranscript"\s*:\s*"([\s\S]*?)"/i);
-      if (userMatch && userMatch[1]) {
-        userTranscript = userMatch[1].trim();
-      }
-
-      const coachMatch =
-        cleaned.match(/"coachReply"\s*:\s*"([\s\S]*?)(?:""|",|"\s*}|"\s*$|$)/i);
-      if (coachMatch && coachMatch[1]) {
-        coachReply = coachMatch[1].trim();
-      } else {
-        const idx = cleaned.indexOf('"coachReply"');
-        if (idx !== -1) {
-          const sub = cleaned.slice(idx);
-          const m = sub.match(/:\s*"*([\s\S]*?)(?:""|"|}|\n|$)/);
-          if (m && m[1]) coachReply = m[1].trim();
-        }
-      }
-    }
-
-    // CRITICAL SAFETY FILTER: Ensure coachReply NEVER contains userTranscript or JSON keys
-    if (coachReply.includes('"userTranscript"') || coachReply.includes('userTranscript:')) {
-      const idx = coachReply.indexOf('"coachReply"');
-      if (idx !== -1) {
-        coachReply = coachReply.slice(idx).replace(/^"coachReply"\s*:\s*"/i, '');
-      }
-    }
-
-    coachReply = coachReply
-      .replace(/^\{[\s\S]*?"coachReply"\s*:\s*"/i, '')
-      .replace(/^[{\[\s"]+|["}\]\s]+$/g, '')
-      .replace(/"userTranscript"[\s\S]*$/gi, '')
-      .replace(/userTranscript\s*:[\s\S]*?coachReply\s*:/gi, '')
-      .trim();
-
-    if (!coachReply || coachReply.includes('{') || coachReply.includes('}')) {
-      coachReply = 'Main sun rahi hoon Alex! Aap bilkul theek routine follow kar rahe hain, bas hydrate aur active rahein.';
-    }
-
-    // Anti-Echo Check: Suppress if user audio is just loudspeaker feedback of previous coach response
-    if (
-      userTranscript === '(Speaker echo)' ||
-      !coachReply.trim() ||
-      (lastCoachReply && isSelfEcho(userTranscript, lastCoachReply))
-    ) {
-      console.log(`🔇  [ANTI-ECHO FILTER ACTIVATED]: Detected speaker feedback of "${lastCoachReply.slice(0, 45)}...". Suppressing echo loop.`);
-      res.json({
-        userTranscript: '(Speaker feedback suppressed)',
-        coachReply: '',
-        isEcho: true,
-        latencyMs: elapsed,
-      });
-      return;
-    }
-
-    console.log(`📝  TRANSCRIPTION: "${userTranscript}"`);
-    console.log(`🤖  HEALTHFREAK AI RESPONSE (${selectedModel}): "${coachReply}"`);
-    console.log(`⚡  Live Turn Latency: ${elapsed}ms`);
-    console.log('============================================================\n');
-
-    // Progressive memory extraction for symptoms or energy
-    if (user && userTranscript) {
-      const lower = userTranscript.toLowerCase();
-      if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
-        db.updateMemoryFact(user.id, 'symptom_knee_discomfort', 'Reported knee discomfort in voice call', 0.9);
-      }
-      if (lower.includes('tired') || lower.includes('fatigue')) {
-        db.updateMemoryFact(user.id, 'energy_status', 'Reported fatigue in voice call', 0.9);
-      }
-    }
-
-    // Synthesize neural cloud audio by default for immediate loud voice reply
-    const shouldSynthesizeAudio = req.body.generateCloudAudio !== false;
-    let audioBase64Out: string | undefined = undefined;
-    let audioMimeOut: string | undefined = undefined;
-    let audioUrlOut: string | undefined = undefined;
-
-    if (shouldSynthesizeAudio && coachReply.trim()) {
-      const speechResult = await synthesizeSpeechWithGemini(coachReply);
-      if (speechResult) {
-        audioBase64Out = speechResult.audioBase64;
-        audioMimeOut = speechResult.audioMime;
-        audioUrlOut = speechResult.audioUrl;
-        console.log(`🔊  [GEMINI NEURAL AUDIO READY]: ${audioMimeOut} (${audioUrlOut})`);
-      }
-    }
+    const events = VoiceAgentProcess.getLatestTranscripts();
+    const lastEvent = events[events.length - 1];
 
     res.json({
-      userTranscript,
-      coachReply,
-      audioBase64: audioBase64Out,
-      audioMime: audioMimeOut,
-      audioUrl: audioUrlOut,
-      latencyMs: elapsed,
+      userTranscript: lastEvent?.user_transcript || 'Voice note received',
+      coachReply: lastEvent?.coach_reply || 'नमस्ते! मैं सुन रहा हूँ, आज आपकी fitness और diet में क्या help करूँ?',
+      provider: 'sarvam',
+      isEcho: false,
     });
   } catch (err: any) {
-    console.error('❌  [AUDIO TURN ERROR]:', err.message);
     res.status(500).json({
-      userTranscript: 'Audio received',
-      coachReply: 'Namaste Alex! Main sun rahi hoon. Aaj aap kaisa feel kar rahe hain? Any specific question?',
+      userTranscript: 'Voice input received',
+      coachReply: 'नमस्ते! मैं सुन रहा हूँ।',
       error: err.message,
     });
   }
 });
+
+
+
+
+
 
 
 

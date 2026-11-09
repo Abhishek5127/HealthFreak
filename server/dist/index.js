@@ -7,6 +7,7 @@ exports.app = void 0;
 exports.startServer = startServer;
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
+const path_1 = __importDefault(require("path"));
 const index_js_1 = require("./config/index.js");
 const voiceRoutes_js_1 = require("./routes/voiceRoutes.js");
 const mealRoutes_js_1 = require("./routes/mealRoutes.js");
@@ -19,6 +20,7 @@ const activityRoutes_js_1 = require("./routes/activityRoutes.js");
 const scheduledCallQueue_js_1 = require("./queue/scheduledCallQueue.js");
 const aiCallRoutes_js_1 = require("./routes/aiCallRoutes.js");
 const aiCallScheduler_js_1 = require("./queue/aiCallScheduler.js");
+const voiceAgentProcess_js_1 = require("./services/voiceAgentProcess.js");
 process.on('uncaughtException', (err) => {
     console.error('[HealthFreak Server] Uncaught exception:', err.message);
 });
@@ -30,6 +32,8 @@ exports.app = app;
 app.use((0, cors_1.default)());
 app.use(express_1.default.json({ limit: '25mb' }));
 app.use(express_1.default.urlencoded({ extended: true, limit: '25mb' }));
+// Serve static assets (images, graphics, media)
+app.use('/assets', express_1.default.static(path_1.default.resolve(__dirname, '../../../assets')));
 // Health Check
 app.get('/health', (_req, res) => {
     res.json({
@@ -38,6 +42,7 @@ app.get('/health', (_req, res) => {
         version: '1.0.0',
         provider: index_js_1.config.voiceProvider,
         syntheticMode: index_js_1.config.privacy.syntheticDataMode,
+        voiceAgent: voiceAgentProcess_js_1.VoiceAgentProcess.getStatus(),
         timestamp: new Date().toISOString(),
     });
 });
@@ -329,6 +334,13 @@ async function startServer() {
     }
     catch (err) {
         console.warn('[AICallScheduler] Scheduler init note:', err?.message || err);
+    }
+    // Automatically start Standalone LiveKit + Sarvam AI Voice Agent daemon
+    try {
+        voiceAgentProcess_js_1.VoiceAgentProcess.start();
+    }
+    catch (err) {
+        console.warn('[VoiceAgentProcess] Auto-start note:', err?.message || err);
     }
     return server;
 }

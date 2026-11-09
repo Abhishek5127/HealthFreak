@@ -13,6 +13,7 @@ import { activityRouter } from './routes/activityRoutes.js';
 import { ScheduledCallQueue } from './queue/scheduledCallQueue.js';
 import { aiCallRouter } from './routes/aiCallRoutes.js';
 import { AICallScheduler } from './queue/aiCallScheduler.js';
+import { VoiceAgentProcess } from './services/voiceAgentProcess.js';
 
 process.on('uncaughtException', (err) => {
   console.error('[HealthFreak Server] Uncaught exception:', err.message);
@@ -39,6 +40,7 @@ app.get('/health', (_req, res) => {
     version: '1.0.0',
     provider: config.voiceProvider,
     syntheticMode: config.privacy.syntheticDataMode,
+    voiceAgent: VoiceAgentProcess.getStatus(),
     timestamp: new Date().toISOString(),
   });
 });
@@ -344,6 +346,13 @@ async function startServer() {
     AICallScheduler.init();
   } catch (err: any) {
     console.warn('[AICallScheduler] Scheduler init note:', err?.message || err);
+  }
+
+  // Automatically start Standalone LiveKit + Sarvam AI Voice Agent daemon
+  try {
+    VoiceAgentProcess.start();
+  } catch (err: any) {
+    console.warn('[VoiceAgentProcess] Auto-start note:', err?.message || err);
   }
 
   return server;

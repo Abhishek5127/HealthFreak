@@ -180,50 +180,47 @@ exports.aiCallRouter.post('/:id/accept', async (req, res) => {
     }
 });
 /**
- * Generates an empathetic, concise AI coach response powered directly by Google Gemini 3.5 Flash-Lite:
- * 1. Google Gemini 3.5 Flash-Lite (High-speed real-time response)
+ * Generates an empathetic, concise AI coach response powered directly by Sarvam AI:
+ * 1. Sarvam AI Chat / LiveKit Voice Coach
  * 2. Smart Contextual Clinical Fallback (Dinner, hairfall, knee pain, sleep, recovery)
  */
 async function generateCoachVoiceReply(params) {
     const { message, user, memoryFacts, transcript } = params;
     const systemPrompt = (0, coachPrompt_js_1.buildCoachSystemPrompt)(user, memoryFacts);
-    // 1. Google Gemini (Primary Engine: gemini-3.5-flash-lite)
-    if (index_js_2.config.gemini.apiKey) {
-        const candidateModels = [
-            'gemini-3.5-flash-lite',
-            index_js_2.config.gemini.model,
-            'gemini-3.8-flash',
-            'gemini-flash-latest',
-        ].filter(Boolean);
-        for (const model of candidateModels) {
-            try {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${index_js_2.config.gemini.apiKey}`;
-                const prompt = `${systemPrompt}\n\nRecent context:\n${transcript
-                    .slice(-4)
-                    .map((t) => `${t.speaker}: ${t.text}`)
-                    .join('\n')}\nUser says: "${message}"\n\nCRITICAL: Respond directly as Coach Alex, personal health coach. Keep response to 1-2 warm, spoken sentences (max 30 words). Directly answer the question in natural conversational tone matching the user's language (Hindi, Hinglish, or English). Never repeat or echo the user's question, provide only your direct answer.`;
-                const resp = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        generationConfig: {
-                            maxOutputTokens: 120,
-                            temperature: 0.7,
-                        },
-                    }),
-                });
+    // 1. Sarvam AI
+    const sarvamKey = process.env.SARVAM_API_KEY;
+    if (sarvamKey) {
+        try {
+            const resp = await fetch('https://api.sarvam.ai/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'api-subscription-key': sarvamKey,
+                },
+                body: JSON.stringify({
+                    model: 'sarvam-2b',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        ...transcript.slice(-4).map((t) => ({
+                            role: t.speaker === 'coach' ? 'assistant' : 'user',
+                            content: t.text,
+                        })),
+                        { role: 'user', content: message },
+                    ],
+                    temperature: 0.6,
+                    max_tokens: 100,
+                }),
+            });
+            if (resp.ok) {
                 const data = await resp.json();
-                let text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-                if (text) {
-                    text = text.replace(/^(Coach|Alex|AI):\s*/i, '').trim();
-                    console.log(`[AICallRoutes] Generated reply via Gemini (${model}): "${text.slice(0, 60)}..."`);
-                    return text;
+                const reply = data?.choices?.[0]?.message?.content?.trim();
+                if (reply) {
+                    return reply.replace(/^(Coach|Alex|AI):\s*/i, '').trim();
                 }
             }
-            catch (err) {
-                console.warn(`[AICallRoutes] Gemini model ${model} issue:`, err.message);
-            }
+        }
+        catch (err) {
+            console.warn('[AICallRoutes] Sarvam AI chat completion error:', err?.message || err);
         }
     }
     // 3. Clinical Contextual Heuristic Fallback

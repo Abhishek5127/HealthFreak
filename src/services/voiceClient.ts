@@ -30,7 +30,7 @@ export interface VoiceSessionState {
   userTranscript: string;
   callDuration: number;
   errorMessage: string | null;
-  provider: 'gemini' | 'openai';
+  provider: 'sarvam' | 'livekit' | 'gemini' | 'openai';
   isSynthetic: boolean;
   hasAudioPermission: boolean;
   audioLevel: number;
@@ -47,12 +47,14 @@ export class VoiceClientService {
   private coachTranscript: string = '';
   private userTranscript: string = '';
   private errorMessage: string | null = null;
-  private provider: 'gemini' | 'openai' = 'gemini';
+  private provider: 'sarvam' | 'livekit' | 'gemini' | 'openai' = 'sarvam';
   private isSynthetic: boolean = true;
   private hasAudioPermission: boolean = false;
   private currentUserId: string = 'usr_synthetic_alex';
   private audioLevel: number = 0;
   private isHandsFree: boolean = true;
+  private consolePollTimer: any = null;
+  private lastEventTimestamp: number = 0;
 
   // Web Speech Recognition
   private recognition: any = null;
@@ -783,7 +785,7 @@ export class VoiceClientService {
         !result.coachReply?.trim() ||
         isSelfEcho(result.userTranscript, this.lastCoachReply)
       ) {
-        console.log(`[VoiceClient] 🔇 Speaker echo suppressed ("${result.userTranscript}"). Waiting for user.`);
+        console.log(`[VoiceClient] Speaker echo suppressed ("${result.userTranscript}"). Waiting for user.`);
         this.isProcessingTurn = false;
         this.status = 'listening';
         this.notify();
@@ -1118,7 +1120,7 @@ export class VoiceClientService {
 
     // Anti-Echo Check: If spoken text matches Coach's own reply, suppress it!
     if (this.lastCoachReply && isSelfEcho(text, this.lastCoachReply)) {
-      console.log(`[VoiceClient] 🔇 Suppressed echo in user input: "${text}"`);
+      console.log(`[VoiceClient] Suppressed echo in user input: "${text}"`);
       this.status = 'listening';
       this.notify();
       this.startListening();
@@ -1165,10 +1167,15 @@ export class VoiceClientService {
     this.status = 'connecting';
     this.errorMessage = null;
     this.durationSeconds = 0;
-    this.coachTranscript = 'Connecting to HealthFreak Live Voice...';
+    this.provider = 'sarvam';
+    const defaultGreeting =
+      customGreeting ||
+      'नमस्ते! मैं HealthFreak voice coach हूँ। आज आपकी fitness और diet में क्या help कर सकता हूँ?';
+    this.coachTranscript = defaultGreeting;
     this.userTranscript = '';
     this.currentSpeechText = '';
     this.isProcessingTurn = false;
+    this.lastEventTimestamp = Date.now() / 1000 - 1;
     this.notify();
 
     this.unlockAudio();
@@ -1180,18 +1187,60 @@ export class VoiceClientService {
       Platform.OS !== 'web' &&
       (backendUrl.includes('localhost') || backendUrl.includes('127.0.0.1'));
 
+    // 1. Automatically launch LiveKit + Sarvam AI console agent on host when mic button is pressed
+    if (!isLocalhostOnNative) {
+      try {
+        fetch(`${backendUrl}/api/voice/console/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+        }).catch((err) => console.log('[VoiceClient] Console start trigger error:', err));
+      } catch {}
+    }
+
+    // 2. High-speed event polling (every 200ms) to stream transcripts from agent.py in real time
+    if (this.consolePollTimer) clearInterval(this.consolePollTimer);
+    if (!isLocalhostOnNative) {
+      this.consolePollTimer = setInterval(async () => {
+        try {
+          const res = await fetch(`${backendUrl}/api/voice/console/events?since=${this.lastEventTimestamp}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.events && Array.isArray(data.events) && data.events.length > 0) {
+              for (const ev of data.events) {
+                if (ev.timestamp && ev.timestamp > this.lastEventTimestamp) {
+                  this.lastEventTimestamp = ev.timestamp;
+                }
+                if (ev.user_transcript && ev.user_transcript !== this.userTranscript) {
+                  this.userTranscript = ev.user_transcript;
+                  this.status = 'listening';
+                  this.notify();
+                }
+                if (ev.coach_reply && ev.coach_reply !== this.coachTranscript) {
+                  this.coachTranscript = ev.coach_reply;
+                  this.lastCoachReply = ev.coach_reply;
+                  this.status = 'speaking';
+                  this.notify();
+                }
+              }
+            }
+          }
+        } catch {}
+      }, 200);
+    }
+
     if (!isLocalhostOnNative) {
       try {
         const res = await fetch(`${backendUrl}/api/voice/session`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId }),
+          body: JSON.stringify({ userId, startConsole: true }),
         });
 
         if (res.ok) {
           const data = await res.json();
           this.callId = data.callId;
-          this.provider = data.provider || 'gemini';
+          this.provider = data.provider || 'sarvam';
           this.isSynthetic = data.isSynthetic ?? true;
         }
       } catch {
@@ -1209,19 +1258,7 @@ export class VoiceClientService {
     }, 1000);
 
     // Dynamic greeting based on time of day, or custom scheduled call greeting
-    const hour = new Date().getHours();
-    let greeting = customGreeting || '';
-    if (!greeting) {
-      if (hour >= 5 && hour < 12) {
-        greeting = 'Good morning! Coach Alex here, your HealthFreak AI coach. How did you sleep, and how is your morning energy today?';
-      } else if (hour >= 12 && hour < 17) {
-        greeting = 'Hello! Coach Alex here. Taking a quick wellness check-in—how was your lunch and routine so far?';
-      } else if (hour >= 17 && hour < 22) {
-        greeting = 'Good evening! Coach Alex here. How are you feeling after today’s activities? Any discomfort or meal questions tonight?';
-      } else {
-        greeting = 'Hello! Coach Alex here. Time for a peaceful wind-down. How did your day go overall?';
-      }
-    }
+    let greeting = defaultGreeting;
 
     // Only fetch default neural greeting if no custom greeting was provided and backend is reachable
     if (!customGreeting && !isLocalhostOnNative) {
@@ -1318,6 +1355,20 @@ export class VoiceClientService {
   public endSession(): void {
     this.isProcessingTurn = false;
     this.status = 'disconnected';
+
+    // Stop console transcript polling
+    if (this.consolePollTimer) {
+      clearInterval(this.consolePollTimer);
+      this.consolePollTimer = null;
+    }
+
+    // Stop standalone console agent process on host
+    try {
+      const backendUrl = getBackendBaseUrl();
+      fetch(`${backendUrl}/api/voice/console/stop`, {
+        method: 'POST',
+      }).catch(() => {});
+    } catch {}
 
     // 1. Stop native recorder interval & recorder instance
     if (this.nativeInterval) {

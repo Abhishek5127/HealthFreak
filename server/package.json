@@ -8,6 +8,8 @@
     "start:dev": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
     "worker": "tsx src/agent-worker.ts",
+    "agent:voice": "cd voice-agent && uv run agent.py dev",
+    "agent:voice:console": "cd voice-agent && uv run agent.py console",
     "test": "tsx tests/run-all-tests.ts",
     "build": "tsc"
   },

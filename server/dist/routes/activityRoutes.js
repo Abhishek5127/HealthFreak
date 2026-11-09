@@ -48,6 +48,8 @@ exports.activityRouter.get('/today', async (req, res) => {
                     distance_meters: memRecord.distanceMeters,
                     active_minutes: memRecord.activeMinutes,
                     calories_burned: memRecord.caloriesBurned,
+                    water_intake_ml: memRecord.waterIntakeMl ?? 0,
+                    water_target_ml: memRecord.waterTargetMl ?? 3000,
                     source: memRecord.source,
                     updated_at: memRecord.updatedAt,
                 },
@@ -62,6 +64,8 @@ exports.activityRouter.get('/today', async (req, res) => {
                 distance_meters: 0,
                 active_minutes: 0,
                 calories_burned: 0,
+                water_intake_ml: 0,
+                water_target_ml: 3000,
                 source: 'device',
                 updated_at: new Date().toISOString(),
             },
@@ -97,6 +101,12 @@ exports.activityRouter.post('/sync', async (req, res) => {
             const key = `${effectiveUserId}_${dateStr}`;
             const existingMem = memoryStore.dailyActivities.get(key);
             const safeSteps = existingMem ? Math.max(existingMem.steps, steps) : steps;
+            const waterIntakeMl = rec.water_intake_ml !== undefined
+                ? Math.max(0, parseInt(rec.water_intake_ml, 10))
+                : (existingMem?.waterIntakeMl ?? 0);
+            const waterTargetMl = rec.water_target_ml !== undefined
+                ? Math.max(500, parseInt(rec.water_target_ml, 10))
+                : (existingMem?.waterTargetMl ?? 3000);
             const memEntity = {
                 id: existingMem?.id || `act_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
                 userId: effectiveUserId,
@@ -106,6 +116,8 @@ exports.activityRouter.post('/sync', async (req, res) => {
                 distanceMeters: distance,
                 activeMinutes,
                 caloriesBurned: calories,
+                waterIntakeMl,
+                waterTargetMl,
                 source,
                 createdAt: existingMem?.createdAt || new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
@@ -123,6 +135,8 @@ exports.activityRouter.post('/sync', async (req, res) => {
                         distance_meters: distance,
                         active_minutes: activeMinutes,
                         calories_burned: calories,
+                        water_intake_ml: waterIntakeMl,
+                        water_target_ml: waterTargetMl,
                         source,
                         updated_at: new Date().toISOString(),
                     }, { onConflict: 'user_id,activity_date' });

@@ -308,8 +308,8 @@ export const WaterBottleWidget: React.FC<WaterBottleWidgetProps> = ({
         <View style={styles.summaryIndicatorDot} />
         <Text style={styles.summaryFooterText}>
           {waterLoggedMl > 0
-            ? `Daily intake: ${waterLoggedMl} ml (${Math.round((waterLoggedMl / waterTargetMl) * 100)}%) • Resets at midnight • Stored in database`
-            : `Daily intake resets each morning • Tap to log • Stored in database`}
+            ? `Daily intake: ${waterLoggedMl} ml (${Math.round((waterLoggedMl / waterTargetMl) * 100)}%) • Resets at midnight.`
+            : `Daily intake resets each morning.`}
         </Text>
       </View>
         </View>

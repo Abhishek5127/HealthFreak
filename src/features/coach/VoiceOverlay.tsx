@@ -109,8 +109,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
         return 'Coach is speaking (Speak or tap to interrupt)';
       case 'listening':
         return sessionState.audioLevel > 15
-          ? '🎙️ Listening... (Voice detected)'
-          : '🎙️ Live — Listening... (Speak naturally or tap sphere)';
+          ? 'Listening... (Voice detected)'
+          : 'Live — Listening... (Speak naturally or tap sphere)';
       case 'interrupted':
         return 'Interrupted — Listening to you...';
       case 'disconnected':
@@ -133,9 +133,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
           </View>
           <View style={styles.providerBadge}>
             <Sparkles size={12} color={Colors.softYellow} />
-            <Text style={styles.providerText}>
-              {sessionState.provider === 'gemini' ? 'Gemini 3.8 Live' : 'OpenAI Realtime'}
-            </Text>
+            <Text style={styles.providerText}>Sarvam AI + LiveKit</Text>
           </View>
         </View>
 
@@ -220,10 +218,10 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
           ? 'Coach is speaking aloud (Tap sphere or speak to interrupt)'
           : sessionState.status === 'listening'
           ? sessionState.audioLevel > 12
-            ? '🎙️ Voice detected... (Pause to send, or tap sphere)'
-            : '🎙️ Live — Listening... (Speak naturally or tap below)'
+            ? 'Voice detected... (Pause to send, or tap sphere)'
+            : 'Live — Listening... (Speak naturally or tap below)'
           : sessionState.status === 'connecting'
-          ? '⏳ Coach is generating reply...'
+          ? 'Coach is generating reply...'
           : 'Ready — Speak naturally to Coach'}
       </Text>
 
@@ -278,7 +276,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
         ) : null}
         <Text style={styles.speechText}>
           {sessionState.status === 'connecting'
-            ? '⏳ Coach is analyzing and speaking...'
+            ? 'Coach is analyzing and speaking...'
             : sessionState.coachTranscript || 'Listening for your voice... Speak now.'}
         </Text>
       </View>

@@ -240,8 +240,8 @@ export const LiveKitVoiceCallScreen: React.FC<LiveKitVoiceCallScreenProps> = ({
               ? 'Coach Speaking... (Tap sphere to interrupt)'
               : isListening
               ? sessionState.audioLevel > 15
-                ? '🎙️ Listening... (Voice detected)'
-                : '🎙️ Live — Listening... (Speak naturally)'
+                ? 'Listening... (Voice detected)'
+                : 'Live — Listening... (Speak naturally)'
               : isThinking
               ? 'Coach Thinking...'
               : 'Tap sphere to speak or type below'}
