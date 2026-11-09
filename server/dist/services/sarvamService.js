@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SarvamService = void 0;
+exports.SentenceTTSBuffer = exports.SarvamService = void 0;
 const index_js_1 = require("../config/index.js");
 class SarvamService {
     static getApiKey() {
@@ -8,6 +8,32 @@ class SarvamService {
     }
     static isConfigured() {
         return !!this.getApiKey();
+    }
+    /**
+     * Normalizes raw LLM output text for clean, natural phonetic pronunciation by Sarvam Bulbul TTS.
+     * Strips markdown, expands measurement units and ranges into spoken words.
+     */
+    static normalizeForSpokenTTS(raw) {
+        if (!raw)
+            return '';
+        return raw
+            // Remove prefixes like "Coach Alex: " or "Assistant: "
+            .replace(/^(Coach\s*Alex|Alex|Coach|Assistant):\s*/gi, '')
+            // Remove markdown asterisks, hashes, backticks, tildes, brackets
+            .replace(/[*_#`~[\]]/g, '')
+            // Convert number ranges (e.g. "10-12" or "10 - 12") to "10 to 12"
+            .replace(/(\d+)\s*[-–—]\s*(\d+)/g, '$1 to $2')
+            // Expand common units to natural spoken forms
+            .replace(/(\d+)\s*g\b/gi, '$1 grams')
+            .replace(/(\d+)\s*kg\b/gi, '$1 kilograms')
+            .replace(/(\d+)\s*ml\b/gi, '$1 milliliters')
+            .replace(/(\d+)\s*km\b/gi, '$1 kilometers')
+            .replace(/(\d+)\s*kcal\b/gi, '$1 calories')
+            .replace(/(\d+)\s*min\b/gi, '$1 minutes')
+            .replace(/(\d+)\s*sec\b/gi, '$1 seconds')
+            // Clean duplicate whitespace and orphan punctuation
+            .replace(/\s+/g, ' ')
+            .trim();
     }
     /**
      * Generates a conversational Hinglish reply using Sarvam AI's 105B Conversations model.
@@ -43,7 +69,7 @@ Rules:
                         { role: 'user', content: message },
                     ],
                     temperature: 0.6,
-                    max_tokens: 150,
+                    max_tokens: 160,
                 }),
             });
             if (!response.ok) {
@@ -55,27 +81,8 @@ Rules:
             const rawReply = data?.choices?.[0]?.message?.content?.trim();
             if (!rawReply)
                 return null;
-            // Clean reply of prefixes like "Coach Alex: " or "Assistant: "
-            const cleanReply = rawReply
-                .replace(/^(Coach\s*Alex|Alex|Coach|Assistant):\s*/i, '')
-                .replace(/[*_#]/g, '')
-                .trim();
-            // Generate contextual follow-up suggestions
-            const lower = message.toLowerCase();
-            let suggestions = ['Check my workout plan', 'Log today meal', 'Hydration target'];
-            if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
-                suggestions = ['Gentle leg stretch', 'Rest day routine', 'Log pain severity'];
-            }
-            else if (lower.includes('dinner') || lower.includes('khana') || lower.includes('diet') || lower.includes('eat')) {
-                suggestions = ['High protein dinner', 'Low carb ideas', 'Log my dinner'];
-            }
-            else if (lower.includes('workout') || lower.includes('exercise') || lower.includes('gym')) {
-                suggestions = ['20 min brisk walk', 'Mobility routine', 'Log workout'];
-            }
-            else if (lower.includes('sleep') || lower.includes('tired') || lower.includes('thak')) {
-                suggestions = ['Sleep meditation', 'Set wake-up goal', 'Log bedtime'];
-            }
-            // Generate neural speech audio via Sarvam bulbul:v3
+            const cleanReply = this.normalizeForSpokenTTS(rawReply);
+            const suggestions = this.generateSuggestions(message);
             let audioBase64;
             if (synthesizeVoice) {
                 audioBase64 = await this.synthesizeSpeech(cleanReply);
@@ -92,11 +99,85 @@ Rules:
         }
     }
     /**
-     * Synthesizes audio using Sarvam AI Bulbul neural TTS.
+     * Genuine Server-Sent Events (SSE) streaming chat completion with Sarvam 105B Conversations.
+     */
+    static async streamChatCompletion(params) {
+        const apiKey = this.getApiKey();
+        if (!apiKey)
+            throw new Error('Sarvam API key not configured');
+        const response = await fetch('https://api.sarvam.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'api-subscription-key': apiKey,
+            },
+            body: JSON.stringify({
+                model: index_js_1.config.sarvam?.chatModel || 'sarvam-105b-conversations',
+                messages: params.messages,
+                temperature: 0.6,
+                max_tokens: params.maxTokens || 160,
+                stream: true,
+            }),
+            signal: params.abortSignal,
+        });
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Sarvam streaming error (${response.status}): ${errText}`);
+        }
+        if (!response.body) {
+            throw new Error('Sarvam streaming response body is empty');
+        }
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let fullText = '';
+        let buffer = '';
+        try {
+            while (true) {
+                if (params.abortSignal?.aborted) {
+                    await reader.cancel();
+                    break;
+                }
+                const { done, value } = await reader.read();
+                if (done)
+                    break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed || !trimmed.startsWith('data:'))
+                        continue;
+                    const dataPayload = trimmed.slice(5).trim();
+                    if (dataPayload === '[DONE]')
+                        continue;
+                    try {
+                        const parsed = JSON.parse(dataPayload);
+                        const delta = parsed.choices?.[0]?.delta?.content || '';
+                        if (delta) {
+                            fullText += delta;
+                            params.onToken(delta);
+                        }
+                    }
+                    catch {
+                        // Partial JSON chunk, will be resolved with next line
+                    }
+                }
+            }
+        }
+        finally {
+            reader.releaseLock();
+        }
+        return fullText;
+    }
+    /**
+     * Synthesizes audio using Sarvam AI Bulbul neural TTS (single consistent identity: Shubh).
      */
     static async synthesizeSpeech(text, speaker) {
         const apiKey = this.getApiKey();
         if (!apiKey || !text || !text.trim())
+            return undefined;
+        const spokenText = this.normalizeForSpokenTTS(text);
+        if (!spokenText)
             return undefined;
         try {
             const response = await fetch('https://api.sarvam.ai/text-to-speech', {
@@ -106,7 +187,7 @@ Rules:
                     'api-subscription-key': apiKey,
                 },
                 body: JSON.stringify({
-                    inputs: [text.trim()],
+                    inputs: [spokenText],
                     target_language_code: 'hi-IN',
                     speaker: speaker || index_js_1.config.sarvam?.speaker || 'shubh',
                     pitch: 0,
@@ -132,5 +213,111 @@ Rules:
         }
         return undefined;
     }
+    /**
+     * Generates contextual follow-up chips based on user query topic.
+     */
+    static generateSuggestions(message) {
+        const lower = message.toLowerCase();
+        if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
+            return ['Gentle leg stretch', 'Rest day routine', 'Log pain severity'];
+        }
+        if (lower.includes('dinner') || lower.includes('khana') || lower.includes('diet') || lower.includes('eat')) {
+            return ['High protein dinner', 'Low carb ideas', 'Log my dinner'];
+        }
+        if (lower.includes('workout') || lower.includes('exercise') || lower.includes('gym')) {
+            return ['20 min brisk walk', 'Mobility routine', 'Log workout'];
+        }
+        if (lower.includes('sleep') || lower.includes('tired') || lower.includes('thak')) {
+            return ['Sleep meditation', 'Set wake-up goal', 'Log bedtime'];
+        }
+        return ['Check my workout plan', 'Log today meal', 'Hydration target'];
+    }
 }
 exports.SarvamService = SarvamService;
+/**
+ * Sentence-aware TTS Buffer.
+ * Collects incoming tokens and splits along natural punctuation boundaries (6-12 words).
+ * Dispatches each complete sentence to Bulbul TTS immediately so chunk 0 plays with minimal TTFA.
+ */
+class SentenceTTSBuffer {
+    buffer = '';
+    sequence = 0;
+    isFinished = false;
+    onChunkReady;
+    speaker;
+    constructor(onChunkReady, speaker = 'shubh') {
+        this.onChunkReady = onChunkReady;
+        this.speaker = speaker;
+    }
+    /**
+     * Feeds a newly arrived text token into the buffer.
+     */
+    async addToken(token) {
+        if (this.isFinished)
+            return;
+        this.buffer += token;
+        // Check for natural sentence boundaries
+        const sentence = this.extractNextSentence();
+        if (sentence) {
+            await this.synthesizeAndEmit(sentence);
+        }
+    }
+    /**
+     * Finalizes the buffer when LLM generation completes, synthesizing any remaining text.
+     */
+    async flush() {
+        this.isFinished = true;
+        const remaining = this.buffer.trim();
+        this.buffer = '';
+        if (remaining) {
+            await this.synthesizeAndEmit(remaining);
+        }
+    }
+    extractNextSentence() {
+        // Natural punctuation boundaries: '.', '!', '?', '।', or newline
+        const match = this.buffer.match(/^(.*?[.!?।\n])\s+/s);
+        if (match) {
+            const sentence = match[1].trim();
+            this.buffer = this.buffer.slice(match[0].length);
+            return sentence;
+        }
+        // Secondary boundary: comma or semicolon with >= 8 words buffered
+        const words = this.buffer.trim().split(/\s+/);
+        if (words.length >= 8) {
+            const commaMatch = this.buffer.match(/^(.*?[,;])\s+/s);
+            if (commaMatch) {
+                const sentence = commaMatch[1].trim();
+                this.buffer = this.buffer.slice(commaMatch[0].length);
+                return sentence;
+            }
+        }
+        return null;
+    }
+    async synthesizeAndEmit(text) {
+        const currentSeq = this.sequence++;
+        const normalized = SarvamService.normalizeForSpokenTTS(text);
+        if (!normalized)
+            return;
+        try {
+            const audioBase64 = await SarvamService.synthesizeSpeech(normalized, this.speaker);
+            this.onChunkReady({
+                sequence: currentSeq,
+                text: normalized,
+                audioBase64,
+                mimeType: 'audio/wav',
+                sampleRate: 22050,
+            });
+        }
+        catch (err) {
+            console.warn(`[SentenceTTSBuffer] Chunk ${currentSeq} synthesis failed:`, err?.message || err);
+            // Emit text chunk even if voice synthesis fails
+            this.onChunkReady({
+                sequence: currentSeq,
+                text: normalized,
+                mimeType: 'audio/wav',
+                sampleRate: 22050,
+            });
+        }
+    }
+}
+exports.SentenceTTSBuffer = SentenceTTSBuffer;

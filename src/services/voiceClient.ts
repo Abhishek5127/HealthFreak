@@ -11,7 +11,14 @@ import {
   type AudioPlayer,
 } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
-import { askHealthCoachAI, transcribeAndReplyAudio, getBackendBaseUrl, isSelfEcho, cleanCoachReplyOnly } from './aiChatService';
+import {
+  streamHealthCoachAI,
+  type AudioChunkPayload,
+  transcribeAndReplyAudio,
+  getBackendBaseUrl,
+  isSelfEcho,
+  cleanCoachReplyOnly,
+} from './aiChatService';
 
 export type VoiceConnectionStatus =
   | 'idle'
@@ -80,6 +87,11 @@ export class VoiceClientService {
   private currentWebAudio: any = null;
   private cachedIndianVoices: { hindi?: string; indianEnglish?: string } = {};
   private lastCoachReply: string = '';
+
+  // Streaming Audio Chunk Queue
+  private audioChunkQueue: AudioChunkPayload[] = [];
+  private isPlayingChunkQueue: boolean = false;
+  private currentStreamAbortController: AbortController | null = null;
 
   constructor() {
     this.initAvailableVoices();
@@ -201,14 +213,71 @@ export class VoiceClientService {
   }
 
   /**
-   * Plays high-fidelity human speech synthesized directly by Gemini's neural voice
-   * with authentic Indian accent and natural intonation.
+   * Enqueues an incremental audio chunk emitted by the streaming backend.
+   * Immediately plays chunk 0 upon arrival, while sequentially chaining subsequent chunks.
    */
-  public async playGeneratedAudio(
+  public enqueueAudioChunk(chunk: AudioChunkPayload): void {
+    if (this.currentStreamAbortController?.signal.aborted) return;
+    this.audioChunkQueue.push(chunk);
+    this.audioChunkQueue.sort((a, b) => a.sequence - b.sequence);
+
+    if (!this.isPlayingChunkQueue) {
+      this.playChunkQueue();
+    }
+  }
+
+  private async playChunkQueue(): Promise<void> {
+    if (this.isPlayingChunkQueue) return;
+    this.isPlayingChunkQueue = true;
+
+    try {
+      while (this.audioChunkQueue.length > 0) {
+        if (this.currentStreamAbortController?.signal.aborted) {
+          this.audioChunkQueue = [];
+          break;
+        }
+
+        const nextChunk = this.audioChunkQueue.shift();
+        if (nextChunk && (nextChunk.audioBase64 || nextChunk.text)) {
+          this.status = 'speaking';
+          this.notify();
+          await this.playGeneratedAudio(
+            nextChunk.audioBase64,
+            nextChunk.mimeType || 'audio/wav',
+            nextChunk.text,
+            undefined,
+            false
+          );
+        }
+      }
+    } finally {
+      this.isPlayingChunkQueue = false;
+      this.finishTurnSpeaking();
+    }
+  }
+
+  public finishTurnSpeaking(): void {
+    if (!this.isPlayingChunkQueue && this.audioChunkQueue.length === 0) {
+      this.isProcessingTurn = false;
+      if (this.status === 'speaking' || this.status === 'connecting') {
+        this.status = 'listening';
+        this.notify();
+        this.startListening();
+      }
+    }
+  }
+
+  /**
+   * Plays high-fidelity human speech synthesized directly by Sarvam Bulbul neural voice
+   * with authentic Indian accent and natural intonation.
+   * Resolves when the audio has completely finished playing.
+   */
+  public playGeneratedAudio(
     audioBase64?: string,
     audioMime = 'audio/wav',
     fallbackText = '',
-    audioUrl?: string
+    audioUrl?: string,
+    autoListenOnFinish = true
   ): Promise<void> {
     this.status = 'speaking';
     if (fallbackText) {
@@ -216,143 +285,142 @@ export class VoiceClientService {
     }
     this.notify();
 
-    let finished = false;
-    const finishSpeaking = () => {
-      if (finished) return;
-      finished = true;
-      if (this.status === 'speaking') {
-        // Instant transition back to hot mic listening
-        this.status = 'listening';
-        this.notify();
-        this.startListening();
+    return new Promise<void>(async (resolve) => {
+      let isDone = false;
+      const onFinished = () => {
+        if (isDone) return;
+        isDone = true;
+        if (autoListenOnFinish && !this.isPlayingChunkQueue && this.audioChunkQueue.length === 0) {
+          this.finishTurnSpeaking();
+        }
+        resolve();
+      };
+
+      // 1. Web HTML5 Audio
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        try {
+          if (this.currentWebAudio) {
+            try {
+              this.currentWebAudio.pause();
+            } catch {}
+            this.currentWebAudio = null;
+          }
+
+          let webSrc = '';
+          if (audioUrl) {
+            webSrc = audioUrl.startsWith('http') ? audioUrl : `${getBackendBaseUrl()}${audioUrl}`;
+          } else if (audioBase64) {
+            webSrc = `data:${audioMime};base64,${audioBase64}`;
+          }
+
+          if (webSrc) {
+            const audio = new Audio(webSrc);
+            this.currentWebAudio = audio;
+
+            const wordCount = (fallbackText || '').split(/\s+/).length;
+            const watchdogMs = Math.max(4000, wordCount * 550 + 2000);
+            const watchdog = setTimeout(() => {
+              if (this.currentWebAudio === audio) {
+                this.currentWebAudio = null;
+                onFinished();
+              }
+            }, watchdogMs);
+
+            audio.onended = () => {
+              clearTimeout(watchdog);
+              this.currentWebAudio = null;
+              onFinished();
+            };
+
+            audio.onerror = (e) => {
+              clearTimeout(watchdog);
+              console.warn('[VoiceClient] Web audio error:', e);
+              this.currentWebAudio = null;
+              this.speakAloud(fallbackText, onFinished);
+            };
+
+            await audio.play();
+            return;
+          }
+        } catch (err) {
+          console.warn('[VoiceClient] Web audio play error:', err);
+        }
       }
-    };
 
-    // 1. Web HTML5 Audio
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      // 2. Native Mobile (iOS / Android via expo-audio & expo-file-system)
       try {
-        if (this.currentWebAudio) {
+        if (this.currentPlayer) {
           try {
-            this.currentWebAudio.pause();
+            this.currentPlayer.pause();
+            this.currentPlayer.release?.();
+            this.currentPlayer.remove?.();
           } catch {}
-          this.currentWebAudio = null;
+          this.currentPlayer = null;
         }
 
-        let webSrc = '';
+        // Disengage recording mode so Android routes audio through
+        // the device loudspeaker with full volume and fidelity
+        await setAudioModeAsync({
+          allowsRecording: false,
+          playsInSilentMode: true,
+          shouldPlayInBackground: false,
+          interruptionMode: 'duckOthers',
+        });
+
+        let playerSource: any = null;
+
         if (audioUrl) {
-          webSrc = audioUrl.startsWith('http') ? audioUrl : `${getBackendBaseUrl()}${audioUrl}`;
+          const fullUrl = audioUrl.startsWith('http') ? audioUrl : `${getBackendBaseUrl()}${audioUrl}`;
+          playerSource = fullUrl;
         } else if (audioBase64) {
-          webSrc = `data:${audioMime};base64,${audioBase64}`;
+          const speechPath = `${FileSystem.cacheDirectory || ''}healthfreak_speech_${Date.now()}.wav`;
+          await FileSystem.writeAsStringAsync(speechPath, audioBase64, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          playerSource = speechPath;
         }
 
-        if (webSrc) {
-          const audio = new Audio(webSrc);
-          this.currentWebAudio = audio;
+        if (playerSource) {
+          const player = createAudioPlayer(playerSource);
+          this.currentPlayer = player;
 
           const wordCount = (fallbackText || '').split(/\s+/).length;
-          const watchdogMs = Math.max(5000, wordCount * 550 + 2500);
+          const watchdogMs = Math.max(4000, wordCount * 550 + 2000);
           const watchdog = setTimeout(() => {
-            if (this.currentWebAudio === audio) {
-              this.currentWebAudio = null;
-              finishSpeaking();
-            }
-          }, watchdogMs);
-
-          audio.onended = () => {
-            clearTimeout(watchdog);
-            this.currentWebAudio = null;
-            finishSpeaking();
-          };
-
-          audio.onerror = (e) => {
-            clearTimeout(watchdog);
-            console.warn('[VoiceClient] Web audio error, using speech fallback:', e);
-            this.currentWebAudio = null;
-            this.speakAloud(fallbackText);
-          };
-
-          await audio.play();
-          return;
-        }
-      } catch (err) {
-        console.warn('[VoiceClient] Web audio play error:', err);
-      }
-    }
-
-    // 2. Native Mobile (iOS / Android via expo-audio & expo-file-system)
-    try {
-      if (this.currentPlayer) {
-        try {
-          this.currentPlayer.pause();
-          this.currentPlayer.release?.();
-          this.currentPlayer.remove?.();
-        } catch {}
-        this.currentPlayer = null;
-      }
-
-      // CRITICAL: Disengage recording mode so Android routes audio through
-      // the device loudspeaker with full volume and fidelity!
-      await setAudioModeAsync({
-        allowsRecording: false,
-        playsInSilentMode: true,
-        shouldPlayInBackground: false,
-        interruptionMode: 'duckOthers',
-      });
-
-      let playerSource: any = null;
-
-      // Prefer HTTP audio stream directly if available
-      if (audioUrl) {
-        const fullUrl = audioUrl.startsWith('http') ? audioUrl : `${getBackendBaseUrl()}${audioUrl}`;
-        playerSource = fullUrl;
-      } else if (audioBase64) {
-        const speechPath = `${FileSystem.cacheDirectory || ''}healthfreak_speech_${Date.now()}.wav`;
-        await FileSystem.writeAsStringAsync(speechPath, audioBase64, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        playerSource = speechPath;
-      }
-
-      if (playerSource) {
-        const player = createAudioPlayer(playerSource);
-        this.currentPlayer = player;
-
-        const wordCount = (fallbackText || '').split(/\s+/).length;
-        const watchdogMs = Math.max(5000, wordCount * 550 + 2500);
-        const watchdog = setTimeout(() => {
-          if (this.currentPlayer === player) {
-            this.currentPlayer = null;
-            try {
-              player.release?.();
-              player.remove?.();
-            } catch {}
-            finishSpeaking();
-          }
-        }, watchdogMs);
-
-        player.addListener('playbackStatusUpdate', (status: any) => {
-          if (status.didJustFinish) {
-            clearTimeout(watchdog);
             if (this.currentPlayer === player) {
               this.currentPlayer = null;
               try {
                 player.release?.();
                 player.remove?.();
               } catch {}
-              finishSpeaking();
+              onFinished();
             }
-          }
-        });
+          }, watchdogMs);
 
-        player.play();
-        return;
+          player.addListener('playbackStatusUpdate', (status: any) => {
+            if (status.didJustFinish) {
+              clearTimeout(watchdog);
+              if (this.currentPlayer === player) {
+                this.currentPlayer = null;
+                try {
+                  player.release?.();
+                  player.remove?.();
+                } catch {}
+                onFinished();
+              }
+            }
+          });
+
+          player.play();
+          return;
+        }
+      } catch (err) {
+        console.warn('[VoiceClient] Native player error, falling back to TTS:', err);
       }
-    } catch (err) {
-      console.warn('[VoiceClient] Native player error, falling back to TTS:', err);
-    }
 
-    // 3. Fallback to device speech engine
-    this.speakAloud(fallbackText);
+      // 3. Fallback to device speech engine
+      this.speakAloud(fallbackText, onFinished);
+    });
   }
 
   /**
@@ -1171,10 +1239,10 @@ export class VoiceClientService {
   }
 
   /**
-   * Handles user spoken text, queries Gemini AI Coach, and speaks response aloud.
+   * Handles user spoken text, streams response tokens and incremental audio chunks.
    */
   public async handleUserSpokenInput(text: string) {
-    if (this.isProcessingTurn) return;
+    if (!text || !text.trim()) return;
 
     // Anti-Echo Check: If spoken text matches Coach's own reply, suppress it!
     if (this.lastCoachReply && isSelfEcho(text, this.lastCoachReply)) {
@@ -1185,35 +1253,64 @@ export class VoiceClientService {
       return;
     }
 
+    // Cancel any previous speaking or streaming immediately so user turn takes priority
+    if (this.currentStreamAbortController) {
+      try { this.currentStreamAbortController.abort(); } catch {}
+      this.currentStreamAbortController = null;
+    }
+    if (this.currentWebAudio) {
+      try { this.currentWebAudio.pause(); } catch {}
+      this.currentWebAudio = null;
+    }
+    if (this.currentPlayer) {
+      try { this.currentPlayer.pause(); } catch {}
+      this.currentPlayer = null;
+    }
+    try { Speech.stop(); } catch {}
+
+    this.audioChunkQueue = [];
+    this.isPlayingChunkQueue = false;
+    this.currentStreamAbortController = new AbortController();
+
     this.isProcessingTurn = true;
     this.userTranscript = text;
+    this.coachTranscript = '';
     this.status = 'connecting';
     this.notify();
 
     try {
-      const aiResponse = await askHealthCoachAI(text, 'Alex', ['patellofemoral_knee_pain']);
-      const replyText = aiResponse.text;
-
-      this.lastCoachReply = replyText;
-      this.coachTranscript = replyText;
-      this.status = 'speaking';
-      this.isProcessingTurn = false;
-      this.notify();
-
-      if (aiResponse.audioUrl || aiResponse.audioBase64) {
-        await this.playGeneratedAudio(aiResponse.audioBase64, aiResponse.audioMime || 'audio/wav', replyText, aiResponse.audioUrl);
-      } else {
-        this.speakAloud(replyText);
+      await streamHealthCoachAI({
+        message: text,
+        userId: this.currentUserId,
+        signal: this.currentStreamAbortController.signal,
+        onTextDelta: (delta) => {
+          this.status = 'speaking';
+          this.coachTranscript += delta;
+          this.notify();
+        },
+        onAudioChunk: (chunk) => {
+          this.enqueueAudioChunk(chunk);
+        },
+        onComplete: (result) => {
+          this.lastCoachReply = result.fullText;
+          this.coachTranscript = result.fullText;
+          this.notify();
+          this.finishTurnSpeaking();
+        },
+      });
+    } catch (err: any) {
+      if (this.currentStreamAbortController?.signal.aborted) {
+        return;
       }
-    } catch (err) {
-      console.error('[VoiceClient] Input error:', err);
-      this.isProcessingTurn = false;
+      console.error('[VoiceClient] Streaming turn error:', err);
       const fallbackText =
         'Bahut badhiya! Maine note kar liya hai. Aaj hum gentle movement aur hydration par focus karenge.';
       this.coachTranscript = fallbackText;
       this.status = 'speaking';
       this.notify();
-      this.speakAloud(fallbackText);
+      await this.playGeneratedAudio(undefined, 'audio/wav', fallbackText, undefined, true);
+    } finally {
+      this.finishTurnSpeaking();
     }
   }
 
@@ -1322,7 +1419,7 @@ export class VoiceClientService {
     if (!customGreeting && !isLocalhostOnNative) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 4000);
+        const timeout = setTimeout(() => controller.abort(), 1800);
         const greetRes = await fetch(`${backendUrl}/api/voice/greeting`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1337,9 +1434,13 @@ export class VoiceClientService {
             greeting = greetData.greeting;
             this.coachTranscript = greeting;
             if (greetData.audioUrl || greetData.audioBase64) {
-              this.status = 'speaking';
-              this.notify();
-              await this.playGeneratedAudio(greetData.audioBase64, greetData.audioMime || 'audio/wav', greeting, greetData.audioUrl);
+              await this.playGeneratedAudio(
+                greetData.audioBase64,
+                greetData.audioMime || 'audio/wav',
+                greeting,
+                greetData.audioUrl,
+                true // auto-listen on finish
+              );
               return;
             }
           }
@@ -1367,6 +1468,16 @@ export class VoiceClientService {
    * Instant interruption: yields floor to user immediately.
    */
   public interrupt(): void {
+    if (this.currentStreamAbortController) {
+      try {
+        this.currentStreamAbortController.abort();
+      } catch {}
+      this.currentStreamAbortController = null;
+    }
+    this.audioChunkQueue = [];
+    this.isPlayingChunkQueue = false;
+    this.isProcessingTurn = false;
+
     if (this.currentPlayer) {
       try {
         this.currentPlayer.pause();
@@ -1407,6 +1518,7 @@ export class VoiceClientService {
 
   public simulateUserUtterance(text: string): void {
     this.unlockAudio();
+    this.isProcessingTurn = false;
     this.handleUserSpokenInput(text);
   }
 

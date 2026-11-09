@@ -14,6 +14,7 @@ const costTracker_js_1 = require("../services/costTracker.js");
 const index_js_2 = require("../config/index.js");
 const voiceAgentProcess_js_1 = require("../services/voiceAgentProcess.js");
 const sarvamService_js_1 = require("../services/sarvamService.js");
+const healthMemoryEngine_js_1 = require("../services/healthMemoryEngine.js");
 let geminiClient = null;
 function getGeminiClient() {
     if (!geminiClient) {
@@ -274,22 +275,27 @@ exports.voiceRouter.get('/audio/:id.wav', (req, res) => {
     });
     res.send(item.buffer);
 });
-// 12. Dynamic Health Coach Greeting (Sarvam AI Hinglish Voice Persona)
+// 12. Dynamic Health Coach Greeting (Sarvam AI Hinglish Voice Persona with In-Memory Audio Cache)
+const greetingAudioCache = new Map();
 exports.voiceRouter.post('/greeting', async (req, res) => {
     try {
         const { userId = 'usr_synthetic_alex' } = req.body;
         const user = index_js_1.db.getUser(userId) || index_js_1.db.getUser('usr_synthetic_alex');
-        const firstName = user?.name ? user.name.split(' ')[0] : 'there';
+        const firstName = user?.name ? user.name.split(' ')[0] : 'friend';
         const hour = new Date().getHours();
         let timeGreeting = 'Namaste';
         if (hour >= 5 && hour < 12)
             timeGreeting = 'Suprabhat';
         else if (hour >= 18 && hour < 22)
             timeGreeting = 'Shubh Sandhya';
-        const greeting = `${timeGreeting} ${firstName}! Main Coach Alex bol raha hoon, aapka HealthFreak AI coach. Aaj aapki fitness aur diet mein kya help karoon?`;
-        let audioBase64;
-        if (sarvamService_js_1.SarvamService.isConfigured()) {
+        const greeting = `${timeGreeting} ${firstName}! Main Coach Alex hoon. Aaj aapki fitness aur diet mein kya help karoon?`;
+        const cacheKey = `${timeGreeting}_${firstName}`;
+        let audioBase64 = greetingAudioCache.get(cacheKey);
+        if (!audioBase64 && sarvamService_js_1.SarvamService.isConfigured()) {
             audioBase64 = await sarvamService_js_1.SarvamService.synthesizeSpeech(greeting);
+            if (audioBase64) {
+                greetingAudioCache.set(cacheKey, audioBase64);
+            }
         }
         res.json({
             greeting,
@@ -302,7 +308,160 @@ exports.voiceRouter.post('/greeting', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-// 13. Health Coach Chat Turn (Sarvam AI 105B + Bulbul Neural Voice)
+// 13. Health Coach Streaming Turn (SSE: Sarvam AI 105B + Bulbul Neural Voice)
+exports.voiceRouter.post('/chat/stream', async (req, res) => {
+    const startTime = Date.now();
+    const { message, userId = 'usr_synthetic_alex', activityContext } = req.body;
+    if (!message || typeof message !== 'string') {
+        res.status(400).json({ error: 'message is required' });
+        return;
+    }
+    // Setup Server-Sent Events headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+    const abortController = new AbortController();
+    req.on('close', () => abortController.abort());
+    const sendEvent = (event, data) => {
+        if (res.writableEnded)
+            return;
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+    const user = index_js_1.db.getUser(userId) || index_js_1.db.getUser('usr_synthetic_alex');
+    const userName = user?.name ? user.name.split(' ')[0] : 'friend';
+    const lowerMsg = message.toLowerCase();
+    // 1. Critical Health Safety & Red Flag Escalation
+    const isRedFlag = lowerMsg.includes('chest pain') ||
+        lowerMsg.includes('chhati') ||
+        lowerMsg.includes('chhaati') ||
+        lowerMsg.includes('shortness of breath') ||
+        lowerMsg.includes('saans nahi') ||
+        lowerMsg.includes('faint') ||
+        lowerMsg.includes('behoshi') ||
+        lowerMsg.includes('palpitation');
+    if (isRedFlag) {
+        const safetyReply = `Dhyan se sunein ${userName}: Chest discomfort ya saans lene mein takleef serious medical condition ke lakshan ho sakte hain. Kripya turant kisi physician ya emergency room se consult karein aur saare workouts immediately rok dein.`;
+        sendEvent('response_start', { timestamp: Date.now(), isSafetyAlert: true });
+        sendEvent('text_delta', { delta: safetyReply });
+        sendEvent('text_complete', {
+            fullText: safetyReply,
+            suggestions: ['Contact emergency care', 'Consult a doctor', 'Rest immediately'],
+        });
+        if (sarvamService_js_1.SarvamService.isConfigured()) {
+            try {
+                const audio = await sarvamService_js_1.SarvamService.synthesizeSpeech(safetyReply);
+                if (audio) {
+                    sendEvent('audio_chunk', { sequence: 0, text: safetyReply, audioBase64: audio, sampleRate: 22050, mimeType: 'audio/wav' });
+                }
+            }
+            catch { }
+        }
+        sendEvent('audio_complete', { totalChunks: 1 });
+        sendEvent('response_complete', { durationMs: Date.now() - startTime });
+        res.end();
+        return;
+    }
+    // 2. Long-term contextual memory retrieval (< 35 ms)
+    const healthContext = await healthMemoryEngine_js_1.HealthMemoryEngine.getRelevantContext(userId, message, activityContext);
+    // 3. Asynchronously ingest symptoms without blocking the response path
+    healthMemoryEngine_js_1.HealthMemoryEngine.scheduleSymptomIngestion(userId, message);
+    sendEvent('response_start', { timestamp: Date.now(), model: 'sarvam-105b-conversations' });
+    // 4. Construct System Prompt with contextual memory snippet
+    const systemPrompt = `You are Coach Alex, an elite AI Health and Wellness Coach at HealthFreak.
+You are speaking directly with ${userName}.
+${healthContext.promptSnippet}
+
+Core Coaching Instructions:
+1. Respond in warm, authentic, motivating Hinglish (Hindi + English blended in Latin script, e.g. "Arre ${userName}!").
+2. Show continuity naturally: If user mentions pain (like knee discomfort), reference their earlier reports without reciting bullet lists.
+3. Keep response concise: exactly 2 to 3 short sentences. Be clinically sound, encouraging, and actionable.
+4. Do NOT use emojis, asterisks, hashtags, or markdown. Output plain spoken conversational text only.`;
+    let totalAudioChunks = 0;
+    const ttsBuffer = new sarvamService_js_1.SentenceTTSBuffer((chunk) => {
+        totalAudioChunks++;
+        sendEvent('audio_chunk', chunk);
+    }, 'shubh');
+    let fullGeneratedText = '';
+    // 5. PRIMARY: Stream LLM via Sarvam 105B
+    let sarvamSuccess = false;
+    if (sarvamService_js_1.SarvamService.isConfigured()) {
+        try {
+            fullGeneratedText = await sarvamService_js_1.SarvamService.streamChatCompletion({
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: message },
+                ],
+                abortSignal: abortController.signal,
+                onToken: (token) => {
+                    sendEvent('text_delta', { delta: token });
+                    ttsBuffer.addToken(token);
+                },
+            });
+            sarvamSuccess = true;
+        }
+        catch (err) {
+            console.warn('[VoiceRoutes/Stream] Sarvam streaming notice:', err?.message || err);
+        }
+    }
+    // 6. SECONDARY FALLBACK: Google Gemini 3.5 Flash-Lite (TTS still routes via Bulbul Shubh!)
+    if (!sarvamSuccess && !abortController.signal.aborted) {
+        if (index_js_2.config.gemini.apiKey) {
+            try {
+                const ai = getGeminiClient();
+                const geminiStream = await ai.models.generateContentStream({
+                    model: index_js_2.config.gemini.model || 'gemini-3.5-flash-lite',
+                    contents: [
+                        {
+                            role: 'user',
+                            parts: [{ text: `${systemPrompt}\n\nUser says: ${message}` }],
+                        },
+                    ],
+                });
+                for await (const chunk of geminiStream) {
+                    if (abortController.signal.aborted)
+                        break;
+                    const textChunk = chunk.text || '';
+                    if (textChunk) {
+                        fullGeneratedText += textChunk;
+                        sendEvent('text_delta', { delta: textChunk });
+                        await ttsBuffer.addToken(textChunk);
+                    }
+                }
+                sarvamSuccess = true;
+            }
+            catch (geminiErr) {
+                console.warn('[VoiceRoutes/Stream] Gemini fallback notice:', geminiErr?.message || geminiErr);
+            }
+        }
+    }
+    // 7. Clinical Offline Fallback if all APIs fail
+    if (!fullGeneratedText.trim()) {
+        if (lowerMsg.includes('knee') || lowerMsg.includes('pain') || lowerMsg.includes('dard')) {
+            fullGeneratedText = `Arre ${userName}, please stop heavy exercises right now! Rest your knee, apply an ice pack, and stick to gentle stretches today.`;
+        }
+        else if (lowerMsg.includes('dinner') || lowerMsg.includes('khana') || lowerMsg.includes('food') || lowerMsg.includes('eat')) {
+            fullGeneratedText = `For a healthy dinner ${userName}, go for light protein and veggies like grilled paneer, dal, and a small bowl of salad. Avoid heavy carbs late at night!`;
+        }
+        else {
+            fullGeneratedText = `Namaste ${userName}! Main Coach Alex bol raha hoon. Maine aapka message note kar liya hai—aaj diet ya workout mein kis cheez par focus karein?`;
+        }
+        sendEvent('text_delta', { delta: fullGeneratedText });
+        await ttsBuffer.addToken(fullGeneratedText);
+    }
+    // 8. Finalize text and flush sentence audio buffer
+    const suggestions = sarvamService_js_1.SarvamService.generateSuggestions(message);
+    sendEvent('text_complete', {
+        fullText: fullGeneratedText.trim(),
+        suggestions,
+    });
+    await ttsBuffer.flush();
+    sendEvent('audio_complete', { totalChunks: totalAudioChunks });
+    sendEvent('response_complete', { durationMs: Date.now() - startTime });
+    res.end();
+});
+// 14. Health Coach Chat Turn (Synchronous JSON Fallback)
 exports.voiceRouter.post('/chat', async (req, res) => {
     try {
         const { message, userId = 'usr_synthetic_alex', activityContext } = req.body;
@@ -312,27 +471,25 @@ exports.voiceRouter.post('/chat', async (req, res) => {
         }
         const user = index_js_1.db.getUser(userId) || index_js_1.db.getUser('usr_synthetic_alex');
         const userName = user?.name ? user.name.split(' ')[0] : 'friend';
-        // 1. Check if user mentioned pain, fatigue or dietary symptoms and update memory facts
-        if (user) {
-            const lower = message.toLowerCase();
-            if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
-                index_js_1.db.updateMemoryFact(user.id, 'symptom_knee_discomfort', 'Reported discomfort: ' + message, 0.9);
-            }
-            if (lower.includes('tired') || lower.includes('fatigue') || lower.includes('thak')) {
-                index_js_1.db.updateMemoryFact(user.id, 'energy_status', 'Low energy reported in chat', 0.9);
-            }
-            if (lower.includes('dinner') || lower.includes('lunch') || lower.includes('diet') || lower.includes('khana')) {
-                index_js_1.db.updateMemoryFact(user.id, 'nutrition_query', 'Asked about meals in chat', 0.85);
-            }
+        const lower = message.toLowerCase();
+        // Critical Red Flag check
+        if (lower.includes('chest pain') || lower.includes('chhati') || lower.includes('shortness of breath')) {
+            res.json({
+                text: `Dhyan se sunein ${userName}: Chest discomfort ya saans lene mein takleef serious signs hain. Turant kisi emergency medical center se contact karein aur sabhi exercises band kar dein.`,
+                suggestions: ['Contact emergency care', 'Consult a doctor', 'Rest immediately'],
+                provider: 'safety_guard',
+            });
+            return;
         }
+        // Context retrieval and background ingestion
+        const healthContext = await healthMemoryEngine_js_1.HealthMemoryEngine.getRelevantContext(userId, message, activityContext);
+        healthMemoryEngine_js_1.HealthMemoryEngine.scheduleSymptomIngestion(userId, message);
         const activeFacts = user ? healthMemoryStore_js_1.healthMemoryStore.getActiveProfileFacts(user.id) : [];
-        const memorySnippet = activeFacts.length > 0
-            ? activeFacts.map((f) => `${f.key}: ${f.value}`).join('; ')
-            : '';
+        const memorySnippet = healthContext.promptSnippet || activeFacts.map((f) => `${f.key}: ${f.value}`).join('; ');
         const activitySnippet = activityContext
             ? `Today steps: ${activityContext.todaySteps || 0} / ${activityContext.stepGoal || 10000}, active calories: ${activityContext.caloriesBurned || 0} kcal`
             : '';
-        // 2. PRIMARY: Generate conversational reply and neural voice directly via Sarvam AI
+        // PRIMARY: Generate conversational reply and neural voice directly via Sarvam AI
         if (sarvamService_js_1.SarvamService.isConfigured()) {
             const sarvamResult = await sarvamService_js_1.SarvamService.generateChatReply({
                 message,
@@ -353,16 +510,13 @@ exports.voiceRouter.post('/chat', async (req, res) => {
                 return;
             }
         }
-        // 3. SECONDARY FALLBACK: Google Gemini
+        // SECONDARY FALLBACK: Google Gemini
         let replyText = '';
         let suggestions = [];
         if (index_js_2.config.gemini.apiKey) {
             const systemPrompt = `You are Coach Alex, an elite AI Health and Wellness Coach at HealthFreak.
 You are speaking directly with ${userName}.
-User Profile:
-- Known conditions/injuries: ${user?.knownConditions?.join(', ') || 'None'}
-- Memory facts: ${memorySnippet || 'None'}
-- Physical activity today: ${activitySnippet || 'None'}
+${healthContext.promptSnippet}
 
 Rules:
 1. Respond in natural, warm, empathetic Hinglish using Latin alphabet (e.g. 'Arre ${userName}!').
@@ -405,9 +559,8 @@ Rules:
                 }
             }
         }
-        // 4. Clinical contextual fallback if all APIs are unavailable
+        // Clinical contextual fallback if all APIs are unavailable
         if (!replyText) {
-            const lower = message.toLowerCase();
             if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
                 replyText = `Arre ${userName}, please stop heavy exercises right now! Rest your knee, apply a cold pack, and stick to gentle stretches today.`;
                 suggestions = ['Gentle leg stretch', 'Rest day routine', 'Log pain severity'];
@@ -415,14 +568,6 @@ Rules:
             else if (lower.includes('dinner') || lower.includes('khana') || lower.includes('food') || lower.includes('eat')) {
                 replyText = `For a healthy dinner ${userName}, go for light protein and veggies like grilled paneer, dal, and a small bowl of salad. Avoid heavy carbs late at night!`;
                 suggestions = ['High protein dinner', 'Low carb recipes', 'Log my dinner'];
-            }
-            else if (lower.includes('workout') || lower.includes('exercise') || lower.includes('gym')) {
-                replyText = `Great enthusiasm ${userName}! Let's focus on a 20-minute brisk walk followed by light mobility work to keep your joints healthy.`;
-                suggestions = ['Start 20m walk', 'Mobility warmup', 'Log workout'];
-            }
-            else if (lower.includes('sleep') || lower.includes('tired') || lower.includes('thak')) {
-                replyText = `Recovery is key, ${userName}! Make sure to drink a glass of water, keep screens away 30 minutes before bed, and get 7-8 hours of quality sleep tonight.`;
-                suggestions = ['Sleep meditation', 'Log bedtime', 'Set wake-up goal'];
             }
             else {
                 replyText = `Namaste ${userName}! Main Coach Alex bol raha hoon. Maine aapka message note kar liya hai—aaj diet ya workout mein kis cheez par focus karein?`;
@@ -432,10 +577,17 @@ Rules:
         if (suggestions.length === 0) {
             suggestions = ['Check my active plan', 'How is my hydration today?', 'Adjust my workout intensity'];
         }
+        // Always attempt Bulbul TTS synthesis for single voice consistency
+        let audioBase64;
+        if (sarvamService_js_1.SarvamService.isConfigured()) {
+            audioBase64 = await sarvamService_js_1.SarvamService.synthesizeSpeech(replyText);
+        }
         res.json({
             text: replyText.trim(),
             provider: 'gemini',
             suggestions,
+            audioBase64,
+            audioMime: 'audio/wav',
         });
     }
     catch (err) {

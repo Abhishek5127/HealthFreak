@@ -1,15 +1,26 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
+export interface AudioChunkPayload {
+  sequence: number;
+  text: string;
+  audioBase64?: string;
+  mimeType?: string;
+  sampleRate?: number;
+}
+
 export function getBackendBaseUrl(): string {
+  // If running in browser on localhost or local IP, always prioritize local dev server
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    const host = window.location.hostname || 'localhost';
+    if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.')) {
+      return `http://${host}:3001`;
+    }
+  }
+
   const envUrl = process.env.EXPO_PUBLIC_BACKEND_URL?.trim();
   if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
     return envUrl.replace(/\/$/, '');
-  }
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    if (envUrl) return envUrl.replace(/\/$/, '');
-    const host = window.location.hostname || 'localhost';
-    return `http://${host}:3001`;
   }
   if (envUrl) {
     return envUrl.replace(/\/$/, '');
@@ -108,6 +119,100 @@ export async function askHealthCoachAI(
       'Suggest high protein snack',
     ],
   };
+}
+
+/**
+ * Genuine SSE streaming client for Coach Alex.
+ * Streams token deltas to UI and emits chunked audio events for instant playback.
+ */
+export async function streamHealthCoachAI(params: {
+  message: string;
+  userId?: string;
+  activityContext?: any;
+  onTextDelta?: (delta: string) => void;
+  onAudioChunk?: (chunk: AudioChunkPayload) => void;
+  onComplete?: (result: { fullText: string; suggestions: string[] }) => void;
+  signal?: AbortSignal;
+}): Promise<{ text: string; suggestions: string[] }> {
+  const backendUrl = getBackendBaseUrl();
+  const { message, userId = 'usr_synthetic_alex', activityContext, onTextDelta, onAudioChunk, onComplete, signal } = params;
+
+  try {
+    const res = await fetch(`${backendUrl}/api/voice/chat/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, userId, activityContext }),
+      signal,
+    });
+
+    if (res.ok && res.body) {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+      let accumulatedText = '';
+      let finalSuggestions: string[] = [];
+
+      while (true) {
+        if (signal?.aborted) {
+          await reader.cancel();
+          break;
+        }
+
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data:')) continue;
+          const dataStr = trimmed.slice(5).trim();
+
+          try {
+            const data = JSON.parse(dataStr);
+            if (data.delta) {
+              accumulatedText += data.delta;
+              onTextDelta?.(data.delta);
+            }
+            if (data.audioBase64) {
+              onAudioChunk?.({
+                sequence: data.sequence,
+                text: data.text,
+                audioBase64: data.audioBase64,
+                mimeType: data.mimeType || 'audio/wav',
+                sampleRate: data.sampleRate || 22050,
+              });
+            }
+            if (data.fullText) {
+              accumulatedText = data.fullText;
+              finalSuggestions = data.suggestions || [];
+            }
+          } catch {}
+        }
+      }
+
+      if (accumulatedText.trim()) {
+        const suggestions = finalSuggestions.length > 0 ? finalSuggestions : ['Check my active plan', 'Hydration target', 'Log my workout'];
+        onComplete?.({ fullText: accumulatedText.trim(), suggestions });
+        return {
+          text: accumulatedText.trim(),
+          suggestions,
+        };
+      }
+    }
+  } catch (err: any) {
+    if (signal?.aborted) {
+      return { text: '', suggestions: [] };
+    }
+    console.warn('[streamHealthCoachAI] Stream error, falling back to askHealthCoachAI:', err?.message || err);
+  }
+
+  // Fallback to standard request
+  const fallback = await askHealthCoachAI(message, 'friend', [], activityContext, userId);
+  onComplete?.({ fullText: fallback.text, suggestions: fallback.suggestions });
+  return fallback;
 }
 
 export function isSelfEcho(userText: string, coachText: string): boolean {

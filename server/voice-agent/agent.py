@@ -4,7 +4,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import Annotated
+from typing import Annotated, Optional
 from dotenv import load_dotenv
 from pydantic import Field
 from livekit import rtc
@@ -352,14 +352,25 @@ async def entrypoint(ctx: JobContext) -> None:
 
     turn_handling = TurnHandlingOptions(
         turn_detection=inference.TurnDetector(),
+        endpointing={
+            "mode": "dynamic",
+            "min_delay": 0.35,
+            "max_delay": 0.65,
+            "alpha": 0.5,
+        },
         interruption={
             "enabled": True,
-            "min_duration": 0.8,
+            "mode": "adaptive",
+            "min_duration": 0.6,
             "min_words": 2,
             "resume_false_interruption": True,
-            "false_interruption_timeout": 1.5,
+            "false_interruption_timeout": 1.2,
         },
-        preemptive_generation={"enabled": True, "max_retries": 3},
+        preemptive_generation={
+            "enabled": True,
+            "preemptive_tts": True,
+            "max_retries": 3,
+        },
     )
 
     session = AgentSession(

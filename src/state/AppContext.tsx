@@ -19,7 +19,7 @@ import {
 } from '../mock-data/healthData';
 import { getActivitiesForGoal } from '../mock-data/goalActivities';
 import { initialCoachMessages } from '../mock-data/coachChat';
-import { askHealthCoachAI } from '../services/aiChatService';
+import { streamHealthCoachAI } from '../services/aiChatService';
 import { voiceClient } from '../services/voiceClient';
 import { MealAnalysisResult } from '../types/meal';
 import { MealScannerService } from '../services/mealScannerService';
@@ -679,47 +679,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setChatMessages((prev) => [...prev, userMsg]);
     setIsCoachTyping(true);
 
+    const coachMsgId = `msg_coach_${Date.now()}`;
+    let accumulatedCoachText = '';
+
+    const initialCoachMsg: ChatMessage = {
+      id: coachMsgId,
+      sender: 'coach',
+      text: '',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setChatMessages((prev) => [...prev, initialCoachMsg]);
+
     try {
       const todaySummary = await pedometerService.getCurrentTodaySummary();
-      const aiResponse = await askHealthCoachAI(
-        trimmed,
-        userProfile.name.split(' ')[0] || 'friend',
-        userProfile.healthConditions || [],
-        {
+      await streamHealthCoachAI({
+        message: trimmed,
+        userId: userProfile.id || 'usr_synthetic_alex',
+        activityContext: {
           todaySteps: todaySummary.steps,
           stepGoal: todaySummary.stepGoal,
           distanceMeters: todaySummary.distanceMeters,
           caloriesBurned: todaySummary.caloriesBurned,
           activeMinutes: todaySummary.activeMinutes,
         },
-        userProfile.id || 'usr_synthetic_alex'
-      );
-
-      const coachMsg: ChatMessage = {
-        id: `msg_coach_${Date.now()}`,
-        sender: 'coach',
-        text: aiResponse.text,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        suggestions: aiResponse.suggestions || [
-          'Help me plan my day',
-          'Explain my recent lab report',
-          'Suggest a balanced dinner',
-        ],
-      };
-
-      setChatMessages((prev) => [...prev, coachMsg]);
-      setIsCoachTyping(false);
-      triggerHaptic('selection');
+        onTextDelta: (delta) => {
+          accumulatedCoachText += delta;
+          setChatMessages((prev) =>
+            prev.map((m) => (m.id === coachMsgId ? { ...m, text: accumulatedCoachText } : m))
+          );
+        },
+        onComplete: (res) => {
+          setChatMessages((prev) =>
+            prev.map((m) =>
+              m.id === coachMsgId
+                ? {
+                    ...m,
+                    text: res.fullText || accumulatedCoachText,
+                    suggestions: res.suggestions || [
+                      'Help me plan my day',
+                      'Explain my recent lab report',
+                      'Suggest a balanced dinner',
+                    ],
+                  }
+                : m
+            )
+          );
+          setIsCoachTyping(false);
+          triggerHaptic('selection');
+        },
+      });
     } catch (err) {
       console.error('[sendChatMessage error]', err);
-      const coachMsg: ChatMessage = {
-        id: `msg_coach_${Date.now()}`,
-        sender: 'coach',
-        text: `Namaste ${userProfile.name.split(' ')[0]}! Main sun rahi hoon. Aaj aap kaisa feel kar rahe hain? Any health questions or meal goals I can help guide?`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        suggestions: ['Help me plan my day', 'Explain my recent lab report', 'Suggest a balanced dinner'],
-      };
-      setChatMessages((prev) => [...prev, coachMsg]);
+      setChatMessages((prev) =>
+        prev.map((m) =>
+          m.id === coachMsgId
+            ? {
+                ...m,
+                text: accumulatedCoachText || `Namaste ${userProfile.name.split(' ')[0]}! Main sun raha hoon. Aaj aap kaisa feel kar rahe hain? Any health questions or meal goals I can help guide?`,
+                suggestions: ['Help me plan my day', 'Check workout routine', 'Suggest a balanced dinner'],
+              }
+            : m
+        )
+      );
       setIsCoachTyping(false);
       triggerHaptic('selection');
     }
