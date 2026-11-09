@@ -13,6 +13,7 @@ import {
 import * as FileSystem from 'expo-file-system/legacy';
 import { askHealthCoachAI, transcribeAndReplyAudio, getBackendBaseUrl, isSelfEcho, cleanCoachReplyOnly, synthesizeSpeechDirectClient } from './aiChatService';
 import { normalizeForSpeech, isHinglishOrHindi } from '../utils/voiceTextNormalizer';
+import { ALLOW_DEVICE_TTS_FALLBACK } from '../constants/voiceConfig';
 
 export type VoiceConnectionStatus =
   | 'idle'
@@ -78,6 +79,8 @@ export class VoiceClientService {
   private currentPlayer: AudioPlayer | null = null;
   private currentWebAudio: any = null;
   private cachedIndianVoices: { hindi?: string; indianEnglish?: string } = {};
+  private lockedVoiceId?: string;
+  private lockedWebVoice?: any;
   private lastCoachReply: string = '';
   private lastSpeechEndTime: number = 0;
 
@@ -132,6 +135,38 @@ export class VoiceClientService {
 
           if (enInVoice) this.cachedIndianVoices.indianEnglish = enInVoice.identifier;
           if (hiInVoice) this.cachedIndianVoices.hindi = hiInVoice.identifier;
+
+          // Lock to ONE consistent female voice throughout the entire conversation
+          const primaryFemale = enInVoice || hiInVoice;
+          if (primaryFemale) {
+            this.lockedVoiceId = primaryFemale.identifier;
+            console.log(`🔒 [VoiceClient] Session locked to single female voice: ${this.lockedVoiceId}`);
+          }
+        }
+      } else if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        const lockWebVoice = () => {
+          const voices = window.speechSynthesis.getVoices();
+          if (voices && voices.length > 0 && !this.lockedWebVoice) {
+            this.lockedWebVoice =
+              voices.find(
+                (v) =>
+                  (v.lang.startsWith('en-IN') || v.lang.startsWith('hi')) &&
+                  (v.name.toLowerCase().includes('female') ||
+                    v.name.toLowerCase().includes('heera') ||
+                    v.name.toLowerCase().includes('kalpana') ||
+                    v.name.toLowerCase().includes('google'))
+              ) ||
+              voices.find((v) => v.lang.startsWith('en-IN') || v.lang.startsWith('hi')) ||
+              voices.find((v) => v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('zira')) ||
+              voices[0];
+            if (this.lockedWebVoice) {
+              console.log(`🔒 [VoiceClient] Web session locked to single female voice: ${this.lockedWebVoice.name} (${this.lockedWebVoice.lang})`);
+            }
+          }
+        };
+        lockWebVoice();
+        if (window.speechSynthesis.onvoiceschanged !== undefined) {
+          window.speechSynthesis.onvoiceschanged = lockWebVoice;
         }
       }
     } catch {
@@ -203,7 +238,7 @@ export class VoiceClientService {
     const cleanFallback = normalizeForSpeech(fallbackText);
     this.status = 'speaking';
     if (cleanFallback) {
-      this.lastCoachReply = cleanFallback;
+      this.lastCoachReply = cleanFallback.slice(0, 60);
     }
     this.notify();
 
@@ -257,9 +292,14 @@ export class VoiceClientService {
 
           audio.onerror = (e) => {
             clearTimeout(watchdog);
-            console.warn('[VoiceClient] Web audio error, using speech fallback:', e);
+            console.warn('[VoiceClient] Web audio error:', e);
             this.currentWebAudio = null;
-            this.speakAloud(cleanFallback);
+            if (ALLOW_DEVICE_TTS_FALLBACK) {
+              this.speakAloud(cleanFallback);
+            } else {
+              this.errorMessage = 'Web audio playback failed for Gemini Kore audio.';
+              finishSpeaking();
+            }
           };
 
           console.log(`🔊  [PERF: WEB AUDIO PLAYBACK STARTED]: ${this.lastSpeechEndTime ? (Date.now() - this.lastSpeechEndTime) + 'ms since user speech ended' : 'playing'}`);
@@ -341,11 +381,17 @@ export class VoiceClientService {
         return;
       }
     } catch (err) {
-      console.warn('[VoiceClient] Native player error, falling back to TTS:', err);
+      console.warn('[VoiceClient] Native player error:', err);
     }
 
-    // 3. Fallback to device speech engine
-    this.speakAloud(cleanFallback);
+    // Fallback to device speech engine only if explicitly enabled
+    if (ALLOW_DEVICE_TTS_FALLBACK) {
+      this.speakAloud(cleanFallback);
+    } else {
+      console.error('[VoiceClient] ❌ Cloud audio playback failed. Device TTS fallback is strictly disabled to prevent voice switching.');
+      this.errorMessage = 'Audio playback failed for Gemini Kore stream.';
+      finishSpeaking();
+    }
   }
 
   /**
@@ -365,7 +411,7 @@ export class VoiceClientService {
     }
 
     this.status = 'speaking';
-    this.lastCoachReply = spokenText;
+    this.lastCoachReply = spokenText.slice(0, 60);
     this.notify();
 
     let finished = false;
@@ -395,24 +441,11 @@ export class VoiceClientService {
     const estimatedDurationMs = Math.max(4500, wordCount * 550 + 2500);
     const watchdogTimer = setTimeout(finishSpeaking, estimatedDurationMs);
 
-    // Language and voice selection
+    // Language and voice selection — locked to single consistent female voice throughout the conversation
     const isHinglish = isHinglishOrHindi(spokenText);
     const hasDevanagari = /[\u0900-\u097F]/.test(spokenText);
-    let speechLang = 'en-IN';
-    let selectedVoice = this.cachedIndianVoices.indianEnglish;
-
-    if (hasDevanagari) {
-      speechLang = 'hi-IN';
-      selectedVoice = this.cachedIndianVoices.hindi || this.cachedIndianVoices.indianEnglish;
-    } else if (isHinglish) {
-      if (this.cachedIndianVoices.hindi) {
-        speechLang = 'hi-IN';
-        selectedVoice = this.cachedIndianVoices.hindi;
-      } else {
-        speechLang = 'en-IN';
-        selectedVoice = this.cachedIndianVoices.indianEnglish;
-      }
-    }
+    const speechLang = hasDevanagari ? 'hi-IN' : 'en-IN';
+    const selectedVoice = this.lockedVoiceId || this.cachedIndianVoices.indianEnglish || this.cachedIndianVoices.hindi;
 
     // 1. Web Speech Synthesis
     if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -424,21 +457,35 @@ export class VoiceClientService {
         utterance.rate = 0.95;
         utterance.pitch = 1.02;
 
-        const voices = window.speechSynthesis.getVoices();
-        if (voices && voices.length > 0) {
-          const matchedVoice =
-            voices.find((v) => (selectedVoice && v.name === selectedVoice) || v.lang === speechLang) ||
-            voices.find((v) => v.lang.startsWith(hasDevanagari || isHinglish ? 'hi' : 'en-IN')) ||
-            voices.find(
-              (v) =>
-                v.name.toLowerCase().includes('india') ||
-                v.name.toLowerCase().includes('zira') ||
-                v.name.toLowerCase().includes('google')
-            ) ||
-            voices[0];
+        if (this.lockedWebVoice) {
+          utterance.voice = this.lockedWebVoice;
+        } else {
+          const voices = window.speechSynthesis.getVoices();
+          if (voices && voices.length > 0) {
+            const matchedVoice =
+              voices.find(
+                (v) =>
+                  (v.lang.startsWith('en-IN') || v.lang.startsWith('hi')) &&
+                  (v.name.toLowerCase().includes('female') ||
+                    v.name.toLowerCase().includes('heera') ||
+                    v.name.toLowerCase().includes('kalpana') ||
+                    v.name.toLowerCase().includes('google'))
+              ) ||
+              voices.find((v) => (selectedVoice && v.name === selectedVoice) || v.lang === speechLang) ||
+              voices.find((v) => v.lang.startsWith(hasDevanagari || isHinglish ? 'hi' : 'en-IN')) ||
+              voices.find(
+                (v) =>
+                  v.name.toLowerCase().includes('female') ||
+                  v.name.toLowerCase().includes('india') ||
+                  v.name.toLowerCase().includes('zira') ||
+                  v.name.toLowerCase().includes('google')
+              ) ||
+              voices[0];
 
-          if (matchedVoice) {
-            utterance.voice = matchedVoice;
+            if (matchedVoice) {
+              utterance.voice = matchedVoice;
+              this.lockedWebVoice = matchedVoice;
+            }
           }
         }
 
@@ -824,7 +871,7 @@ export class VoiceClientService {
       }
 
       const cleanReply = cleanCoachReplyOnly(result.coachReply);
-      this.lastCoachReply = cleanReply;
+      this.lastCoachReply = cleanReply.slice(0, 60);
       this.userTranscript = result.userTranscript;
       this.coachTranscript = cleanReply;
       this.status = 'speaking';
@@ -834,31 +881,66 @@ export class VoiceClientService {
       if (result.audioUrl || result.audioBase64) {
         await this.playGeneratedAudio(result.audioBase64, result.audioMime || 'audio/wav', cleanReply, result.audioUrl);
       } else {
-        // Direct neural audio synthesis fallback before device TTS
-        try {
-          const directSpeech = await synthesizeSpeechDirectClient(cleanReply);
-          if (directSpeech?.audioBase64) {
-            await this.playGeneratedAudio(directSpeech.audioBase64, directSpeech.audioMime || 'audio/wav', cleanReply);
-            return;
-          }
-        } catch {}
-        this.speakAloud(cleanReply);
+        // Direct neural audio synthesis fallback with Cloud Kore voice
+        if (!result.ttsExhausted) {
+          try {
+            const directSpeech = await synthesizeSpeechDirectClient(cleanReply);
+            if (directSpeech?.audioBase64) {
+              await this.playGeneratedAudio(directSpeech.audioBase64, directSpeech.audioMime || 'audio/wav', cleanReply);
+              return;
+            }
+          } catch {}
+        }
+
+        // ENFORCE VOICE CONSISTENCY:
+        // Do NOT silently switch to Device Neural TTS if ALLOW_DEVICE_TTS_FALLBACK is false.
+        if (ALLOW_DEVICE_TTS_FALLBACK) {
+          console.warn('[VoiceClient] Using device TTS fallback (opt-in enabled).');
+          this.speakAloud(cleanReply);
+        } else {
+          const quotaMsg = result.ttsError || 'Gemini Cloud Voice (Kore) unavailable: API Quota Exceeded (HTTP 429). Enable billing on Google AI Studio to unlock unlimited turns.';
+          console.error(`[VoiceClient] ❌ ${quotaMsg}`);
+          this.errorMessage = quotaMsg;
+          this.status = 'error';
+          this.notify();
+          // After 4 seconds, resume listening so user can still continue conversation
+          setTimeout(() => {
+            if (this.status === 'error') {
+              this.status = 'listening';
+              this.notify();
+              this.startListening();
+            }
+          }, 4000);
+        }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[VoiceClient] Audio turn error:', err);
       this.isProcessingTurn = false;
       const fallback = 'Main sun rahi hoon Alex. Aaj aapke nutrition ya workout par discuss karein?';
       this.coachTranscript = fallback;
-      this.status = 'speaking';
-      this.notify();
-      try {
-        const directSpeech = await synthesizeSpeechDirectClient(fallback);
-        if (directSpeech?.audioBase64) {
-          await this.playGeneratedAudio(directSpeech.audioBase64, directSpeech.audioMime || 'audio/wav', fallback);
-          return;
-        }
-      } catch {}
-      this.speakAloud(fallback);
+      if (ALLOW_DEVICE_TTS_FALLBACK) {
+        this.status = 'speaking';
+        this.notify();
+        try {
+          const directSpeech = await synthesizeSpeechDirectClient(fallback);
+          if (directSpeech?.audioBase64) {
+            await this.playGeneratedAudio(directSpeech.audioBase64, directSpeech.audioMime || 'audio/wav', fallback);
+            return;
+          }
+        } catch {}
+        this.speakAloud(fallback);
+      } else {
+        this.errorMessage = err?.message || 'Error communicating with HealthFreak AI Coach';
+        this.status = 'error';
+        this.notify();
+        setTimeout(() => {
+          if (this.status === 'error') {
+            this.status = 'listening';
+            this.notify();
+            this.startListening();
+          }
+        }, 4000);
+      }
     }
   }
 
@@ -1198,7 +1280,11 @@ export class VoiceClientService {
             return;
           }
         } catch {}
-        this.speakAloud(replyText);
+        if (ALLOW_DEVICE_TTS_FALLBACK) {
+          this.speakAloud(replyText);
+        } else {
+          console.warn('[VoiceClient] Cloud audio unavailable for simulated input. Device TTS fallback disabled.');
+        }
       }
     } catch (err) {
       console.error('[VoiceClient] Input error:', err);
@@ -1206,9 +1292,14 @@ export class VoiceClientService {
       const fallbackText =
         'Bahut badhiya! Maine note kar liya hai. Aaj hum gentle movement aur hydration par focus karenge.';
       this.coachTranscript = fallbackText;
-      this.status = 'speaking';
-      this.notify();
-      this.speakAloud(fallbackText);
+      if (ALLOW_DEVICE_TTS_FALLBACK) {
+        this.status = 'speaking';
+        this.notify();
+        this.speakAloud(fallbackText);
+      } else {
+        this.status = 'listening';
+        this.notify();
+      }
     }
   }
 
@@ -1310,7 +1401,7 @@ export class VoiceClientService {
     }
 
     this.coachTranscript = greeting;
-    // Attempt high-quality neural greeting synthesis before falling back to local device TTS
+    // Attempt high-quality neural greeting synthesis with Cloud Kore voice
     try {
       const directGreeting = await synthesizeSpeechDirectClient(greeting);
       if (directGreeting?.audioBase64) {
@@ -1321,7 +1412,14 @@ export class VoiceClientService {
       }
     } catch {}
 
-    this.speakAloud(greeting);
+    if (ALLOW_DEVICE_TTS_FALLBACK) {
+      this.speakAloud(greeting);
+    } else {
+      console.warn('[VoiceClient] Cloud greeting unavailable. Device TTS fallback is strictly disabled to enforce Kore voice.');
+      this.status = 'listening';
+      this.notify();
+      this.startListening();
+    }
   }
 
   public toggleMute(): void {
@@ -1371,9 +1469,18 @@ export class VoiceClientService {
   public async replayLastReply(): Promise<void> {
     if (!this.lastCoachReply) return;
     this.unlockAudio();
-    this.status = 'speaking';
-    this.notify();
-    await this.speakAloud(this.lastCoachReply);
+    try {
+      const speech = await synthesizeSpeechDirectClient(this.lastCoachReply);
+      if (speech?.audioBase64) {
+        await this.playGeneratedAudio(speech.audioBase64, speech.audioMime || 'audio/wav', this.lastCoachReply);
+        return;
+      }
+    } catch {}
+    if (ALLOW_DEVICE_TTS_FALLBACK) {
+      this.status = 'speaking';
+      this.notify();
+      await this.speakAloud(this.lastCoachReply);
+    }
   }
 
   public simulateUserUtterance(text: string): void {

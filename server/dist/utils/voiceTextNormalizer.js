@@ -19,8 +19,14 @@ const HINGLISH_CASING_MAP = {
     Aapki: 'aapki',
     AAPKO: 'aapko',
     Aapko: 'aapko',
+    MAIN: 'main',
+    Main: 'main',
     HAAN: 'haan',
     Haan: 'haan',
+    HAIN: 'hain',
+    Hain: 'hain',
+    HOON: 'hoon',
+    Hoon: 'hoon',
     NAHI: 'nahi',
     Nahi: 'nahi',
     KAREIN: 'karein',
@@ -40,6 +46,14 @@ const HINGLISH_CASING_MAP = {
     NAMASTE: 'Namaste',
     Namaste: 'Namaste',
 };
+const KNOWN_COLLAPSIBLE_HINDI_WORDS = new Set([
+    'aap', 'aapka', 'aapke', 'aapki', 'aapko', 'main', 'haan', 'hain', 'hoon',
+    'nahi', 'theek', 'karein', 'karna', 'karo', 'kaisa', 'kaisi', 'kaise',
+    'paani', 'pani', 'roti', 'chawal', 'dal', 'sabzi', 'khana', 'accha',
+    'achha', 'sahi', 'namaste', 'dhyan', 'rakhein', 'rakho', 'bolo', 'sun',
+    'rahi', 'raha', 'rahe', 'hum', 'mera', 'meri', 'mere', 'tum', 'tera',
+    'teri', 'tere', 'yeh', 'voh', 'hoga', 'hogi', 'hoge'
+]);
 /**
  * Normalizes conversational text for speech synthesis engines (Gemini Neural TTS & Device TTS).
  */
@@ -95,7 +109,21 @@ function normalizeForSpeech(text) {
         .replace(/\bVO2\s*max\b/gi, 'V O 2 max')
         .replace(/\bPCOS\b/g, 'P C O S')
         .replace(/\bPCOD\b/g, 'P C O D');
-    // 7. Hinglish Acronym & Casing Guard (prevent "Aap" -> "A-A-P" letter-by-letter spelling)
+    // 7. De-hyphenate corrupted acronym-spelled words (e.g. "A-A-P" -> "Aap", "M-A-I-N" -> "Main")
+    normalized = normalized.replace(/\b([a-zA-Z])(?:-([a-zA-Z])){1,10}\b/g, (match) => {
+        const word = match.replace(/-/g, '').toLowerCase();
+        return word.charAt(0).toUpperCase() + word.slice(1);
+    });
+    // 8. Collapse space-separated letters when they form known Hindi/Hinglish words (e.g. "A A P" -> "Aap", "M A I N" -> "Main")
+    // Preserves legitimate health acronyms like "B M I" and "B M R".
+    normalized = normalized.replace(/\b([A-Za-z])(?:\s+([A-Za-z])){1,8}\b/g, (match) => {
+        const candidate = match.replace(/\s+/g, '').toLowerCase();
+        if (KNOWN_COLLAPSIBLE_HINDI_WORDS.has(candidate)) {
+            return candidate.charAt(0).toUpperCase() + candidate.slice(1);
+        }
+        return match;
+    });
+    // 9. Hinglish Acronym & Casing Guard (prevent "Aap" -> "A-A-P" letter-by-letter spelling)
     for (const [key, replacement] of Object.entries(HINGLISH_CASING_MAP)) {
         const regex = new RegExp(`\\b${key}\\b`, 'g');
         normalized = normalized.replace(regex, replacement);

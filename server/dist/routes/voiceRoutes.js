@@ -243,82 +243,109 @@ exports.voiceRouter.get('/audio/:id.wav', (req, res) => {
     });
     res.send(item.buffer);
 });
+const ttsModelBackoff = new Map();
 /**
- * Synthesizes natural human speech with authentic Indian accent and cadence
- * using Gemini neural voice models (Kore/Aoede) with pre-synthesis text normalization.
+ * Synthesizes natural human speech using Gemini neural TTS.
+ *
+ * Voice is ALWAYS locked to COACH_VOICE ('Kore') — the single consistent
+ * female voice for Coach Alex across every turn, retry, and fallback.
+ * We iterate over TTS models but NEVER over voices.
+ * If a model fails, we try the next model with the SAME voice.
  */
 async function synthesizeSpeechWithGemini(text) {
     if (!index_js_2.config.gemini.apiKey || !text || !text.trim())
         return null;
-    // Linguistic normalization for clean pronunciation and natural sentence cadence
+    // Final pronunciation gate: normalize before ANY speech synthesis
     const spokenText = (0, voiceTextNormalizer_js_1.normalizeForSpeech)(text);
     if (!spokenText.trim())
         return null;
+    // Single locked voice — never changed between turns or retries
+    const COACH_VOICE = 'Kore';
+    // Priority order: gemini-3.1-flash-tts-preview first (active quota), then 3.8 variants
     const ttsModels = [
+        'gemini-3.1-flash-tts-preview',
         'gemini-3.8-flash-lite-tts',
         'gemini-3.8-flash-tts',
-        'gemini-3.1-flash-tts-preview',
     ];
-    const candidateVoices = ['Kore', 'Aoede'];
+    let lastTtsError = '';
+    // Flat loop over models only — voice is constant
     for (const model of ttsModels) {
-        for (const voiceName of candidateVoices) {
-            try {
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 8500);
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${index_js_2.config.gemini.apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [
-                            {
-                                role: 'user',
-                                parts: [{ text: spokenText }],
-                            },
-                        ],
-                        generationConfig: {
-                            responseModalities: ['AUDIO'],
-                            speechConfig: {
-                                voiceConfig: {
-                                    prebuiltVoiceConfig: {
-                                        voiceName,
-                                    },
+        // Circuit breaker: skip models with active 429 quota backoff
+        const backoffUntil = ttsModelBackoff.get(model);
+        if (backoffUntil && Date.now() < backoffUntil) {
+            lastTtsError = `TTS Model ${model} is backed off for ${Math.round((backoffUntil - Date.now()) / 1000)}s due to 429 quota limit.`;
+            continue;
+        }
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 6500);
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${index_js_2.config.gemini.apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [
+                        {
+                            role: 'user',
+                            parts: [{ text: spokenText }],
+                        },
+                    ],
+                    generationConfig: {
+                        responseModalities: ['AUDIO'],
+                        speechConfig: {
+                            voiceConfig: {
+                                prebuiltVoiceConfig: {
+                                    voiceName: COACH_VOICE,
                                 },
                             },
                         },
-                    }),
-                    signal: controller.signal,
-                });
-                clearTimeout(timeout);
-                if (res.ok) {
-                    const data = await res.json();
-                    const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
-                    if (inlineData?.data) {
-                        let audioBuffer = Buffer.from(inlineData.data, 'base64');
-                        const mime = inlineData.mimeType || '';
-                        // If raw PCM (L16), convert to standard playable WAV with RIFF header
-                        if (mime.includes('l16') || mime.includes('pcm') || !mime.includes('wav')) {
-                            audioBuffer = pcmToWav(audioBuffer, 24000, 1, 16);
-                        }
-                        const clipId = `clip_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-                        audioCache.set(clipId, {
-                            buffer: audioBuffer,
-                            mime: 'audio/wav',
-                            createdAt: Date.now(),
-                        });
-                        return {
-                            audioBase64: audioBuffer.toString('base64'),
-                            audioMime: 'audio/wav',
-                            audioUrl: `/api/voice/audio/${clipId}.wav`,
-                        };
+                    },
+                }),
+                signal: controller.signal,
+            });
+            clearTimeout(timeout);
+            if (res.status === 429) {
+                const errJson = await res.json().catch(() => ({}));
+                lastTtsError = `Google Gemini TTS Quota Exceeded (429): ${errJson.error?.message || 'Daily free-tier limit reached (10 requests/day). Enable billing to unlock unlimited turns.'}`;
+                console.warn(`⚠️  [TTS 429 QUOTA EXHAUSTED on ${model}]. Backing off for 60s.`);
+                ttsModelBackoff.set(model, Date.now() + 60000);
+                continue;
+            }
+            if (res.ok) {
+                const data = await res.json();
+                const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+                if (inlineData?.data) {
+                    let audioBuffer = Buffer.from(inlineData.data, 'base64');
+                    const mime = inlineData.mimeType || '';
+                    // If raw PCM (L16), convert to standard playable WAV with RIFF header
+                    if (mime.includes('l16') || mime.includes('pcm') || !mime.includes('wav')) {
+                        audioBuffer = pcmToWav(audioBuffer, 24000, 1, 16);
                     }
+                    const clipId = `clip_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+                    audioCache.set(clipId, {
+                        buffer: audioBuffer,
+                        mime: 'audio/wav',
+                        createdAt: Date.now(),
+                    });
+                    console.log(`🎤  [TTS] Voice: ${COACH_VOICE} | Model: ${model} | Text: "${spokenText.slice(0, 40)}..."`);
+                    return {
+                        audioBase64: audioBuffer.toString('base64'),
+                        audioMime: 'audio/wav',
+                        audioUrl: `/api/voice/audio/${clipId}.wav`,
+                    };
                 }
             }
-            catch (err) {
-                console.warn(`⚠️  [TTS MODEL ${model} | VOICE ${voiceName}]:`, err?.message || err);
+            else {
+                const errJson = await res.json().catch(() => ({}));
+                lastTtsError = `TTS Model ${model} returned HTTP ${res.status}: ${errJson.error?.message || res.statusText}`;
             }
         }
+        catch (err) {
+            lastTtsError = `TTS Model ${model} network error: ${err?.message || err}`;
+            console.warn(`⚠️  [TTS MODEL ${model} | VOICE ${COACH_VOICE}]:`, err?.message || err);
+            // Try next model with the same voice — never fall back to a different voice
+        }
     }
-    return null;
+    return { audioBase64: '', audioMime: '', audioUrl: '', ttsError: lastTtsError };
 }
 // 12. Dynamic Neural Greeting Audio
 exports.voiceRouter.post('/greeting', async (req, res) => {
@@ -531,14 +558,20 @@ exports.voiceRouter.post('/audio-turn', async (req, res) => {
         }
         console.log('⏳  Transcribing & analyzing with Gemini Multimodal Audio...');
         const systemPrompt = user ? (0, coachPrompt_js_1.buildCoachSystemPrompt)(user, memory) : 'You are Coach Alex, an AI health coach.';
-        const antiEchoPrompt = lastCoachReply
+        // Cap lastCoachReply to 60 chars before injecting into the prompt.
+        // Longer injections cause Gemini to treat Hindi/Hinglish Romanized words
+        // as abbreviations after several turns, producing letter-by-letter spelling.
+        const safeLastReply = lastCoachReply
+            ? (0, voiceTextNormalizer_js_1.normalizeForSpeech)(lastCoachReply).slice(0, 60).trimEnd()
+            : '';
+        const antiEchoPrompt = safeLastReply
             ? `CRITICAL ANTI-ECHO GUARD:
-The AI coach (Coach Alex) just finished speaking this exact phrase aloud through the phone loudspeaker:
-"${lastCoachReply}"
-If the attached audio recording is just the microphone picking up the coach's own voice or speaker echo repeating back:
+The AI coach (Coach Alex) just spoke this phrase through the loudspeaker:
+"${safeLastReply}"
+If the attached audio is just the microphone picking up the coach's own echo:
 - Set userTranscript: "(Speaker echo)"
 - Set coachReply: ""
-DO NOT reply to your own voice or previous words under any circumstance! Never create a self-conversation echo loop!
+Never reply to your own voice or create a self-conversation echo loop!
 
 Otherwise, if a real human user is speaking:`
             : '';
@@ -675,11 +708,17 @@ Return strictly a valid JSON object in this format:
         if (!coachReply || coachReply.includes('{') || coachReply.includes('}')) {
             coachReply = 'Main sun rahi hoon Alex! Aap bilkul theek routine follow kar rahe hain, bas hydrate aur active rahein.';
         }
+        // PRONUNCIATION GUARD: Detect letter-by-letter spelling (e.g. "A-A-P", "M-A-I-N")
+        // which indicates Gemini returned an acronym-spaced word. Reset to safe fallback.
+        if (/\b[A-Z]-[A-Z]\b/.test(coachReply) || /\b([A-Z]\s){2,}/.test(coachReply)) {
+            console.warn(`⚠️  [PRONUNCIATION GUARD]: Detected letter-spaced output: "${coachReply.slice(0, 60)}". Replacing with safe fallback.`);
+            coachReply = 'Bilkul sahi, aap achi progress kar rahe hain! Hydration aur activity goal par focus karein aaj.';
+        }
         // Anti-Echo Check: Suppress if user audio is just loudspeaker feedback of previous coach response
         if (userTranscript === '(Speaker echo)' ||
             !coachReply.trim() ||
             (lastCoachReply && isSelfEcho(userTranscript, lastCoachReply))) {
-            console.log(`🔇  [ANTI-ECHO FILTER ACTIVATED]: Detected speaker feedback of "${lastCoachReply.slice(0, 45)}...". Suppressing echo loop.`);
+            console.log(`🔇  [ANTI-ECHO FILTER ACTIVATED]: Detected speaker feedback of "${safeLastReply.slice(0, 45)}...". Suppressing echo loop.`);
             res.json({
                 userTranscript: '(Speaker feedback suppressed)',
                 coachReply: '',
@@ -708,15 +747,22 @@ Return strictly a valid JSON object in this format:
         let audioMimeOut = undefined;
         let audioUrlOut = undefined;
         let ttsLatencyMs = 0;
+        let ttsErrorOut = undefined;
         if (shouldSynthesizeAudio && coachReply.trim()) {
             const tTtsStart = Date.now();
+            // Final normalization gate: coachReply is normalized again inside synthesizeSpeechWithGemini,
+            // but we also pass the already-clean text to avoid double-processing.
             const speechResult = await synthesizeSpeechWithGemini(coachReply);
             ttsLatencyMs = Date.now() - tTtsStart;
-            if (speechResult) {
+            if (speechResult?.audioBase64) {
                 audioBase64Out = speechResult.audioBase64;
                 audioMimeOut = speechResult.audioMime;
                 audioUrlOut = speechResult.audioUrl;
                 console.log(`🔊  [GEMINI NEURAL AUDIO READY in ${ttsLatencyMs}ms]: ${audioMimeOut} (${audioUrlOut})`);
+            }
+            else {
+                ttsErrorOut = speechResult?.ttsError || 'Gemini Cloud TTS failed to produce audio.';
+                console.warn(`❌  [TTS FAILURE]: ${ttsErrorOut}`);
             }
         }
         const totalServerLatencyMs = Date.now() - start;
@@ -727,6 +773,8 @@ Return strictly a valid JSON object in this format:
             audioBase64: audioBase64Out,
             audioMime: audioMimeOut,
             audioUrl: audioUrlOut,
+            ttsExhausted: !audioBase64Out && !audioUrlOut,
+            ttsError: ttsErrorOut,
             latencyMs: totalServerLatencyMs,
             metrics: {
                 textMs: textLatencyMs,

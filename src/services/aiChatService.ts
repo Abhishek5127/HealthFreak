@@ -242,79 +242,97 @@ export function isSelfEcho(userText: string, coachText: string): boolean {
   return false;
 }
 
+const clientTtsBackoff = new Map<string, number>();
+
 /**
  * Synthesizes high-fidelity human speech directly via Gemini Audio API
  * on the client side when backend server is bypassed or unreachable.
+ *
+ * Voice is ALWAYS locked to 'Kore' (single consistent female voice for Coach Alex).
+ * We iterate over TTS models but NEVER over voices.
+ * If a model fails, we try the next model with the SAME voice — never Aoede.
  */
 export async function synthesizeSpeechDirectClient(
-  text: string,
-  preferredVoice: string = 'Kore'
+  text: string
 ): Promise<{ audioBase64: string; audioMime: string } | null> {
   if (!DIRECT_GEMINI_KEY || !text || !text.trim()) return null;
 
   const spokenText = normalizeForSpeech(text);
   if (!spokenText.trim()) return null;
 
+  // Single locked voice — consistent across every turn, retry, and fallback
+  const COACH_VOICE = 'Kore';
+
   const ttsModels = [
+    'gemini-3.1-flash-tts-preview',
     'gemini-3.8-flash-lite-tts',
     'gemini-3.8-flash-tts',
-    'gemini-3.1-flash-tts-preview',
   ];
-  const candidateVoices = [preferredVoice, preferredVoice === 'Kore' ? 'Aoede' : 'Kore'];
 
+  // Flat loop over models only — voice is constant
   for (const model of ttsModels) {
-    for (const voiceName of candidateVoices) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 7500);
+    const backoffUntil = clientTtsBackoff.get(model);
+    if (backoffUntil && Date.now() < backoffUntil) {
+      continue;
+    }
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${DIRECT_GEMINI_KEY}`;
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: 'user',
-                parts: [{ text: spokenText }],
-              },
-            ],
-            generationConfig: {
-              responseModalities: ['AUDIO'],
-              speechConfig: {
-                voiceConfig: {
-                  prebuiltVoiceConfig: {
-                    voiceName,
-                  },
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 6500);
+
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${DIRECT_GEMINI_KEY}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: spokenText }],
+            },
+          ],
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: COACH_VOICE,
                 },
               },
             },
-          }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
+          },
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
 
-        if (res.ok) {
-          const data = await res.json();
-          const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
-          if (inlineData?.data) {
-            let base64 = inlineData.data;
-            const mime = (inlineData.mimeType || '').toLowerCase();
-
-            // If raw PCM L16, convert to standard playable WAV with RIFF header
-            if (mime.includes('l16') || mime.includes('pcm') || !mime.includes('wav')) {
-              base64 = pcmBase64ToWavBase64(base64, 24000, 1, 16);
-            }
-
-            return {
-              audioBase64: base64,
-              audioMime: 'audio/wav',
-            };
-          }
-        }
-      } catch (err: any) {
-        console.warn(`[Direct TTS ${model} ${voiceName}]:`, err?.message || err);
+      if (res.status === 429) {
+        console.warn(`[Direct TTS 429 on ${model}]. Backing off for 60s.`);
+        clientTtsBackoff.set(model, Date.now() + 60000);
+        continue;
       }
+
+      if (res.ok) {
+        const data = await res.json();
+        const inlineData = data.candidates?.[0]?.content?.parts?.[0]?.inlineData;
+        if (inlineData?.data) {
+          let base64 = inlineData.data;
+          const mime = (inlineData.mimeType || '').toLowerCase();
+
+          // If raw PCM L16, convert to standard playable WAV with RIFF header
+          if (mime.includes('l16') || mime.includes('pcm') || !mime.includes('wav')) {
+            base64 = pcmBase64ToWavBase64(base64, 24000, 1, 16);
+          }
+
+          return {
+            audioBase64: base64,
+            audioMime: 'audio/wav',
+          };
+        }
+      }
+    } catch (err: any) {
+      console.warn(`[Direct TTS ${model} | Voice ${COACH_VOICE}]:`, err?.message || err);
+      // Try next model with the same voice — never fall back to a different voice
     }
   }
   return null;
@@ -361,7 +379,7 @@ export async function transcribeAndReplyAudio(
   conditions: string[] = [],
   lastCoachReply = '',
   userId = 'usr_synthetic_alex'
-): Promise<{ userTranscript: string; coachReply: string; audioBase64?: string; audioMime?: string; audioUrl?: string; isEcho?: boolean }> {
+): Promise<{ userTranscript: string; coachReply: string; audioBase64?: string; audioMime?: string; audioUrl?: string; isEcho?: boolean; ttsExhausted?: boolean; ttsError?: string }> {
   // 1. First attempt backend server if reachable
   const backendUrl = getBackendBaseUrl();
   const isLocalhostOnNative =
@@ -403,6 +421,8 @@ export async function transcribeAndReplyAudio(
             audioBase64: data.audioBase64,
             audioMime: data.audioMime,
             audioUrl: data.audioUrl,
+            ttsExhausted: Boolean(data.ttsExhausted),
+            ttsError: data.ttsError,
             isEcho: false,
           };
         }
@@ -423,14 +443,21 @@ export async function transcribeAndReplyAudio(
         cleanMime = 'audio/mp4';
       }
 
-      const antiEchoPrompt = lastCoachReply
+      // Cap lastCoachReply to 60 chars before injecting into the prompt.
+      // Longer injections cause Gemini to treat Hindi/Hinglish Romanized words
+      // as abbreviations after several turns, producing letter-by-letter spelling.
+      const safeLastReply = lastCoachReply
+        ? lastCoachReply.trim().slice(0, 60).trimEnd()
+        : '';
+
+      const antiEchoPrompt = safeLastReply
         ? `CRITICAL ANTI-ECHO GUARD:
-The AI coach (Coach Alex) just finished speaking this exact phrase through the phone loudspeaker:
-"${lastCoachReply}"
-If the attached audio recording is just the microphone picking up the coach's own previous words or echo repeating back from the loudspeaker:
+The AI coach (Coach Alex) just spoke this phrase through the loudspeaker:
+"${safeLastReply}"
+If the attached audio is just the microphone picking up the coach's own echo:
 - Set userTranscript: "(Speaker echo)"
 - Set coachReply: ""
-DO NOT reply to your own voice or previous words! Never create a self-conversation echo loop!
+Never reply to your own voice or create a self-conversation echo loop!
 
 Otherwise, if a real human user is speaking:`
         : '';
