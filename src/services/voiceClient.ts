@@ -1,5 +1,4 @@
 import { Platform } from 'react-native';
-import * as Speech from 'expo-speech';
 import {
   AudioModule,
   setAudioModeAsync,
@@ -99,67 +98,8 @@ export class VoiceClientService {
   }
 
   public async initAvailableVoices(): Promise<void> {
-    try {
-      if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        const loadWebVoices = () => {
-          try {
-            window.speechSynthesis.getVoices();
-          } catch {}
-        };
-        loadWebVoices();
-        if (window.speechSynthesis.onvoiceschanged !== undefined) {
-          window.speechSynthesis.onvoiceschanged = loadWebVoices;
-        }
-      } else if (Platform.OS !== 'web') {
-        const voices = await Speech.getAvailableVoicesAsync();
-        if (voices && voices.length > 0) {
-          // Prefer instant on-device local voices to eliminate 3-5s network TTS buffering
-          const isLocal = (v: any) =>
-            v.identifier.toLowerCase().includes('local') ||
-            !v.identifier.toLowerCase().includes('network');
-
-          // Indian English female voice (e.g. Google en-in-x-end-local, iOS Isha)
-          const enInVoice =
-            voices.find(
-              (v) =>
-                isLocal(v) &&
-                (v.language === 'en-IN' || v.identifier.toLowerCase().includes('en_in') || v.identifier.toLowerCase().includes('en-in')) &&
-                (v.name.toLowerCase().includes('female') ||
-                  v.identifier.includes('end') ||
-                  v.identifier.includes('ene') ||
-                  v.identifier.includes('enc') ||
-                  v.name.toLowerCase().includes('isha') ||
-                  v.name.toLowerCase().includes('veena'))
-            ) ||
-            voices.find((v) => isLocal(v) && (v.language === 'en-IN' || v.identifier.includes('en_IN'))) ||
-            voices.find(
-              (v) =>
-                v.language === 'en-IN' || v.identifier.toLowerCase().includes('en_in') || v.identifier.toLowerCase().includes('en-in')
-            );
-
-          // Hindi female voice (e.g. Google hi-in-x-hie-local, iOS Lekha)
-          const hiInVoice =
-            voices.find(
-              (v) =>
-                isLocal(v) &&
-                (v.language === 'hi-IN' || v.language === 'hi' || v.identifier.toLowerCase().includes('hi_in') || v.identifier.toLowerCase().includes('hi-in')) &&
-                (v.name.toLowerCase().includes('female') ||
-                  v.identifier.includes('hie') ||
-                  v.identifier.includes('hid') ||
-                  v.identifier.includes('hia') ||
-                  v.name.toLowerCase().includes('lekha') ||
-                  v.name.toLowerCase().includes('kalpana'))
-            ) ||
-            voices.find((v) => isLocal(v) && v.language.startsWith('hi')) ||
-            voices.find((v) => v.language.startsWith('hi'));
-
-          if (enInVoice) this.cachedIndianVoices.indianEnglish = enInVoice.identifier;
-          if (hiInVoice) this.cachedIndianVoices.hindi = hiInVoice.identifier;
-        }
-      }
-    } catch {
-      // Handled gracefully
-    }
+    // Authentic neural voice (Sarvam Bulbul Shubh) is used exclusively.
+    // Robotic operating system voice scanning is completely disabled.
   }
 
   public subscribe(listener: (state: VoiceSessionState) => void) {
@@ -278,7 +218,8 @@ export class VoiceClientService {
     audioMime = 'audio/wav',
     fallbackText = '',
     audioUrl?: string,
-    autoListenOnFinish = true
+    autoListenOnFinish = true,
+    onPlaybackFinished?: () => void
   ): Promise<void> {
     this.status = 'speaking';
     if (fallbackText) {
@@ -294,6 +235,7 @@ export class VoiceClientService {
         if (autoListenOnFinish && !this.isPlayingChunkQueue && this.audioChunkQueue.length === 0) {
           this.finishTurnSpeaking();
         }
+        if (onPlaybackFinished) onPlaybackFinished();
         resolve();
       };
 
@@ -419,13 +361,14 @@ export class VoiceClientService {
         console.warn('[VoiceClient] Native player error, falling back to TTS:', err);
       }
 
-      // 3. Fallback to device speech engine
-      this.speakAloud(fallbackText, onFinished);
+      // If audio playback failed or no source, finish cleanly without robotic voice
+      onFinished();
     });
   }
 
   /**
-   * Speaks text aloud through device speakers with safety watchdog timer to prevent UI hanging.
+   * Speaks text aloud through authentic neural audio (Sarvam Bulbul Shubh).
+   * Robotic operating system / browser TTS is completely disabled.
    */
   public async speakAloud(text: string, onEnd?: () => void) {
     if (!text || !text.trim()) {
@@ -437,185 +380,40 @@ export class VoiceClientService {
     this.lastCoachReply = text;
     this.notify();
 
-    let finished = false;
-    const finishSpeaking = async () => {
-      if (finished) return;
+    // Request genuine neural TTS audio from backend
+    try {
+      const backendUrl = getBackendBaseUrl();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(`${backendUrl}/api/voice/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, speaker: 'shubh' }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
 
-      if (Platform.OS !== 'web') {
-        try {
-          const isSpeaking = await Speech.isSpeakingAsync();
-          if (isSpeaking) {
-            setTimeout(finishSpeaking, 200);
-            return;
-          }
-        } catch {}
+      if (res.ok) {
+        const data = await res.json();
+        if (data.audioBase64) {
+          await this.playGeneratedAudio(data.audioBase64, 'audio/wav', text, undefined, false, onEnd);
+          return;
+        }
       }
+    } catch (err) {
+      console.warn('[VoiceClient] Neural TTS synthesis notice:', err);
+    }
 
-      finished = true;
+    // Robotic device TTS is completely eliminated per design requirements.
+    // Conclude speaking state smoothly without robotic noise.
+    setTimeout(() => {
       if (this.status === 'speaking') {
         this.status = 'listening';
         this.notify();
         this.startListening();
       }
       if (onEnd) onEnd();
-    };
-
-    const wordCount = text.split(/\s+/).length;
-    const estimatedDurationMs = Math.max(4500, wordCount * 550 + 2500);
-    const watchdogTimer = setTimeout(finishSpeaking, estimatedDurationMs);
-
-    // If text has actual Devanagari Unicode characters, use 'hi-IN'.
-    // If text is Hinglish / English written in Latin alphabet, use 'en-IN' (Indian English accent),
-    // which cleanly pronounces Hinglish words without crashing or muting on Android TTS!
-    const hasDevanagari = /[\u0900-\u097F]/.test(text);
-    const speechLang = hasDevanagari ? 'hi-IN' : 'en-IN';
-
-    // 1. Web Speech Synthesis
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      try {
-        if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
-          window.speechSynthesis.cancel();
-        }
-        if (window.speechSynthesis.paused) {
-          window.speechSynthesis.resume();
-        }
-
-        const voices = window.speechSynthesis.getVoices() || [];
-        const hasHindiVoice = voices.some((v) => v.lang.startsWith('hi'));
-
-        // If browser has no Hindi voice and text has Devanagari, convert known common terms so English SAPI5 voices don't mute
-        let speakableText = text;
-        if (hasDevanagari && !hasHindiVoice) {
-          speakableText = text
-            .replace(/नमस्ते/g, 'Namaste')
-            .replace(/मैं/g, 'Main')
-            .replace(/हूँ/g, 'hoon')
-            .replace(/है/g, 'hai')
-            .replace(/आज/g, 'aaj')
-            .replace(/आपकी/g, 'aapki')
-            .replace(/क्या/g, 'kya')
-            .replace(/करूँ/g, 'karoon')
-            .replace(/सकता/g, 'sakta')
-            .replace(/सकती/g, 'sakti')
-            .replace(/आपका/g, 'aapka')
-            .replace(/नोट/g, 'note')
-            .replace(/हो/g, 'ho')
-            .replace(/गया/g, 'gaya')
-            .replace(/और/g, 'aur')
-            .replace(/में/g, 'mein')
-            .replace(/मैसेज/g, 'message')
-            .replace(/सुप्रभात/g, 'Suprabhat')
-            .replace(/शुभ रात्रि/g, 'Shubh Ratri');
-        }
-
-        const utterance = new SpeechSynthesisUtterance(speakableText);
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        utterance.lang = hasHindiVoice && hasDevanagari ? 'hi-IN' : 'en-IN';
-
-        if (voices.length > 0) {
-          const matchedVoice =
-            (hasHindiVoice && hasDevanagari
-              ? voices.find((v) => v.lang === 'hi-IN' || v.lang.startsWith('hi'))
-              : null) ||
-            voices.find((v) => v.lang === 'en-IN' || v.lang.includes('IN') || v.name.toLowerCase().includes('india')) ||
-            voices.find(
-              (v) =>
-                v.name.toLowerCase().includes('google') ||
-                v.name.toLowerCase().includes('natural') ||
-                v.name.toLowerCase().includes('zira') ||
-                v.name.toLowerCase().includes('david')
-            ) ||
-            voices[0];
-
-          if (matchedVoice) {
-            utterance.voice = matchedVoice;
-            if (matchedVoice.lang) {
-              utterance.lang = matchedVoice.lang;
-            }
-          }
-        }
-
-        utterance.onstart = () => {
-          this.status = 'speaking';
-          this.notify();
-        };
-
-        utterance.onend = () => {
-          clearTimeout(watchdogTimer);
-          finishSpeaking();
-        };
-
-        utterance.onerror = (e) => {
-          console.log('[VoiceClient] Web Speech synthesis event:', e);
-          clearTimeout(watchdogTimer);
-          finishSpeaking();
-        };
-
-        setTimeout(() => {
-          try {
-            window.speechSynthesis.resume();
-            window.speechSynthesis.speak(utterance);
-          } catch (err) {
-            console.warn('[VoiceClient] Web Speech speak error:', err);
-            finishSpeaking();
-          }
-        }, 50);
-
-        return;
-      } catch (err) {
-        console.warn('[VoiceClient] window.speechSynthesis error:', err);
-      }
-    }
-
-    // 2. Native mobile playback via expo-speech
-    try {
-      if (Platform.OS !== 'web') {
-        // Disengage microphone during TTS so physical loudspeaker plays at full loudness
-        await setAudioModeAsync({
-          allowsRecording: false,
-          playsInSilentMode: true,
-          shouldPlayInBackground: false,
-          interruptionMode: 'duckOthers',
-        }).catch(() => {});
-      }
-
-      Speech.stop();
-      Speech.speak(text, {
-        language: speechLang,
-        pitch: 1.02,
-        rate: 0.96,
-        onStart: () => {
-          console.log(`[VoiceClient] Native Speech playback started (lang: ${speechLang})`);
-        },
-        onDone: () => {
-          clearTimeout(watchdogTimer);
-          finishSpeaking();
-        },
-        onError: (err) => {
-          console.warn('[VoiceClient] Speech.speak primary error:', err);
-          // Fallback: Retry without language restriction
-          try {
-            Speech.speak(text, {
-              rate: 0.96,
-              onDone: () => {
-                clearTimeout(watchdogTimer);
-                finishSpeaking();
-              },
-              onError: () => {
-                clearTimeout(watchdogTimer);
-                finishSpeaking();
-              },
-            });
-          } catch {
-            clearTimeout(watchdogTimer);
-            finishSpeaking();
-          }
-        },
-      });
-    } catch {
-      // Handled by watchdogTimer
-    }
+    }, 1200);
   }
 
   /**
@@ -1267,7 +1065,6 @@ export class VoiceClientService {
       try { this.currentPlayer.pause(); } catch {}
       this.currentPlayer = null;
     }
-    try { Speech.stop(); } catch {}
 
     this.audioChunkQueue = [];
     this.isPlayingChunkQueue = false;
@@ -1416,7 +1213,9 @@ export class VoiceClientService {
     }
 
     this.coachTranscript = greeting;
-    this.speakAloud(greeting);
+    this.status = 'listening';
+    this.notify();
+    this.startListening();
   }
 
   public toggleMute(): void {
@@ -1456,14 +1255,6 @@ export class VoiceClientService {
         this.currentWebAudio.pause();
       } catch {}
       this.currentWebAudio = null;
-    }
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    try {
-      Speech.stop();
-    } catch {
-      // Ignored
     }
     this.status = 'interrupted';
     this.notify();
@@ -1528,14 +1319,7 @@ export class VoiceClientService {
       this.currentPlayer = null;
     }
 
-    // 3. Stop native Speech synthesis
-    try {
-      Speech.stop();
-    } catch {
-      // Ignored
-    }
-
-    // 4. Stop web audio and speech synthesis
+    // 3. Stop web audio
     if (this.currentWebAudio) {
       try {
         this.currentWebAudio.pause();

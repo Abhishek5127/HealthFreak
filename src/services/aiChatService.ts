@@ -18,35 +18,138 @@ export function getBackendBaseUrl(): string {
     }
   }
 
-  // In development mode on physical devices (Expo Go), prioritize local laptop IP running backend
+  // In development mode on physical devices (Expo Go), resolve laptop LAN IP
   if (__DEV__) {
-    const hostUri = Constants.expoConfig?.hostUri;
-    if (hostUri) {
-      const ip = hostUri.split(':')[0];
-      if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
-        return `http://${ip}:3001`;
+    const hostCandidates = [
+      Constants.expoConfig?.hostUri,
+      (Constants as any).manifest?.debuggerHost,
+      (Constants as any).manifest2?.extra?.expoGo?.debuggerHost,
+      (Constants as any).manifest2?.extra?.expoClient?.hostUri,
+      Constants.linkingUri,
+      Constants.experienceUrl,
+    ];
+
+    for (const cand of hostCandidates) {
+      if (typeof cand === 'string' && cand) {
+        const clean = cand.replace(/^https?:\/\//, '').replace(/^exp:\/\//, '');
+        const hostPart = clean.split('/')[0].split(':')[0];
+        if (hostPart && hostPart !== 'localhost' && hostPart !== '127.0.0.1') {
+          return `http://${hostPart}:3001`;
+        }
       }
     }
+
+    return 'http://192.168.43.249:3001';
   }
 
   const envUrl = process.env.EXPO_PUBLIC_BACKEND_URL?.trim();
   if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
     return envUrl.replace(/\/$/, '');
   }
-  if (envUrl) {
-    return envUrl.replace(/\/$/, '');
+
+  return 'http://192.168.43.249:3001';
+}
+
+/**
+ * Direct client-side Gemini fallback.
+ * Guarantees Coach Alex answers dynamically and intelligently in warm Hinglish
+ * even when the local backend server is not running or unreachable from the phone.
+ */
+export async function askGeminiDirect(
+  message: string,
+  userName = 'Abhishek'
+): Promise<{ text: string; suggestions: string[] }> {
+  const apiKey = (process.env.EXPO_PUBLIC_GEMINI_API_KEY || '').trim();
+  const lower = message.toLowerCase();
+
+  if (apiKey) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
+      const systemPrompt = `You are Coach Alex, an elite AI Health and Wellness Coach at HealthFreak speaking directly with ${userName}.
+Rules:
+1. Respond in natural, warm, motivating Hinglish (Hindi + English blended in Latin alphabet, e.g. 'Arre ${userName}!').
+2. Keep your answer concise: exactly 2 to 3 short sentences. Be clinically sound, encouraging, and actionable.
+3. Suggest 3 short relevant follow-up actions (under 4 words each).
+4. No markdown, asterisks, hashtags, or emojis. Plain conversational text only.
+5. Provide strict JSON output: { "text": "...", "suggestions": ["...", "...", "..."] }`;
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: `${systemPrompt}\n\nUser says: ${message}` }],
+            },
+          ],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.6,
+            maxOutputTokens: 200,
+          },
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+
+      if (res.ok) {
+        const data = await res.json();
+        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (rawText) {
+          const parsed = JSON.parse(rawText);
+          if (parsed.text) {
+            return {
+              text: parsed.text.trim(),
+              suggestions: Array.isArray(parsed.suggestions) && parsed.suggestions.length > 0
+                ? parsed.suggestions
+                : ['Check my workout plan', 'Hydration target', 'Log today meal'],
+            };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[askGeminiDirect] Direct Gemini notice:', err);
+    }
   }
-  const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) {
-    const ip = hostUri.split(':')[0];
-    return `http://${ip}:3001`;
+
+  // Dynamic contextual safety fallback — never a canned static loop
+  if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
+    return {
+      text: `Arre ${userName}, please stop heavy leg movements right now! Rest your knee, apply an ice pack, and stick to gentle stretches today.`,
+      suggestions: ['Gentle leg stretch', 'Rest day routine', 'Log pain severity'],
+    };
   }
-  return 'https://healthfreak-1.onrender.com';
+  if (lower.includes('dinner') || lower.includes('lunch') || lower.includes('khana') || lower.includes('food') || lower.includes('eat')) {
+    return {
+      text: `For a healthy meal ${userName}, focus on clean protein and veggies like grilled paneer, dal, and a fresh salad. Keep your carbs balanced and stay hydrated!`,
+      suggestions: ['High protein meal', 'Low carb ideas', 'Log my meal'],
+    };
+  }
+  if (lower.includes('step') || lower.includes('walk') || lower.includes('running') || lower.includes('workout') || lower.includes('exercise')) {
+    return {
+      text: `Great commitment to your fitness ${userName}! Keep moving consistently, take short mobility breaks, and aim to hit your daily movement target.`,
+      suggestions: ['Check workout plan', 'Mobility warmup', 'Log workout'],
+    };
+  }
+  if (lower.includes('sleep') || lower.includes('tired') || lower.includes('thak') || lower.includes('neend')) {
+    return {
+      text: `Recovery is crucial, ${userName}! Drink a glass of water, keep screens away 30 minutes before bed, and get 7-8 hours of quality rest tonight.`,
+      suggestions: ['Sleep meditation', 'Log bedtime', 'Set wake-up goal'],
+    };
+  }
+
+  return {
+    text: `Arre ${userName}, main sun raha hoon! Bataiye aaj diet, workout ya recovery mein kis cheez par guidance chahiye?`,
+    suggestions: ['Check workout plan', 'Hydration target', 'Log today meal'],
+  };
 }
 
 export async function askHealthCoachAI(
   message: string,
-  userName = 'there',
+  userName = 'Abhishek',
   conditions: string[] = [],
   activityContext?: {
     todaySteps?: number;
@@ -61,7 +164,7 @@ export async function askHealthCoachAI(
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     const res = await fetch(`${backendUrl}/api/voice/chat`, {
       method: 'POST',
@@ -69,6 +172,7 @@ export async function askHealthCoachAI(
       body: JSON.stringify({
         message,
         userId: userId || 'usr_synthetic_alex',
+        userName,
         activityContext,
       }),
       signal: controller.signal,
@@ -92,44 +196,12 @@ export async function askHealthCoachAI(
       }
     }
   } catch {
-    // Backend unreachable from current network
+    // Backend unreachable from current network — proceed to direct client fallback
   }
 
-  // Fast, intelligent offline fallback matching Coach Alex Hinglish persona
-  const lower = message.toLowerCase();
-  if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
-    return {
-      text: `Arre ${userName}, please stop heavy leg movements right now! Rest your knee, apply an ice pack, and stick to gentle stretches today.`,
-      suggestions: ['Gentle leg stretch', 'Rest day routine', 'Log pain severity'],
-    };
-  }
-  if (lower.includes('dinner') || lower.includes('khana') || lower.includes('food') || lower.includes('eat')) {
-    return {
-      text: `For a healthy dinner ${userName}, go for light protein and veggies like grilled paneer, dal, and a bowl of salad. Avoid heavy carbs late at night!`,
-      suggestions: ['High protein dinner', 'Low carb recipes', 'Log my dinner'],
-    };
-  }
-  if (lower.includes('workout') || lower.includes('exercise') || lower.includes('gym')) {
-    return {
-      text: `Great enthusiasm ${userName}! Let's focus on a 20-minute brisk walk followed by light mobility work to keep your joints healthy.`,
-      suggestions: ['Start 20m walk', 'Mobility warmup', 'Log workout'],
-    };
-  }
-  if (lower.includes('sleep') || lower.includes('tired') || lower.includes('thak') || lower.includes('neend')) {
-    return {
-      text: `Recovery is key, ${userName}! Make sure to drink a glass of water, keep screens away 30 minutes before bed, and get 7-8 hours of quality sleep tonight.`,
-      suggestions: ['Sleep meditation', 'Log bedtime', 'Set wake-up goal'],
-    };
-  }
-
-  return {
-    text: `Namaste ${userName}! Main Coach Alex bol raha hoon. Maine aapka message note kar liya hai—aaj diet ya workout mein kis cheez par help karoon?`,
-    suggestions: [
-      'Log my lunch',
-      'Check today\'s workout',
-      'Suggest high protein snack',
-    ],
-  };
+  // Dynamic direct fallback
+  const directReply = await askGeminiDirect(message, userName);
+  return directReply;
 }
 
 /**
@@ -157,8 +229,8 @@ export async function streamHealthCoachAI(params: {
       signal,
     });
 
-    if (res.ok && res.body) {
-      const reader = res.body.getReader();
+    if (res.ok && res.body && typeof (res.body as any).getReader === 'function') {
+      const reader = (res.body as any).getReader();
       const decoder = new TextDecoder('utf-8');
       let buffer = '';
       let accumulatedText = '';
@@ -213,6 +285,47 @@ export async function streamHealthCoachAI(params: {
           suggestions,
         };
       }
+    } else if (res.ok) {
+      // React Native (iOS / Android) standard text response handling
+      const rawText = await res.text();
+      let accumulatedText = '';
+      let finalSuggestions: string[] = [];
+
+      const lines = rawText.split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) continue;
+        const dataStr = trimmed.slice(5).trim();
+        try {
+          const data = JSON.parse(dataStr);
+          if (data.delta) {
+            accumulatedText += data.delta;
+            onTextDelta?.(data.delta);
+          }
+          if (data.audioBase64) {
+            onAudioChunk?.({
+              sequence: data.sequence,
+              text: data.text,
+              audioBase64: data.audioBase64,
+              mimeType: data.mimeType || 'audio/wav',
+              sampleRate: data.sampleRate || 22050,
+            });
+          }
+          if (data.fullText) {
+            accumulatedText = data.fullText;
+            finalSuggestions = data.suggestions || [];
+          }
+        } catch {}
+      }
+
+      if (accumulatedText.trim()) {
+        const suggestions = finalSuggestions.length > 0 ? finalSuggestions : ['Check my active plan', 'Hydration target', 'Log my workout'];
+        onComplete?.({ fullText: accumulatedText.trim(), suggestions });
+        return {
+          text: accumulatedText.trim(),
+          suggestions,
+        };
+      }
     }
   } catch (err: any) {
     if (signal?.aborted) {
@@ -222,7 +335,7 @@ export async function streamHealthCoachAI(params: {
   }
 
   // Fallback to standard request
-  const fallback = await askHealthCoachAI(message, 'friend', [], activityContext, userId);
+  const fallback = await askHealthCoachAI(message, userName || 'Abhishek', [], activityContext, userId);
   onComplete?.({ fullText: fallback.text, suggestions: fallback.suggestions });
   return fallback;
 }

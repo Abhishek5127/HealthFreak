@@ -346,6 +346,30 @@ voiceRouter.post('/greeting', async (req: Request, res: Response) => {
   }
 });
 
+// 12b. Speech Synthesis Turn (Sarvam AI Bulbul Neural Voice)
+voiceRouter.post('/tts', async (req: Request, res: Response) => {
+  try {
+    const { text, speaker = 'shubh' } = req.body;
+    if (!text || typeof text !== 'string') {
+      res.status(400).json({ error: 'text is required' });
+      return;
+    }
+
+    let audioBase64: string | undefined;
+    if (SarvamService.isConfigured()) {
+      audioBase64 = await SarvamService.synthesizeSpeech(text, speaker);
+    }
+
+    res.json({
+      audioBase64,
+      audioMime: 'audio/wav',
+      provider: 'sarvam',
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 13. Health Coach Streaming Turn (SSE: Sarvam AI 105B + Bulbul Neural Voice)
 voiceRouter.post('/chat/stream', async (req: Request, res: Response) => {
   const startTime = Date.now();
@@ -494,8 +518,10 @@ Core Coaching Instructions:
       fullGeneratedText = `Arre ${userName}, please stop heavy exercises right now! Rest your knee, apply an ice pack, and stick to gentle stretches today.`;
     } else if (lowerMsg.includes('dinner') || lowerMsg.includes('khana') || lowerMsg.includes('food') || lowerMsg.includes('eat')) {
       fullGeneratedText = `For a healthy dinner ${userName}, go for light protein and veggies like grilled paneer, dal, and a small bowl of salad. Avoid heavy carbs late at night!`;
+    } else if (lowerMsg.includes('step') || lowerMsg.includes('walk') || lowerMsg.includes('running') || lowerMsg.includes('workout') || lowerMsg.includes('exercise')) {
+      fullGeneratedText = `Bahut badhiya ${userName}! Consistent physical activity maintain rakhein aur hydration ka pura dhyan rakhein.`;
     } else {
-      fullGeneratedText = `Namaste ${userName}! Main Coach Alex bol raha hoon. Maine aapka message note kar liya hai—aaj diet ya workout mein kis cheez par focus karein?`;
+      fullGeneratedText = `Arre ${userName}, main sun raha hoon! Bataiye aaj diet, workout ya recovery mein kis cheez par guidance chahiye?`;
     }
     sendEvent('text_delta', { delta: fullGeneratedText });
     await ttsBuffer.addToken(fullGeneratedText);
@@ -633,8 +659,11 @@ Rules:
       } else if (lower.includes('dinner') || lower.includes('khana') || lower.includes('food') || lower.includes('eat')) {
         replyText = `For a healthy dinner ${userName}, go for light protein and veggies like grilled paneer, dal, and a small bowl of salad. Avoid heavy carbs late at night!`;
         suggestions = ['High protein dinner', 'Low carb recipes', 'Log my dinner'];
+      } else if (lower.includes('step') || lower.includes('walk') || lower.includes('running') || lower.includes('workout') || lower.includes('exercise')) {
+        replyText = `Bahut badhiya ${userName}! Consistent physical activity maintain rakhein aur hydration ka pura dhyan rakhein.`;
+        suggestions = ['Check workout plan', 'Mobility warmup', 'Log workout'];
       } else {
-        replyText = `Namaste ${userName}! Main Coach Alex bol raha hoon. Maine aapka message note kar liya hai—aaj diet ya workout mein kis cheez par focus karein?`;
+        replyText = `Arre ${userName}, main sun raha hoon! Bataiye aaj diet, workout ya recovery mein kis cheez par guidance chahiye?`;
         suggestions = ['Log my lunch', 'Check today workout', 'Suggest high protein snack'];
       }
     }
