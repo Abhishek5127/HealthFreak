@@ -3,10 +3,11 @@ import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
+import { RemoteAssets } from '../../constants/remoteAssets';
 
-const LOGO_ANIMATED_GIF = require('../../../assets/logo/HealthFreakLogoTranasparent.gif');
 const LOGO_STATIC_PNG = require('../../../assets/logo/HealthFreakLogoTransparent.png');
 const LOGO_BLACK_BG_PNG = require('../../../assets/logo/HealthFreakLogoBlackbg.png');
+const LOGO_ANIMATED_GIF = { uri: RemoteAssets.logo.mascotGif };
 
 export interface HealthFreakLogoProps {
   size?: number;
@@ -109,6 +110,7 @@ export const HealthFreakLogo: React.FC<HealthFreakLogoProps> = ({
       )}
       <Image
         source={source}
+        placeholder={LOGO_STATIC_PNG}
         style={{ width: size, height: size }}
         contentFit="contain"
         autoplay={animated}

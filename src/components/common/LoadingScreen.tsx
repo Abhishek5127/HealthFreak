@@ -11,8 +11,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
+import { RemoteAssets } from '../../constants/remoteAssets';
 
-const LOGO_GIF = require('../../../assets/logo/HealthFreakLogoTranasparent.gif');
+const FALLBACK_STATIC_LOGO = require('../../../assets/logo/HealthFreakLogoBlackbg.png');
 
 export interface LoadingScreenProps {
   message?: string;
@@ -95,7 +96,8 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
         {/* Animated GIF Logo */}
         <Image
-          source={LOGO_GIF}
+          source={{ uri: RemoteAssets.logo.mascotGif }}
+          placeholder={FALLBACK_STATIC_LOGO}
           style={{ width: size, height: size }}
           contentFit="contain"
           autoplay
@@ -153,7 +155,8 @@ export const LoadingCard: React.FC<{
   return (
     <View style={styles.cardContainer}>
       <Image
-        source={LOGO_GIF}
+        source={{ uri: RemoteAssets.logo.mascotGif }}
+        placeholder={FALLBACK_STATIC_LOGO}
         style={{ width: size, height: size }}
         contentFit="contain"
         autoplay
