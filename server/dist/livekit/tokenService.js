@@ -92,7 +92,9 @@ class LiveKitTokenService {
         });
         const jwtToken = await at.toJwt();
         // 5b. Explicit Agent Dispatch with server-minted metadata
-        if (index_js_1.config.coach.explicitDispatchEnabled && index_js_1.config.livekit.apiKey && index_js_1.config.livekit.apiSecret) {
+        // Only dispatch if explicitly requested (e.g. for scheduled LiveKit calls) to avoid clogging worker daemon
+        const shouldDispatch = params.dispatchAgent === true;
+        if (shouldDispatch && index_js_1.config.coach.explicitDispatchEnabled && index_js_1.config.livekit.apiKey && index_js_1.config.livekit.apiSecret) {
             try {
                 const hostUrl = index_js_1.config.livekit.url.replace(/^ws/, 'http');
                 const dispatchClient = new livekit_server_sdk_1.AgentDispatchClient(hostUrl, index_js_1.config.livekit.apiKey, index_js_1.config.livekit.apiSecret);

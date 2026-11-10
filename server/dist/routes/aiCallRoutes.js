@@ -7,7 +7,7 @@ const tokenService_js_1 = require("../livekit/tokenService.js");
 const openaiRealtimeBridge_js_1 = require("../agent/openaiRealtimeBridge.js");
 const aiCallScheduler_js_1 = require("../queue/aiCallScheduler.js");
 const index_js_2 = require("../config/index.js");
-const coachPrompt_js_1 = require("../agent/coachPrompt.js");
+const sarvamService_js_1 = require("../services/sarvamService.js");
 exports.aiCallRouter = (0, express_1.Router)();
 /**
  * 1. POST /api/ai-calls/schedule
@@ -159,12 +159,12 @@ exports.aiCallRouter.post('/:id/accept', async (req, res) => {
         const user = index_js_1.db.getUser(session.userId) || { name: 'there' };
         const firstName = user.name ? user.name.split(' ')[0] : 'there';
         const lang = session.language || 'English';
-        let greeting = `Hello ${firstName}! I'm Coach Alex, your AI health coach from HealthFreak. How is your energy and body feeling today?`;
+        let greeting = `Hello ${firstName}! Coach Alex here. How is your energy and body feeling today?`;
         if (lang === 'Hinglish') {
-            greeting = `Namaste ${firstName}! Main Coach Alex bol raha hoon, aapka HealthFreak AI coach. Aaj aap kaisa feel kar rahe hain?`;
+            greeting = `Namaste ${firstName}! Coach Alex here. Aaj aap kaisa feel kar rahe hain?`;
         }
         else if (lang === 'Hindi') {
-            greeting = `नमस्ते ${firstName}! मैं कोच एलेक्स बोल रहा हूँ, आपका HealthFreak AI कोच। आज आप कैसा महसूस कर रहे हैं?`;
+            greeting = `नमस्ते ${firstName}! कोच एलेक्स यहाँ है। आज आप कैसा महसूस कर रहे हैं?`;
         }
         index_js_1.db.appendTranscript(callId, 'coach', greeting);
         res.json({
@@ -185,82 +185,27 @@ exports.aiCallRouter.post('/:id/accept', async (req, res) => {
  * 2. Smart Contextual Clinical Fallback (Dinner, hairfall, knee pain, sleep, recovery)
  */
 async function generateCoachVoiceReply(params) {
-    const { message, user, memoryFacts, transcript } = params;
-    const systemPrompt = (0, coachPrompt_js_1.buildCoachSystemPrompt)(user, memoryFacts);
-    // 1. Sarvam AI
-    const sarvamKey = process.env.SARVAM_API_KEY;
-    if (sarvamKey) {
+    const { message, user, memoryFacts } = params;
+    const firstName = user?.name ? user.name.split(' ')[0] : 'friend';
+    if (sarvamService_js_1.SarvamService.isConfigured()) {
         try {
-            const resp = await fetch('https://api.sarvam.ai/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'api-subscription-key': sarvamKey,
-                },
-                body: JSON.stringify({
-                    model: 'sarvam-2b',
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        ...transcript.slice(-4).map((t) => ({
-                            role: t.speaker === 'coach' ? 'assistant' : 'user',
-                            content: t.text,
-                        })),
-                        { role: 'user', content: message },
-                    ],
-                    temperature: 0.6,
-                    max_tokens: 100,
-                }),
+            const result = await sarvamService_js_1.SarvamService.generateChatReply({
+                message,
+                userName: firstName,
+                conditions: user?.knownConditions || [],
+                memorySnippet: Array.isArray(memoryFacts) ? memoryFacts.map((f) => f.fact || f).join('; ') : '',
+                synthesizeVoice: false,
             });
-            if (resp.ok) {
-                const data = await resp.json();
-                const reply = data?.choices?.[0]?.message?.content?.trim();
-                if (reply) {
-                    return reply.replace(/^(Coach|Alex|AI):\s*/i, '').trim();
-                }
+            if (result?.text) {
+                return result.text;
             }
         }
         catch (err) {
-            console.warn('[AICallRoutes] Sarvam AI chat completion error:', err?.message || err);
+            console.warn('[AICallRoutes] Sarvam generation notice:', err?.message || err);
         }
     }
-    // 3. Clinical Contextual Heuristic Fallback
-    const lower = message.toLowerCase();
-    const firstName = user.name ? user.name.split(' ')[0] : 'friend';
-    if (lower.includes('dinner') ||
-        lower.includes('khana') ||
-        lower.includes('eat') ||
-        lower.includes('food') ||
-        lower.includes('diet') ||
-        lower.includes('bhookh')) {
-        return `For a nourishing dinner, try light dal or grilled paneer with sautéed veggies and one multigrain roti. It's gentle on digestion and keeps your energy steady!`;
-    }
-    if (lower.includes('hair') ||
-        lower.includes('baal') ||
-        lower.includes('fall') ||
-        lower.includes('shedding')) {
-        return `Hair fall is super common and manageable! Prioritize protein like eggs or pulses, stay well-hydrated, and ensure your iron and vitamin D levels are balanced.`;
-    }
-    if (lower.includes('pain') ||
-        lower.includes('dard') ||
-        lower.includes('knee') ||
-        lower.includes('back') ||
-        lower.includes('joint')) {
-        return `Please don't force any painful movement. Take gentle rest, keep warm, and let's switch today's routine to mild joint mobility and deep breathing exercises.`;
-    }
-    if (lower.includes('sleep') ||
-        lower.includes('tired') ||
-        lower.includes('thak') ||
-        lower.includes('neend') ||
-        lower.includes('exhaust')) {
-        return `Rest is where the body heals, ${firstName}! Try putting your screen away 30 minutes before bed and sip some warm water to unwind deeply tonight.`;
-    }
-    if (lower.includes('workout') ||
-        lower.includes('exercise') ||
-        lower.includes('gym') ||
-        lower.includes('kasrat')) {
-        return `For today's workout, aim for 20 minutes of steady bodyweight intervals or brisk walking, followed by gentle stretches for your legs and hips.`;
-    }
-    return `I hear you, ${firstName}! I'm tracking your wellness progress closely. Tell me more about what you need help with right now!`;
+    // Return explicit error text if AI model is unreachable — no canned fallback strings
+    return 'Error: Coach Alex could not generate a response. Please check your network and try again.';
 }
 /**
  * 5b. POST /api/ai-calls/:id/user-message

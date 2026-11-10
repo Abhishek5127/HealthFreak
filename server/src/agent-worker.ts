@@ -73,11 +73,11 @@ export class HealthFreakVoiceAgentWorker {
     this.activeSessions.set(sessionId, workerSession);
 
     // Initial greeting (Speaks first)
-    let greeting = `Hello ${user.name.split(' ')[0]}, I'm Coach Alex, your AI health coach from HealthFreak. How is your body feeling today?`;
+    let greeting = `Hello ${user.name.split(' ')[0]}, Coach Alex here. How is your energy and health today?`;
     if (user.languagePreference === 'hinglish') {
-      greeting = `Namaste ${user.name.split(' ')[0]}, main Coach Alex bol raha hoon, aapka AI health coach from HealthFreak. Aaj aap kaisa feel kar rahe hain?`;
+      greeting = `Namaste ${user.name.split(' ')[0]}! Coach Alex here. Aaj aap kaisa feel kar rahe hain?`;
     } else if (user.languagePreference === 'hi') {
-      greeting = `नमस्ते ${user.name.split(' ')[0]}, मैं कोच एलेक्स बोल रहा हूँ, आपका AI हेल्थ कोच HealthFreak से। आज आप कैसा महसूस कर रहे हैं?`;
+      greeting = `नमस्ते ${user.name.split(' ')[0]}! कोच एलेक्स यहाँ है। आज आप कैसा महसूस कर रहे हैं?`;
     }
 
     // Record greeting in call session transcript

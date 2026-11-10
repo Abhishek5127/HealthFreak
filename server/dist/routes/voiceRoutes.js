@@ -279,9 +279,9 @@ exports.voiceRouter.get('/audio/:id.wav', (req, res) => {
 const greetingAudioCache = new Map();
 exports.voiceRouter.post('/greeting', async (req, res) => {
     try {
-        const { userId = 'usr_synthetic_alex' } = req.body;
+        const { userId = 'usr_synthetic_alex', userName: incomingUserName } = req.body;
         const user = index_js_1.db.getUser(userId) || index_js_1.db.getUser('usr_synthetic_alex');
-        const firstName = user?.name ? user.name.split(' ')[0] : 'friend';
+        const firstName = incomingUserName?.trim() || (user?.name ? user.name.split(' ')[0] : 'Abhishek');
         const hour = new Date().getHours();
         let timeGreeting = 'Namaste';
         if (hour >= 5 && hour < 12)
@@ -308,10 +308,32 @@ exports.voiceRouter.post('/greeting', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+// 12b. Speech Synthesis Turn (Sarvam AI Bulbul Neural Voice)
+exports.voiceRouter.post('/tts', async (req, res) => {
+    try {
+        const { text, speaker = 'shubh' } = req.body;
+        if (!text || typeof text !== 'string') {
+            res.status(400).json({ error: 'text is required' });
+            return;
+        }
+        let audioBase64;
+        if (sarvamService_js_1.SarvamService.isConfigured()) {
+            audioBase64 = await sarvamService_js_1.SarvamService.synthesizeSpeech(text, speaker);
+        }
+        res.json({
+            audioBase64,
+            audioMime: 'audio/wav',
+            provider: 'sarvam',
+        });
+    }
+    catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 // 13. Health Coach Streaming Turn (SSE: Sarvam AI 105B + Bulbul Neural Voice)
 exports.voiceRouter.post('/chat/stream', async (req, res) => {
     const startTime = Date.now();
-    const { message, userId = 'usr_synthetic_alex', activityContext } = req.body;
+    const { message, userId = 'usr_synthetic_alex', userName: incomingUserName, activityContext } = req.body;
     if (!message || typeof message !== 'string') {
         res.status(400).json({ error: 'message is required' });
         return;
@@ -323,14 +345,22 @@ exports.voiceRouter.post('/chat/stream', async (req, res) => {
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders?.();
     const abortController = new AbortController();
-    req.on('close', () => abortController.abort());
+    // CRITICAL FIX: In Node.js / Express, req emits 'close' as soon as the POST request body is read!
+    // Listening to req.on('close') caused the abortController to abort immediately on every single request.
+    // We MUST listen to res.on('close') and ONLY abort if the client dropped the connection prematurely before completion!
+    res.on('close', () => {
+        if (!res.writableEnded) {
+            console.log('[VoiceRoutes/Stream] Client disconnected prematurely. Aborting upstream stream.');
+            abortController.abort();
+        }
+    });
     const sendEvent = (event, data) => {
         if (res.writableEnded)
             return;
         res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     };
     const user = index_js_1.db.getUser(userId) || index_js_1.db.getUser('usr_synthetic_alex');
-    const userName = user?.name ? user.name.split(' ')[0] : 'friend';
+    const userName = incomingUserName?.trim() || (user?.name ? user.name.split(' ')[0] : 'Abhishek');
     const lowerMsg = message.toLowerCase();
     // 1. Critical Health Safety & Red Flag Escalation
     const isRedFlag = lowerMsg.includes('chest pain') ||
@@ -405,6 +435,12 @@ Core Coaching Instructions:
             console.warn('[VoiceRoutes/Stream] Sarvam streaming notice:', err?.message || err);
         }
     }
+    // If request was aborted by client (e.g. user interrupted or new note arrived), STOP immediately!
+    if (abortController.signal.aborted) {
+        console.log('[VoiceRoutes/Stream] Stream aborted by client. Terminating cleanly.');
+        res.end();
+        return;
+    }
     // 6. SECONDARY FALLBACK: Google Gemini 3.5 Flash-Lite (TTS still routes via Bulbul Shubh!)
     if (!sarvamSuccess && !abortController.signal.aborted) {
         if (index_js_2.config.gemini.apiKey) {
@@ -436,19 +472,25 @@ Core Coaching Instructions:
             }
         }
     }
-    // 7. Clinical Offline Fallback if all APIs fail
+    if (abortController.signal.aborted) {
+        console.log('[VoiceRoutes/Stream] Stream aborted before completion. Ending.');
+        res.end();
+        return;
+    }
+    // 7. If generation completely failed (both Sarvam and Gemini unavailable)
+    // Per instruction: No default fallback messages. Report error clearly.
     if (!fullGeneratedText.trim()) {
-        if (lowerMsg.includes('knee') || lowerMsg.includes('pain') || lowerMsg.includes('dard')) {
-            fullGeneratedText = `Arre ${userName}, please stop heavy exercises right now! Rest your knee, apply an ice pack, and stick to gentle stretches today.`;
-        }
-        else if (lowerMsg.includes('dinner') || lowerMsg.includes('khana') || lowerMsg.includes('food') || lowerMsg.includes('eat')) {
-            fullGeneratedText = `For a healthy dinner ${userName}, go for light protein and veggies like grilled paneer, dal, and a small bowl of salad. Avoid heavy carbs late at night!`;
-        }
-        else {
-            fullGeneratedText = `Namaste ${userName}! Main Coach Alex bol raha hoon. Maine aapka message note kar liya hai—aaj diet ya workout mein kis cheez par focus karein?`;
-        }
-        sendEvent('text_delta', { delta: fullGeneratedText });
-        await ttsBuffer.addToken(fullGeneratedText);
+        console.error('[VoiceRoutes/Stream] AI generation failed completely.');
+        const errorMsg = 'Error: Coach Alex could not generate a response. Please try again.';
+        sendEvent('text_delta', { delta: errorMsg });
+        sendEvent('text_complete', {
+            fullText: errorMsg,
+            suggestions: ['Try asking again', 'Check connection'],
+        });
+        sendEvent('error', { error: 'AI generation failed' });
+        sendEvent('response_complete', { durationMs: Date.now() - startTime });
+        res.end();
+        return;
     }
     // 8. Finalize text and flush sentence audio buffer
     const suggestions = sarvamService_js_1.SarvamService.generateSuggestions(message);
@@ -464,13 +506,13 @@ Core Coaching Instructions:
 // 14. Health Coach Chat Turn (Synchronous JSON Fallback)
 exports.voiceRouter.post('/chat', async (req, res) => {
     try {
-        const { message, userId = 'usr_synthetic_alex', activityContext } = req.body;
+        const { message, userId = 'usr_synthetic_alex', userName: incomingUserName, activityContext } = req.body;
         if (!message || typeof message !== 'string') {
             res.status(400).json({ error: 'message is required' });
             return;
         }
         const user = index_js_1.db.getUser(userId) || index_js_1.db.getUser('usr_synthetic_alex');
-        const userName = user?.name ? user.name.split(' ')[0] : 'friend';
+        const userName = incomingUserName?.trim() || (user?.name ? user.name.split(' ')[0] : 'Abhishek');
         const lower = message.toLowerCase();
         // Critical Red Flag check
         if (lower.includes('chest pain') || lower.includes('chhati') || lower.includes('shortness of breath')) {
@@ -559,20 +601,14 @@ Rules:
                 }
             }
         }
-        // Clinical contextual fallback if all APIs are unavailable
+        // If all AI APIs failed, report error — no canned fallback strings
         if (!replyText) {
-            if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
-                replyText = `Arre ${userName}, please stop heavy exercises right now! Rest your knee, apply a cold pack, and stick to gentle stretches today.`;
-                suggestions = ['Gentle leg stretch', 'Rest day routine', 'Log pain severity'];
-            }
-            else if (lower.includes('dinner') || lower.includes('khana') || lower.includes('food') || lower.includes('eat')) {
-                replyText = `For a healthy dinner ${userName}, go for light protein and veggies like grilled paneer, dal, and a small bowl of salad. Avoid heavy carbs late at night!`;
-                suggestions = ['High protein dinner', 'Low carb recipes', 'Log my dinner'];
-            }
-            else {
-                replyText = `Namaste ${userName}! Main Coach Alex bol raha hoon. Maine aapka message note kar liya hai—aaj diet ya workout mein kis cheez par focus karein?`;
-                suggestions = ['Log my lunch', 'Check today workout', 'Suggest high protein snack'];
-            }
+            res.status(500).json({
+                error: 'AI generation failed. Please try again.',
+                text: 'Error: Coach Alex could not generate a response. Please try again.',
+                suggestions: ['Try asking again', 'Check connection'],
+            });
+            return;
         }
         if (suggestions.length === 0) {
             suggestions = ['Check my active plan', 'How is my hydration today?', 'Adjust my workout intensity'];
@@ -644,23 +680,148 @@ function isSelfEcho(userText, coachText) {
     }
     return false;
 }
-// 14. Audio Turn (Live Standalone Sarvam AI Voice Agent)
+// 14. Audio Turn (Full Speech-to-Speech: Sarvam Saaras v3 STT -> Sarvam 105B LLM -> Bulbul v3 Shubh TTS)
 exports.voiceRouter.post('/audio-turn', async (req, res) => {
+    const turnStart = Date.now();
     try {
-        const events = voiceAgentProcess_js_1.VoiceAgentProcess.getLatestTranscripts();
-        const lastEvent = events[events.length - 1];
+        const { audioBase64, mimeType = 'audio/m4a', userId = 'usr_synthetic_alex', lastCoachReply = '', userName: incomingUserName, } = req.body;
+        const user = index_js_1.db.getUser(userId) || index_js_1.db.getUser('usr_synthetic_alex');
+        const userName = incomingUserName?.trim() || (user?.name ? user.name.split(' ')[0] : 'Abhishek');
+        if (!audioBase64) {
+            res.status(400).json({ error: 'audioBase64 is required' });
+            return;
+        }
+        const audioBuffer = Buffer.from(audioBase64, 'base64');
+        console.log(`[VoiceRoutes/AudioTurn] Received audio chunk (${audioBuffer.length} bytes, ${mimeType})`);
+        // 1. Indian Spoken Speech-to-Text via Sarvam Saaras v3
+        let userTranscript = '';
+        if (sarvamService_js_1.SarvamService.isConfigured()) {
+            userTranscript = await sarvamService_js_1.SarvamService.transcribeAudio(audioBuffer, mimeType);
+        }
+        userTranscript = (userTranscript || '').trim();
+        console.log(`[VoiceRoutes/AudioTurn] Transcribed text in ${Date.now() - turnStart}ms: "${userTranscript}"`);
+        // 2. Silence or Empty Transcript Check
+        if (!userTranscript) {
+            res.json({
+                userTranscript: '',
+                coachReply: '',
+                isEcho: false,
+                provider: 'sarvam',
+            });
+            return;
+        }
+        // 3. Acoustic Speaker Echo Suppression
+        if (isSelfEcho(userTranscript, lastCoachReply)) {
+            console.log(`[VoiceRoutes/AudioTurn] Speaker echo detected and suppressed: "${userTranscript}"`);
+            res.json({
+                userTranscript,
+                coachReply: '',
+                isEcho: true,
+                provider: 'sarvam',
+            });
+            return;
+        }
+        const lower = userTranscript.toLowerCase();
+        // 4. Critical Health Safety & Red Flag Escalation
+        const isRedFlag = lower.includes('chest pain') ||
+            lower.includes('chhati') ||
+            lower.includes('chhaati') ||
+            lower.includes('shortness of breath') ||
+            lower.includes('saans nahi') ||
+            lower.includes('faint') ||
+            lower.includes('behoshi') ||
+            lower.includes('palpitation');
+        if (isRedFlag) {
+            const safetyReply = `Dhyan se sunein ${userName}: Chest discomfort ya saans lene mein takleef serious medical conditions ke lakshan ho sakte hain. Kripya turant kisi emergency room ya physician se consult karein aur sabhi exercises band kar dein.`;
+            let audioBase64Reply;
+            if (sarvamService_js_1.SarvamService.isConfigured()) {
+                audioBase64Reply = await sarvamService_js_1.SarvamService.synthesizeSpeech(safetyReply);
+            }
+            res.json({
+                userTranscript,
+                coachReply: safetyReply,
+                audioBase64: audioBase64Reply,
+                audioMime: 'audio/wav',
+                provider: 'safety_guard',
+                isEcho: false,
+            });
+            return;
+        }
+        // 5. Context Retrieval and Background Symptom Ingestion
+        const healthContext = await healthMemoryEngine_js_1.HealthMemoryEngine.getRelevantContext(userId, userTranscript);
+        healthMemoryEngine_js_1.HealthMemoryEngine.scheduleSymptomIngestion(userId, userTranscript);
+        // 6. Primary LLM Generation: Sarvam 105B Conversations
+        let coachReply = '';
+        if (sarvamService_js_1.SarvamService.isConfigured()) {
+            const sarvamResult = await sarvamService_js_1.SarvamService.generateChatReply({
+                message: userTranscript,
+                userName,
+                conditions: user?.knownConditions || [],
+                memorySnippet: healthContext.promptSnippet,
+                synthesizeVoice: false,
+            });
+            if (sarvamResult?.text) {
+                coachReply = sarvamResult.text;
+            }
+        }
+        // 7. Secondary Fallback: Google Gemini
+        if (!coachReply && index_js_2.config.gemini.apiKey) {
+            try {
+                const ai = getGeminiClient();
+                const systemPrompt = `You are Coach Alex, an elite AI Health and Wellness Coach at HealthFreak speaking directly with ${userName}.
+${healthContext.promptSnippet}
+Rules:
+1. Respond in natural, warm, empathetic Hinglish (e.g. 'Arre ${userName}!').
+2. Keep your answer concise: exactly 2 to 3 short sentences. Motivating, clinically sound, and actionable.
+3. Plain spoken conversational text only. No markdown, asterisks, or emoji.`;
+                const resp = await ai.models.generateContent({
+                    model: index_js_2.config.gemini.model || 'gemini-3.5-flash-lite',
+                    contents: [
+                        {
+                            role: 'user',
+                            parts: [{ text: `${systemPrompt}\n\nUser says: ${userTranscript}` }],
+                        },
+                    ],
+                });
+                const geminiText = resp.text?.trim();
+                if (geminiText) {
+                    coachReply = sarvamService_js_1.SarvamService.normalizeForSpokenTTS(geminiText);
+                }
+            }
+            catch (geminiErr) {
+                console.warn('[VoiceRoutes/AudioTurn] Gemini fallback notice:', geminiErr?.message || geminiErr);
+            }
+        }
+        // If all AI models failed, report error — no canned fallback strings
+        if (!coachReply) {
+            res.status(500).json({
+                error: 'AI generation failed',
+                userTranscript,
+                coachReply: '',
+            });
+            return;
+        }
+        // 9. Neural Speech Synthesis via Sarvam Bulbul (Shubh)
+        let audioReplyBase64;
+        if (sarvamService_js_1.SarvamService.isConfigured()) {
+            audioReplyBase64 = await sarvamService_js_1.SarvamService.synthesizeSpeech(coachReply, 'shubh');
+        }
+        console.log(`[VoiceRoutes/AudioTurn] Completed full turn in ${Date.now() - turnStart}ms. Coach: "${coachReply}"`);
         res.json({
-            userTranscript: lastEvent?.user_transcript || 'Voice note received',
-            coachReply: lastEvent?.coach_reply || 'नमस्ते! मैं सुन रहा हूँ, आज आपकी fitness और diet में क्या help करूँ?',
+            userTranscript,
+            coachReply,
+            audioBase64: audioReplyBase64,
+            audioMime: 'audio/wav',
             provider: 'sarvam',
             isEcho: false,
         });
     }
     catch (err) {
+        console.error('[VoiceRoutes/AudioTurn Error]:', err?.message || err);
         res.status(500).json({
-            userTranscript: 'Voice input received',
-            coachReply: 'नमस्ते! मैं सुन रहा हूँ।',
-            error: err.message,
+            userTranscript: 'Voice note received',
+            coachReply: 'Error: Audio turn processing failed. ' + (err?.message || 'Please try again.'),
+            error: err?.message || 'Audio turn processing failed',
         });
     }
 });

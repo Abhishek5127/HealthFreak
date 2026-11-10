@@ -10,6 +10,54 @@ class SarvamService {
         return !!this.getApiKey();
     }
     /**
+     * Transcribes Indian spoken audio (Hindi, English, Hinglish) using Sarvam AI Saaras v3.
+     */
+    static async transcribeAudio(audioBuffer, mimeType = 'audio/wav') {
+        const apiKey = this.getApiKey();
+        if (!apiKey || !audioBuffer || audioBuffer.length === 0)
+            return '';
+        try {
+            const cleanMime = (mimeType || 'audio/wav').split(';')[0].trim().toLowerCase();
+            let extension = 'audio.wav';
+            if (cleanMime.includes('webm')) {
+                extension = 'audio.webm';
+            }
+            else if (cleanMime.includes('mp4') || cleanMime.includes('m4a')) {
+                extension = 'audio.m4a';
+            }
+            else if (cleanMime.includes('mpeg') || cleanMime.includes('mp3')) {
+                extension = 'audio.mp3';
+            }
+            else if (cleanMime.includes('ogg') || cleanMime.includes('opus')) {
+                extension = 'audio.ogg';
+            }
+            else if (cleanMime.includes('aac')) {
+                extension = 'audio.aac';
+            }
+            const form = new FormData();
+            form.append('file', new Blob([audioBuffer], { type: cleanMime }), extension);
+            form.append('model', 'saaras:v3');
+            const response = await fetch('https://api.sarvam.ai/speech-to-text', {
+                method: 'POST',
+                headers: {
+                    'api-subscription-key': apiKey,
+                },
+                body: form,
+            });
+            if (!response.ok) {
+                const errText = await response.text();
+                console.warn(`[SarvamService] STT error (${response.status}):`, errText);
+                return '';
+            }
+            const data = await response.json();
+            return (data?.transcript || '').trim();
+        }
+        catch (err) {
+            console.warn('[SarvamService] STT exception:', err?.message || err);
+            return '';
+        }
+    }
+    /**
      * Normalizes raw LLM output text for clean, natural phonetic pronunciation by Sarvam Bulbul TTS.
      * Strips markdown, expands measurement units and ranges into spoken words.
      */

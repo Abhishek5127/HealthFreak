@@ -922,11 +922,11 @@ Rules:
       isEcho: false,
     });
   } catch (err: any) {
-    console.error('❌ [AudioTurn Error]:', err?.message || err);
+    console.error('[VoiceRoutes/AudioTurn Error]:', err?.message || err);
     res.status(500).json({
       userTranscript: 'Voice note received',
-      coachReply: 'Namaste! Main sun raha hoon. Kripya apna sawal dobara batayein.',
-      error: err.message,
+      coachReply: 'Error: Audio turn processing failed. ' + (err?.message || 'Please try again.'),
+      error: err?.message || 'Audio turn processing failed',
     });
   }
 });
