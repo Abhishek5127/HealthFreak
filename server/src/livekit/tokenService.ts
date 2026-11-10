@@ -11,6 +11,7 @@ export interface TokenRequestParams {
   callIdOverride?: string;
   purpose?: 'checkin' | 'scheduled' | 'plan' | 'adhoc';
   scheduledCallId?: string;
+  dispatchAgent?: boolean;
 }
 
 export interface TokenResponse {
@@ -125,7 +126,9 @@ export class LiveKitTokenService {
     const jwtToken = await at.toJwt();
 
     // 5b. Explicit Agent Dispatch with server-minted metadata
-    if (config.coach.explicitDispatchEnabled && config.livekit.apiKey && config.livekit.apiSecret) {
+    // Only dispatch if explicitly requested (e.g. for scheduled LiveKit calls) to avoid clogging worker daemon
+    const shouldDispatch = params.dispatchAgent === true;
+    if (shouldDispatch && config.coach.explicitDispatchEnabled && config.livekit.apiKey && config.livekit.apiSecret) {
       try {
         const hostUrl = config.livekit.url.replace(/^ws/, 'http');
         const dispatchClient = new AgentDispatchClient(hostUrl, config.livekit.apiKey, config.livekit.apiSecret);

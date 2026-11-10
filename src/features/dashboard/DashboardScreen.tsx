@@ -756,9 +756,9 @@ export const DashboardScreen: React.FC = () => {
               titleColor="#FFFFFF"
               icon={<Zap size={14} color="#FFFFFF" />}
               size="sm"
-              height={36}
+              height={38}
               borderRadius={12}
-              style={{ flexShrink: 0 }}
+              style={{ flex: 1 }}
               onPress={() => {
                 if (focusWorkout.category === 'movement') {
                   setActiveModal('activity_session');
@@ -767,15 +767,6 @@ export const DashboardScreen: React.FC = () => {
                 }
               }}
             />
-
-            <Pressable
-              style={styles.focusPlanLinkBtn}
-              onPress={() => setActiveTab('plan')}
-            >
-              <Text style={styles.focusPlanLinkText} numberOfLines={1}>
-                All Routines ({activities.length}) →
-              </Text>
-            </Pressable>
           </View>
         </View>
       ) : null}

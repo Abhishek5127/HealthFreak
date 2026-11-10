@@ -287,6 +287,9 @@ if os.getenv("COACH_EXPLICIT_DISPATCH_ENABLED", "true").lower() == "false":
 @server.rtc_session(agent_name=AGENT_NAME)
 async def entrypoint(ctx: JobContext) -> None:
     ctx.log_context_fields = {"room": ctx.room.name}
+    # Connect immediately so LiveKit does not trigger the 10-second room connection timeout warning
+    await ctx.connect()
+
     stt_language = os.getenv("STT_LANGUAGE", "hi")
     stt_instance = _build_stt()
     tts_instance = _build_tts()
@@ -312,8 +315,7 @@ async def entrypoint(ctx: JobContext) -> None:
         meta_user_id = os.getenv("DEFAULT_USER_ID", "usr_synthetic_alex")
         call_id = f"console_{int(time.time())}"
 
-    # 2. Connect room and validate participant identity
-    await ctx.connect()
+    # 2. Validate participant identity
     participant = await ctx.wait_for_participant()
     participant_identity = participant.identity
 

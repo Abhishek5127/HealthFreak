@@ -388,7 +388,15 @@ voiceRouter.post('/chat/stream', async (req: Request, res: Response) => {
   res.flushHeaders?.();
 
   const abortController = new AbortController();
-  req.on('close', () => abortController.abort());
+  // CRITICAL FIX: In Node.js / Express, req emits 'close' as soon as the POST request body is read!
+  // Listening to req.on('close') caused the abortController to abort immediately on every single request.
+  // We MUST listen to res.on('close') and ONLY abort if the client dropped the connection prematurely before completion!
+  res.on('close', () => {
+    if (!res.writableEnded) {
+      console.log('[VoiceRoutes/Stream] Client disconnected prematurely. Aborting upstream stream.');
+      abortController.abort();
+    }
+  });
 
   const sendEvent = (event: string, data: any) => {
     if (res.writableEnded) return;

@@ -260,35 +260,38 @@ export const WaterBottleWidget: React.FC<WaterBottleWidgetProps> = ({
       <View style={styles.actionsBar}>
         <GlassButton
           onPress={() => handleQuickAdd(150)}
-          title="+150ml"
+          title="150ml"
           titleColor="#FFFFFF"
-          icon={<Plus size={12} color="#FFFFFF" />}
+          icon={<Plus size={11} color="#FFFFFF" />}
           size="xs"
           height={34}
           borderRadius={12}
-          style={{ flex: 1 }}
+          style={{ flex: 1, minWidth: 0 }}
+          containerStyle={{ paddingHorizontal: 4 }}
         />
 
         <GlassButton
           onPress={() => handleQuickAdd(250)}
-          title="+250ml"
+          title="250ml"
           titleColor="#4FA3E2"
-          icon={<Plus size={12} color="#4FA3E2" />}
+          icon={<Plus size={11} color="#4FA3E2" />}
           size="xs"
           height={34}
           borderRadius={12}
-          style={{ flex: 1 }}
+          style={{ flex: 1, minWidth: 0 }}
+          containerStyle={{ paddingHorizontal: 4 }}
         />
 
         <GlassButton
           onPress={() => handleQuickAdd(500)}
-          title="+500ml"
+          title="500ml"
           titleColor="#4FA3E2"
-          icon={<Plus size={12} color="#4FA3E2" />}
+          icon={<Plus size={11} color="#4FA3E2" />}
           size="xs"
           height={34}
           borderRadius={12}
-          style={{ flex: 1 }}
+          style={{ flex: 1, minWidth: 0 }}
+          containerStyle={{ paddingHorizontal: 4 }}
         />
 
         {waterLoggedMl > 0 && (
@@ -299,7 +302,8 @@ export const WaterBottleWidget: React.FC<WaterBottleWidgetProps> = ({
             size="xs"
             height={34}
             borderRadius={12}
-            style={{ width: 34 }}
+            style={{ width: 34, flexShrink: 0 }}
+            containerStyle={{ paddingHorizontal: 0 }}
           />
         )}
       </View>

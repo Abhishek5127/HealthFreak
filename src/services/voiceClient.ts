@@ -1043,6 +1043,11 @@ export class VoiceClientService {
   public async handleUserSpokenInput(text: string) {
     if (!text || !text.trim()) return;
 
+    if (this.isProcessingTurn) {
+      console.log('[VoiceClient] Turn already processing, ignoring secondary trigger');
+      return;
+    }
+
     // Anti-Echo Check: If spoken text matches Coach's own reply, suppress it!
     if (this.lastCoachReply && isSelfEcho(text, this.lastCoachReply)) {
       console.log(`[VoiceClient] Suppressed echo in user input: "${text}"`);
@@ -1051,6 +1056,8 @@ export class VoiceClientService {
       this.startListening();
       return;
     }
+
+    this.isProcessingTurn = true;
 
     // Cancel any previous audio playback
     if (this.currentWebAudio) {
@@ -1069,7 +1076,6 @@ export class VoiceClientService {
     this.isPlayingChunkQueue = false;
     this.currentStreamAbortController = new AbortController();
 
-    this.isProcessingTurn = true;
     this.userTranscript = text;
     this.coachTranscript = '';
     this.status = 'connecting';
@@ -1127,7 +1133,7 @@ export class VoiceClientService {
     this.provider = 'sarvam';
     const defaultGreeting =
       customGreeting ||
-      `Namaste ${userName}! Main Coach Alex hoon. Aaj aapki fitness aur diet mein kya help karoon?`;
+      `Coach Alex is ready. Ask anything about your fitness, nutrition, or recovery.`;
     this.coachTranscript = defaultGreeting;
     this.userTranscript = '';
     this.currentSpeechText = '';

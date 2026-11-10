@@ -137,6 +137,7 @@ export const GlassButton: React.FC<GlassButtonProps> = ({
           {
             height,
             borderRadius,
+            paddingHorizontal: size === 'xs' ? 8 : 14,
             backgroundColor: theme.substrateColor,
             borderColor: theme.borderColor,
             borderTopColor: theme.borderTopColor,
