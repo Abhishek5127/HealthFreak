@@ -23,6 +23,30 @@ function getGeminiClient(): GoogleGenAI {
 
 export const voiceRouter = Router();
 
+// Ephemeral in-memory cache for streamable synthesized neural audio files
+const generatedAudioCache = new Map<string, { buffer: Buffer; createdAt: number }>();
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, item] of generatedAudioCache.entries()) {
+    if (now - item.createdAt > 15 * 60 * 1000) {
+      generatedAudioCache.delete(id);
+    }
+  }
+}, 5 * 60 * 1000);
+
+// Endpoint to stream generated WAV audio files directly to mobile / web players
+voiceRouter.get('/audio/:id.wav', (req: Request, res: Response) => {
+  const item = generatedAudioCache.get(req.params.id);
+  if (!item) {
+    res.status(404).send('Audio not found or expired');
+    return;
+  }
+  res.setHeader('Content-Type', 'audio/wav');
+  res.setHeader('Content-Length', item.buffer.length);
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(item.buffer);
+});
+
 // 1. In-App Call Session Token
 voiceRouter.post('/session', async (req: Request, res: Response) => {
   try {
@@ -907,8 +931,17 @@ Rules:
 
     // 9. Neural Speech Synthesis via Sarvam Bulbul (Shubh)
     let audioReplyBase64: string | undefined;
+    let audioUrl: string | undefined;
     if (SarvamService.isConfigured()) {
       audioReplyBase64 = await SarvamService.synthesizeSpeech(coachReply, 'shubh');
+      if (audioReplyBase64) {
+        const audioId = `turn_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        generatedAudioCache.set(audioId, {
+          buffer: Buffer.from(audioReplyBase64, 'base64'),
+          createdAt: Date.now(),
+        });
+        audioUrl = `/api/voice/audio/${audioId}.wav`;
+      }
     }
 
     console.log(`[VoiceRoutes/AudioTurn] Completed full turn in ${Date.now() - turnStart}ms. Coach: "${coachReply}"`);
@@ -917,6 +950,7 @@ Rules:
       userTranscript,
       coachReply,
       audioBase64: audioReplyBase64,
+      audioUrl,
       audioMime: 'audio/wav',
       provider: 'sarvam',
       isEcho: false,

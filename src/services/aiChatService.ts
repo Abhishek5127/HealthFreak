@@ -47,7 +47,7 @@ export function getBackendBaseUrl(): string {
     return envUrl.replace(/\/$/, '');
   }
 
-  return 'http://192.168.43.249:3001';
+  return 'https://healthfreak-1.onrender.com';
 }
 
 /**
@@ -394,7 +394,8 @@ export async function transcribeAndReplyAudio(
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    // Allow up to 35 seconds for end-to-end Sarvam STT -> 105B LLM -> Bulbul TTS generation
+    const timeoutId = setTimeout(() => controller.abort(), 35000);
 
     const res = await fetch(`${backendUrl}/api/voice/audio-turn`, {
       method: 'POST',
@@ -421,8 +422,8 @@ export async function transcribeAndReplyAudio(
         isEcho: data.isEcho || false,
       };
     }
-  } catch {
-    // Backend unreachable
+  } catch (err: any) {
+    console.warn('[transcribeAndReplyAudio] Turn request error:', err?.message || err);
   }
 
   return {

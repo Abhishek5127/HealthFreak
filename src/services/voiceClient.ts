@@ -308,6 +308,7 @@ export class VoiceClientService {
           playsInSilentMode: true,
           shouldPlayInBackground: false,
           interruptionMode: 'duckOthers',
+          shouldRouteThroughEarpiece: false,
         });
 
         let playerSource: any = null;
@@ -317,18 +318,23 @@ export class VoiceClientService {
           playerSource = fullUrl;
         } else if (audioBase64) {
           const speechPath = `${FileSystem.cacheDirectory || ''}healthfreak_speech_${Date.now()}.wav`;
-          await FileSystem.writeAsStringAsync(speechPath, audioBase64, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          playerSource = speechPath;
+          try {
+            await FileSystem.writeAsStringAsync(speechPath, audioBase64, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            playerSource = speechPath;
+          } catch (writeErr) {
+            console.warn('[VoiceClient] Cache audio write notice:', writeErr);
+          }
         }
 
         if (playerSource) {
           const player = createAudioPlayer(playerSource);
           this.currentPlayer = player;
+          try { player.volume = 1.0; } catch {}
 
           const wordCount = (fallbackText || '').split(/\s+/).length;
-          const watchdogMs = Math.max(4000, wordCount * 550 + 2000);
+          const watchdogMs = Math.max(5000, wordCount * 650 + 3000);
           const watchdog = setTimeout(() => {
             if (this.currentPlayer === player) {
               this.currentPlayer = null;
@@ -341,7 +347,14 @@ export class VoiceClientService {
           }, watchdogMs);
 
           player.addListener('playbackStatusUpdate', (status: any) => {
-            if (status.didJustFinish) {
+            if (status?.error) {
+              console.warn('[VoiceClient] Player playback status error:', status.error);
+              clearTimeout(watchdog);
+              if (this.currentPlayer === player) {
+                this.currentPlayer = null;
+                onFinished();
+              }
+            } else if (status?.didJustFinish) {
               clearTimeout(watchdog);
               if (this.currentPlayer === player) {
                 this.currentPlayer = null;
