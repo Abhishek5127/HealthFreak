@@ -42,7 +42,7 @@ export const NutritionResultScreen: React.FC = () => {
     setActiveModal,
     saveMealToDiary,
     updateMealPortion,
-    setIsVoiceActive,
+    startCall,
     triggerHaptic,
   } = useApp();
 
@@ -93,8 +93,9 @@ export const NutritionResultScreen: React.FC = () => {
 
   const handleAskCoach = () => {
     triggerHaptic('impact');
-    setIsVoiceActive(true);
-    setActiveModal('voice_overlay');
+    startCall(
+      `Coach Alex here! I see you scanned ${meal.mealName} (${Math.round(macros.calories)} kcal). How can I help you adjust this meal or answer your questions?`
+    );
   };
 
   const toggleExpand = (foodId: string) => {

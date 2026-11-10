@@ -173,6 +173,7 @@ interface AppContextType {
   activeIncomingCall: ScheduledAICall | null;
   activeLiveKitCall: { call: ScheduledAICall; livekit?: LiveKitTokenData; greeting?: string } | null;
   openScheduleCallModal: () => void;
+  startCall: (customGreeting?: string) => Promise<void>;
   triggerIncomingCallScreen: (call: ScheduledAICall) => void;
   acceptIncomingCall: (call: ScheduledAICall) => Promise<void>;
   declineIncomingCall: (callId: string) => Promise<void>;
@@ -852,6 +853,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveModalState('schedule_call');
   };
 
+  const startCall = async (customGreeting?: string) => {
+    voiceClient.unlockAudio();
+    const callId = `call_direct_${Date.now()}`;
+    const directCall: ScheduledAICall = {
+      id: callId,
+      roomName: `room_${userProfile.id || 'usr_synthetic_alex'}_${Date.now()}`,
+      userId: userProfile.id || 'usr_synthetic_alex',
+      topic: 'Direct Coaching Call with Coach Alex',
+      type: 'in_app',
+      status: 'connected',
+      scheduledTime: new Date().toISOString(),
+      startedAt: new Date().toISOString(),
+    };
+
+    let livekitData: LiveKitTokenData | undefined;
+    let greetingText = customGreeting;
+    try {
+      const res = await AICallService.acceptCall(callId);
+      if (res?.livekit) livekitData = res.livekit;
+      if (!greetingText && res?.greeting) greetingText = res.greeting;
+    } catch {}
+
+    setActiveLiveKitCall({
+      call: directCall,
+      livekit: livekitData,
+      greeting: greetingText,
+    });
+    setActiveModalState('livekit_call');
+  };
+
   const triggerIncomingCallScreen = (call: ScheduledAICall) => {
     setActiveIncomingCall(call);
     setActiveModalState('incoming_call');
@@ -995,6 +1026,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeIncomingCall,
         activeLiveKitCall,
         openScheduleCallModal,
+        startCall,
         triggerIncomingCallScreen,
         acceptIncomingCall,
         declineIncomingCall,

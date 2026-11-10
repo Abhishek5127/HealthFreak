@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Send,
-  Mic,
+  Phone,
   Sparkles,
   Paperclip,
   ArrowUpRight,
@@ -23,7 +23,6 @@ import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
 import { Spacing } from '../../theme/spacing';
 import { HealthFreakLogo } from '../../components/common/HealthFreakLogo';
-import { VoiceOverlay } from './VoiceOverlay';
 import { voiceClient } from '../../services/voiceClient';
 
 export const CoachChatScreen: React.FC = () => {
@@ -34,9 +33,8 @@ export const CoachChatScreen: React.FC = () => {
     sendChatMessage,
     setActiveTab,
     setActiveModal,
-    isVoiceActive,
-    setIsVoiceActive,
     openScheduleCallModal,
+    startCall,
   } = useApp();
 
   const [inputText, setInputText] = useState<string>('');
@@ -98,16 +96,15 @@ export const CoachChatScreen: React.FC = () => {
             <Calendar size={13} color="#4AB87A" />
             <Text style={styles.scheduleHeaderBtnText}>Schedule</Text>
           </Pressable>
-          {/* Voice Mode Button */}
+          {/* Direct AI Call Button */}
           <Pressable
-            style={styles.voiceButton}
-            onPress={() => {
-              voiceClient.unlockAudio();
-              setIsVoiceActive(true);
-            }}
+            style={styles.callButton}
+            onPress={() => startCall()}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Call Coach Alex"
           >
-            <Mic size={18} color={Colors.coralCTA} />
+            <Phone size={18} color="#4AB87A" />
           </Pressable>
         </View>
       </View>
@@ -256,9 +253,6 @@ export const CoachChatScreen: React.FC = () => {
           />
         </Pressable>
       </View>
-
-      {/* Voice Mode Modal Overlay */}
-      {isVoiceActive && <VoiceOverlay onClose={() => setIsVoiceActive(false)} />}
     </KeyboardAvoidingView>
   );
 };
@@ -333,15 +327,15 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSizes.xs,
     fontFamily: Typography.fontFamilies.sansBold,
   },
-  voiceButton: {
+  callButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 113, 95, 0.12)',
+    backgroundColor: 'rgba(74, 184, 122, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 113, 95, 0.25)',
+    borderColor: 'rgba(74, 184, 122, 0.35)',
   },
   messagesScrollView: {
     flex: 1,
