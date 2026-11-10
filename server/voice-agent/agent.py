@@ -205,8 +205,8 @@ class HealthFreakCoachAgent(Agent):
                 self.session.generate_reply(instructions=instructions)
                 return
 
-        greeting = f"नमस्ते! मैं HealthFreak voice coach हूँ। आज आपकी fitness और diet में क्या help कर {suffix}?"
-        self.session.generate_reply(instructions=f'Greet the user warmly: "{greeting}"')
+        instructions = "Greet the user warmly in one short sentence and ask how you can help with their fitness or nutrition today."
+        self.session.generate_reply(instructions=instructions)
 
     @function_tool
     async def log_meal(

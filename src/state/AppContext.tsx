@@ -763,7 +763,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 ...m,
                 text:
                   fallbackText ||
-                  `Main sun raha hoon ${firstName}! Aaj aapki fitness aur nutrition mein kis cheez par guidance chahiye?`,
+                  'Error: Could not retrieve AI response. Please check your network and try again.',
                 suggestions: fallbackSuggestions,
               }
             : m

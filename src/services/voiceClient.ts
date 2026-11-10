@@ -546,7 +546,7 @@ export class VoiceClientService {
                 this.currentSpeechText = '';
                 this.handleUserSpokenInput(phrase);
               }
-            }, 900);
+            }, 1400);
           }
         };
 
@@ -619,7 +619,8 @@ export class VoiceClientService {
         reader.onloadend = async () => {
           const result = reader.result as string;
           const base64Data = result.split(',')[1];
-          if (base64Data && !this.isProcessingTurn) {
+          // On Web: if Web Speech Recognition is active, avoid double-submitting duplicate raw audio turns
+          if (base64Data && !this.isProcessingTurn && !this.isRecognitionActive) {
             await this.processRecordedAudioTurn(base64Data, blob.type);
           }
         };
@@ -734,6 +735,7 @@ export class VoiceClientService {
     } catch (err) {
       console.error('[VoiceClient] Audio turn error:', err);
       this.isProcessingTurn = false;
+      this.coachTranscript = 'Error: Voice turn failed. Please try speaking again.';
       this.status = 'listening';
       this.notify();
       this.startListening();
@@ -1050,11 +1052,7 @@ export class VoiceClientService {
       return;
     }
 
-    // Cancel any previous speaking or streaming immediately so user turn takes priority
-    if (this.currentStreamAbortController) {
-      try { this.currentStreamAbortController.abort(); } catch {}
-      this.currentStreamAbortController = null;
-    }
+    // Cancel any previous audio playback
     if (this.currentWebAudio) {
       try { this.currentWebAudio.pause(); } catch {}
       this.currentWebAudio = null;
@@ -1063,6 +1061,9 @@ export class VoiceClientService {
       try { this.currentPlayer.pause(); } catch {}
       this.currentPlayer = null;
     }
+
+    // Stop microphone recording while AI generates and speaks to prevent acoustic self-interruption
+    this.stopListening();
 
     this.audioChunkQueue = [];
     this.isPlayingChunkQueue = false;
@@ -1101,6 +1102,7 @@ export class VoiceClientService {
       }
       console.error('[VoiceClient] Streaming turn error:', err);
       this.isProcessingTurn = false;
+      this.coachTranscript = 'Error: Coach Alex could not connect. Please try speaking again.';
       this.status = 'listening';
       this.notify();
       this.startListening();

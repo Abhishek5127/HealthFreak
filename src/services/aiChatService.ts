@@ -115,35 +115,10 @@ Rules:
     }
   }
 
-  // Dynamic contextual safety fallback — never a canned static loop
-  if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
-    return {
-      text: `Arre ${userName}, please stop heavy leg movements right now! Rest your knee, apply an ice pack, and stick to gentle stretches today.`,
-      suggestions: ['Gentle leg stretch', 'Rest day routine', 'Log pain severity'],
-    };
-  }
-  if (lower.includes('dinner') || lower.includes('lunch') || lower.includes('khana') || lower.includes('food') || lower.includes('eat')) {
-    return {
-      text: `For a healthy meal ${userName}, focus on clean protein and veggies like grilled paneer, dal, and a fresh salad. Keep your carbs balanced and stay hydrated!`,
-      suggestions: ['High protein meal', 'Low carb ideas', 'Log my meal'],
-    };
-  }
-  if (lower.includes('step') || lower.includes('walk') || lower.includes('running') || lower.includes('workout') || lower.includes('exercise')) {
-    return {
-      text: `Great commitment to your fitness ${userName}! Keep moving consistently, take short mobility breaks, and aim to hit your daily movement target.`,
-      suggestions: ['Check workout plan', 'Mobility warmup', 'Log workout'],
-    };
-  }
-  if (lower.includes('sleep') || lower.includes('tired') || lower.includes('thak') || lower.includes('neend')) {
-    return {
-      text: `Recovery is crucial, ${userName}! Drink a glass of water, keep screens away 30 minutes before bed, and get 7-8 hours of quality rest tonight.`,
-      suggestions: ['Sleep meditation', 'Log bedtime', 'Set wake-up goal'],
-    };
-  }
-
+  // If direct Gemini fails or is unconfigured, return error — no canned fallback strings
   return {
-    text: `Arre ${userName}, main sun raha hoon! Bataiye aaj diet, workout ya recovery mein kis cheez par guidance chahiye?`,
-    suggestions: ['Check workout plan', 'Hydration target', 'Log today meal'],
+    text: 'Error: Coach Alex could not connect to AI. Please check your internet connection.',
+    suggestions: ['Try asking again', 'Check connection'],
   };
 }
 

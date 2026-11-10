@@ -481,6 +481,13 @@ Core Coaching Instructions:
     }
   }
 
+  // If request was aborted by client (e.g. user interrupted or new note arrived), STOP immediately!
+  if (abortController.signal.aborted) {
+    console.log('[VoiceRoutes/Stream] Stream aborted by client. Terminating cleanly.');
+    res.end();
+    return;
+  }
+
   // 6. SECONDARY FALLBACK: Google Gemini 3.5 Flash-Lite (TTS still routes via Bulbul Shubh!)
   if (!sarvamSuccess && !abortController.signal.aborted) {
     if (config.gemini.apiKey) {
@@ -512,19 +519,26 @@ Core Coaching Instructions:
     }
   }
 
-  // 7. Clinical Offline Fallback if all APIs fail
+  if (abortController.signal.aborted) {
+    console.log('[VoiceRoutes/Stream] Stream aborted before completion. Ending.');
+    res.end();
+    return;
+  }
+
+  // 7. If generation completely failed (both Sarvam and Gemini unavailable)
+  // Per instruction: No default fallback messages. Report error clearly.
   if (!fullGeneratedText.trim()) {
-    if (lowerMsg.includes('knee') || lowerMsg.includes('pain') || lowerMsg.includes('dard')) {
-      fullGeneratedText = `Arre ${userName}, please stop heavy exercises right now! Rest your knee, apply an ice pack, and stick to gentle stretches today.`;
-    } else if (lowerMsg.includes('dinner') || lowerMsg.includes('khana') || lowerMsg.includes('food') || lowerMsg.includes('eat')) {
-      fullGeneratedText = `For a healthy dinner ${userName}, go for light protein and veggies like grilled paneer, dal, and a small bowl of salad. Avoid heavy carbs late at night!`;
-    } else if (lowerMsg.includes('step') || lowerMsg.includes('walk') || lowerMsg.includes('running') || lowerMsg.includes('workout') || lowerMsg.includes('exercise')) {
-      fullGeneratedText = `Bahut badhiya ${userName}! Consistent physical activity maintain rakhein aur hydration ka pura dhyan rakhein.`;
-    } else {
-      fullGeneratedText = `Arre ${userName}, main sun raha hoon! Bataiye aaj diet, workout ya recovery mein kis cheez par guidance chahiye?`;
-    }
-    sendEvent('text_delta', { delta: fullGeneratedText });
-    await ttsBuffer.addToken(fullGeneratedText);
+    console.error('[VoiceRoutes/Stream] AI generation failed completely.');
+    const errorMsg = 'Error: Coach Alex could not generate a response. Please try again.';
+    sendEvent('text_delta', { delta: errorMsg });
+    sendEvent('text_complete', {
+      fullText: errorMsg,
+      suggestions: ['Try asking again', 'Check connection'],
+    });
+    sendEvent('error', { error: 'AI generation failed' });
+    sendEvent('response_complete', { durationMs: Date.now() - startTime });
+    res.end();
+    return;
   }
 
   // 8. Finalize text and flush sentence audio buffer
@@ -651,21 +665,14 @@ Rules:
       }
     }
 
-    // Clinical contextual fallback if all APIs are unavailable
+    // If all AI APIs failed, report error — no canned fallback strings
     if (!replyText) {
-      if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
-        replyText = `Arre ${userName}, please stop heavy exercises right now! Rest your knee, apply a cold pack, and stick to gentle stretches today.`;
-        suggestions = ['Gentle leg stretch', 'Rest day routine', 'Log pain severity'];
-      } else if (lower.includes('dinner') || lower.includes('khana') || lower.includes('food') || lower.includes('eat')) {
-        replyText = `For a healthy dinner ${userName}, go for light protein and veggies like grilled paneer, dal, and a small bowl of salad. Avoid heavy carbs late at night!`;
-        suggestions = ['High protein dinner', 'Low carb recipes', 'Log my dinner'];
-      } else if (lower.includes('step') || lower.includes('walk') || lower.includes('running') || lower.includes('workout') || lower.includes('exercise')) {
-        replyText = `Bahut badhiya ${userName}! Consistent physical activity maintain rakhein aur hydration ka pura dhyan rakhein.`;
-        suggestions = ['Check workout plan', 'Mobility warmup', 'Log workout'];
-      } else {
-        replyText = `Arre ${userName}, main sun raha hoon! Bataiye aaj diet, workout ya recovery mein kis cheez par guidance chahiye?`;
-        suggestions = ['Log my lunch', 'Check today workout', 'Suggest high protein snack'];
-      }
+      res.status(500).json({
+        error: 'AI generation failed. Please try again.',
+        text: 'Error: Coach Alex could not generate a response. Please try again.',
+        suggestions: ['Try asking again', 'Check connection'],
+      });
+      return;
     }
 
     if (suggestions.length === 0) {
@@ -880,17 +887,14 @@ Rules:
       }
     }
 
-    // 8. Offline Intelligent Clinical Fallback
+    // If all AI models failed, report error — no canned fallback strings
     if (!coachReply) {
-      if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
-        coachReply = `Arre ${userName}, please stop heavy leg movements right now! Rest your knee, apply a cold compress, and stick to gentle stretches today.`;
-      } else if (lower.includes('dinner') || lower.includes('khana') || lower.includes('food') || lower.includes('eat')) {
-        coachReply = `For dinner ${userName}, focus on light protein and veggies like grilled paneer, dal, and a fresh salad. Avoid heavy carbs late at night!`;
-      } else if (lower.includes('workout') || lower.includes('exercise') || lower.includes('gym')) {
-        coachReply = `Great energy ${userName}! Let us start with a light 15-minute warmup and mobility flow to protect your joints.`;
-      } else {
-        coachReply = `Arre ${userName}, main sun raha hoon! Bataiye aaj diet, workout ya energy mein kis cheez par help chahiye?`;
-      }
+      res.status(500).json({
+        error: 'AI generation failed',
+        userTranscript,
+        coachReply: '',
+      });
+      return;
     }
 
     // 9. Neural Speech Synthesis via Sarvam Bulbul (Shubh)
