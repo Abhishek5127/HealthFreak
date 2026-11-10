@@ -31,9 +31,22 @@ export class SarvamService {
     if (!apiKey || !audioBuffer || audioBuffer.length === 0) return '';
 
     try {
+      const cleanMime = (mimeType || 'audio/wav').split(';')[0].trim().toLowerCase();
+      let extension = 'audio.wav';
+      if (cleanMime.includes('webm')) {
+        extension = 'audio.webm';
+      } else if (cleanMime.includes('mp4') || cleanMime.includes('m4a')) {
+        extension = 'audio.m4a';
+      } else if (cleanMime.includes('mpeg') || cleanMime.includes('mp3')) {
+        extension = 'audio.mp3';
+      } else if (cleanMime.includes('ogg') || cleanMime.includes('opus')) {
+        extension = 'audio.ogg';
+      } else if (cleanMime.includes('aac')) {
+        extension = 'audio.aac';
+      }
+
       const form = new FormData();
-      const extension = mimeType.includes('mp4') || mimeType.includes('m4a') ? 'audio.m4a' : 'audio.wav';
-      form.append('file', new Blob([audioBuffer], { type: mimeType }), extension);
+      form.append('file', new Blob([audioBuffer], { type: cleanMime }), extension);
       form.append('model', 'saaras:v3');
 
       const response = await fetch('https://api.sarvam.ai/speech-to-text', {

@@ -889,7 +889,7 @@ Rules:
       } else if (lower.includes('workout') || lower.includes('exercise') || lower.includes('gym')) {
         coachReply = `Great energy ${userName}! Let us start with a light 15-minute warmup and mobility flow to protect your joints.`;
       } else {
-        coachReply = `Namaste ${userName}! Main Coach Alex bol raha hoon. Maine aapki baat sun li hai—aaj diet ya workout mein kis par dhyan dein?`;
+        coachReply = `Arre ${userName}, main sun raha hoon! Bataiye aaj diet, workout ya energy mein kis cheez par help chahiye?`;
       }
     }
 

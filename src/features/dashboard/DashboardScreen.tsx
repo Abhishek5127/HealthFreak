@@ -279,9 +279,20 @@ export const DashboardScreen: React.FC = () => {
                 </View>
               )}
             </View>
-            <Text style={styles.protocolHeadlineText}>{goalTitle}</Text>
-            <Text style={styles.protocolSubText}>{goalSub}</Text>
+            <Text style={styles.protocolHeadlineText} numberOfLines={1}>{goalTitle}</Text>
+            <Text style={styles.protocolSubText} numberOfLines={2}>{goalSub}</Text>
           </View>
+
+          <GlassButton
+            title="Edit Goal"
+            titleColor={Colors.lightSage}
+            icon={<Sliders size={12} color={Colors.lightSage} />}
+            size="xs"
+            height={28}
+            borderRadius={10}
+            style={{ flexShrink: 0, alignSelf: 'flex-start', marginLeft: 6 }}
+            onPress={() => setActiveModal('onboarding')}
+          />
         </View>
 
         <View style={styles.protocolBannerBottom}>
@@ -303,17 +314,6 @@ export const DashboardScreen: React.FC = () => {
               <Text style={[styles.targetMetricChipVal, { color: '#4FA3E2' }]}>{waterTargetL}L</Text>
             </View>
           </View>
-
-          <GlassButton
-            title="Edit Goal"
-            titleColor={Colors.lightSage}
-            icon={<Sliders size={12} color={Colors.lightSage} />}
-            size="xs"
-            height={30}
-            borderRadius={10}
-            style={{ flexShrink: 0 }}
-            onPress={() => setActiveModal('onboarding')}
-          />
         </View>
       </View>
 
@@ -326,34 +326,34 @@ export const DashboardScreen: React.FC = () => {
           <View style={styles.checkInMiniAvatar}>
             <CheckInCharacterView mood={userProfile.currentMood} size={44} animate={false} />
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
               <Sparkles size={12} color={Colors.softYellow} style={{ marginRight: 5 }} />
               <Text style={styles.checkInPromptLabel}>ENERGY & READINESS</Text>
             </View>
-            <Text style={styles.checkInQuestion}>
+            <Text style={styles.checkInQuestion} numberOfLines={1}>
               Feeling {userProfile.currentMood.charAt(0).toUpperCase() + userProfile.currentMood.slice(1)} Today
             </Text>
-            <Text style={styles.checkInStatus}>
+            <Text style={styles.checkInStatus} numberOfLines={1}>
               {userProfile.lastCheckInTime ? `Calibrated ${userProfile.lastCheckInTime}` : 'Tap to sync workout intensity to your mood'}
             </Text>
           </View>
         </View>
         <View style={styles.checkInActionPill}>
           <Text style={styles.checkInActionText}>Recalibrate</Text>
-          <ChevronRight size={14} color={Colors.coralCTA} />
+          <ChevronRight size={13} color={Colors.coralCTA} />
         </View>
       </Pressable>
 
       {/* 6. DAILY NUTRITION & MACROS (COMPACT GLANCEABLE CARD) */}
       <View style={styles.compactNutritionHeaderRow}>
-        <Text style={[styles.compactSectionTitle, { flex: 1, marginRight: 8 }]}>Nutrition & Macros</Text>
+        <Text style={[styles.compactSectionTitle, { flex: 1, marginRight: 8 }]} numberOfLines={1}>Nutrition & Macros</Text>
         <GlassButton
-          title="View Breakdown"
+          title="Breakdown"
           titleColor={Colors.coralCTA}
           rightIndicator={<ChevronRight size={13} color={Colors.coralCTA} />}
           size="xs"
-          height={30}
+          height={28}
           borderRadius={10}
           style={{ flexShrink: 0 }}
           onPress={() => setShowNutritionModal(true)}
@@ -743,9 +743,9 @@ export const DashboardScreen: React.FC = () => {
                 </View>
                 <Text style={styles.focusTimeText}>{focusWorkout.time || '07:30 AM'}</Text>
               </View>
-              <Text style={styles.focusTitleText}>{focusWorkout.title}</Text>
-              <Text style={styles.focusMetaText}>
-                ⏱️ {focusWorkout.duration || '45 min'}  •  🔥 {focusWorkout.calories || 280} kcal  •  🎯 {focusWorkout.tags?.slice(0, 2).join(' • ') || 'Hypertrophy'}
+              <Text style={styles.focusTitleText} numberOfLines={1}>{focusWorkout.title}</Text>
+              <Text style={styles.focusMetaText} numberOfLines={1}>
+                {focusWorkout.duration || '45 min'}  •  {focusWorkout.calories || 280} kcal  •  {focusWorkout.tags?.slice(0, 2).join(' • ') || 'Hypertrophy'}
               </Text>
             </View>
           </View>
@@ -756,7 +756,7 @@ export const DashboardScreen: React.FC = () => {
               titleColor="#FFFFFF"
               icon={<Zap size={14} color="#FFFFFF" />}
               size="sm"
-              height={38}
+              height={36}
               borderRadius={12}
               style={{ flexShrink: 0 }}
               onPress={() => {
@@ -773,7 +773,7 @@ export const DashboardScreen: React.FC = () => {
               onPress={() => setActiveTab('plan')}
             >
               <Text style={styles.focusPlanLinkText} numberOfLines={1}>
-                All {activities.length} Routines in Plan →
+                All Routines ({activities.length}) →
               </Text>
             </Pressable>
           </View>
@@ -858,10 +858,12 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderWidth: 1.5,
     marginBottom: 14,
+    overflow: 'hidden',
   },
   protocolBannerTop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    justifyContent: 'space-between',
   },
   protocolGoalIconCircle: {
     width: 44,
@@ -869,10 +871,12 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   protocolGoalTextCol: {
     flex: 1,
+    minWidth: 0,
+    marginRight: 8,
   },
   protocolBadgeRow: {
     flexDirection: 'row',
@@ -926,27 +930,24 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   protocolBannerBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: Colors.borderSubtle,
-    flexWrap: 'wrap',
-    gap: 8,
   },
   protocolTargetPillGroup: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    flexShrink: 1,
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 6,
+    width: '100%',
   },
   targetMetricChip: {
+    flex: 1,
     alignItems: 'center',
     backgroundColor: Colors.surfaceSecondary,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 5,
     borderRadius: 8,
   },
   targetMetricChipLabel: {
@@ -981,18 +982,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#1E2320',
     borderRadius: Spacing.borderRadius.lg,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 14,
     borderWidth: 1,
     borderColor: '#262F28',
+    overflow: 'hidden',
   },
   checkInLeft: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginRight: 8,
+    gap: 10,
+    marginRight: 6,
     minWidth: 0,
   },
   checkInMiniAvatar: {
@@ -1029,10 +1031,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#263128',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderRadius: 12,
-    gap: 4,
+    gap: 3,
+    flexShrink: 0,
   },
   checkInActionText: {
     fontFamily: Typography.fontFamilies.sansBold,
@@ -1431,6 +1434,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#263329',
     marginBottom: 24,
+    overflow: 'hidden',
   },
   focusWorkoutTop: {
     flexDirection: 'row',
@@ -1447,6 +1451,7 @@ const styles = StyleSheet.create({
   },
   focusInfoCol: {
     flex: 1,
+    minWidth: 0,
   },
   focusBadgeRow: {
     flexDirection: 'row',
@@ -1487,7 +1492,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    flexWrap: 'wrap',
     gap: 8,
     marginTop: 14,
     paddingTop: 12,
@@ -1508,9 +1512,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   focusPlanLinkBtn: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 8,
     flexShrink: 1,
+    minWidth: 0,
   },
   focusPlanLinkText: {
     fontFamily: Typography.fontFamilies.sansBold,

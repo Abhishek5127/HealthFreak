@@ -19,7 +19,7 @@ import {
 } from '../mock-data/healthData';
 import { getActivitiesForGoal } from '../mock-data/goalActivities';
 import { initialCoachMessages } from '../mock-data/coachChat';
-import { streamHealthCoachAI } from '../services/aiChatService';
+import { streamHealthCoachAI, askHealthCoachAI } from '../services/aiChatService';
 import { voiceClient } from '../services/voiceClient';
 import { MealAnalysisResult } from '../types/meal';
 import { MealScannerService } from '../services/mealScannerService';
@@ -692,18 +692,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setChatMessages((prev) => [...prev, initialCoachMsg]);
 
     try {
-      const todaySummary = await pedometerService.getCurrentTodaySummary();
+      let todaySummary: any = null;
+      try {
+        todaySummary = pedometerService.getState?.() || null;
+      } catch {
+        todaySummary = null;
+      }
+
       await streamHealthCoachAI({
         message: trimmed,
         userId: userProfile.id || 'usr_synthetic_alex',
         userName: userProfile.name ? userProfile.name.split(' ')[0] : 'Abhishek',
-        activityContext: {
-          todaySteps: todaySummary.steps,
-          stepGoal: todaySummary.stepGoal,
-          distanceMeters: todaySummary.distanceMeters,
-          caloriesBurned: todaySummary.caloriesBurned,
-          activeMinutes: todaySummary.activeMinutes,
-        },
+        activityContext: todaySummary
+          ? {
+              todaySteps: todaySummary.steps || todaySummary.todaySteps || 0,
+              stepGoal: todaySummary.stepGoal || 8000,
+              distanceMeters: todaySummary.distanceMeters || 0,
+              caloriesBurned: todaySummary.caloriesBurned || 0,
+              activeMinutes: todaySummary.activeMinutes || 0,
+            }
+          : undefined,
         onTextDelta: (delta) => {
           accumulatedCoachText += delta;
           setChatMessages((prev) =>
@@ -732,13 +740,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     } catch (err) {
       console.error('[sendChatMessage error]', err);
+      const firstName = userProfile.name ? userProfile.name.split(' ')[0] : 'Abhishek';
+      let fallbackText = accumulatedCoachText;
+      let fallbackSuggestions = ['Help me plan my day', 'Check workout routine', 'Suggest a balanced dinner'];
+
+      if (!fallbackText) {
+        try {
+          const directRes = await askHealthCoachAI(trimmed, firstName);
+          if (directRes?.text) {
+            fallbackText = directRes.text;
+            if (directRes.suggestions?.length) {
+              fallbackSuggestions = directRes.suggestions;
+            }
+          }
+        } catch {}
+      }
+
       setChatMessages((prev) =>
         prev.map((m) =>
           m.id === coachMsgId
             ? {
                 ...m,
-                text: accumulatedCoachText || `Namaste ${userProfile.name.split(' ')[0]}! Main sun raha hoon. Aaj aap kaisa feel kar rahe hain? Any health questions or meal goals I can help guide?`,
-                suggestions: ['Help me plan my day', 'Check workout routine', 'Suggest a balanced dinner'],
+                text:
+                  fallbackText ||
+                  `Main sun raha hoon ${firstName}! Aaj aapki fitness aur nutrition mein kis cheez par guidance chahiye?`,
+                suggestions: fallbackSuggestions,
               }
             : m
         )

@@ -734,11 +734,9 @@ export class VoiceClientService {
     } catch (err) {
       console.error('[VoiceClient] Audio turn error:', err);
       this.isProcessingTurn = false;
-      const fallback = 'Main sun rahi hoon Alex. Aaj aapke nutrition ya workout par discuss karein?';
-      this.coachTranscript = fallback;
-      this.status = 'speaking';
+      this.status = 'listening';
       this.notify();
-      this.speakAloud(fallback);
+      this.startListening();
     }
   }
 
@@ -1102,12 +1100,10 @@ export class VoiceClientService {
         return;
       }
       console.error('[VoiceClient] Streaming turn error:', err);
-      const fallbackText =
-        'Bahut badhiya! Maine note kar liya hai. Aaj hum gentle movement aur hydration par focus karenge.';
-      this.coachTranscript = fallbackText;
-      this.status = 'speaking';
+      this.isProcessingTurn = false;
+      this.status = 'listening';
       this.notify();
-      await this.playGeneratedAudio(undefined, 'audio/wav', fallbackText, undefined, true);
+      this.startListening();
     } finally {
       this.finishTurnSpeaking();
     }

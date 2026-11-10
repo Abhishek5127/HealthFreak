@@ -438,8 +438,8 @@ export async function transcribeAndReplyAudio(
     if (res.ok) {
       const data = await res.json();
       return {
-        userTranscript: data.userTranscript || 'Voice note received',
-        coachReply: data.coachReply || 'नमस्ते! मैं सुन रहा हूँ।',
+        userTranscript: (data.userTranscript || '').trim(),
+        coachReply: (data.coachReply || '').trim(),
         audioBase64: data.audioBase64,
         audioMime: data.audioMime,
         audioUrl: data.audioUrl,
@@ -451,8 +451,8 @@ export async function transcribeAndReplyAudio(
   }
 
   return {
-    userTranscript: 'Voice query received',
-    coachReply: 'नमस्ते! मैं HealthFreak voice coach हूँ। आज आपकी fitness और diet में क्या help करूँ?',
+    userTranscript: '',
+    coachReply: '',
     isEcho: false,
   };
 }

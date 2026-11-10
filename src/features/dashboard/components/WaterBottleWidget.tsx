@@ -172,11 +172,11 @@ export const WaterBottleWidget: React.FC<WaterBottleWidgetProps> = ({
 
             <GlassButton
               onPress={onOpenTargetModal}
-              title={`${(waterTargetMl / 1000).toFixed(1)}L Goal`}
+              title={`${(waterTargetMl / 1000).toFixed(1)}L`}
               titleColor={Colors.lightSage}
-              icon={<Sliders size={13} color={Colors.lightSage} />}
+              icon={<Sliders size={12} color={Colors.lightSage} />}
               size="xs"
-              height={30}
+              height={28}
               borderRadius={10}
               style={{ flexShrink: 0 }}
             />
@@ -262,44 +262,44 @@ export const WaterBottleWidget: React.FC<WaterBottleWidgetProps> = ({
           onPress={() => handleQuickAdd(150)}
           title="+150ml"
           titleColor="#FFFFFF"
-          icon={<Plus size={13} color="#FFFFFF" />}
+          icon={<Plus size={12} color="#FFFFFF" />}
           size="xs"
-          height={36}
+          height={34}
           borderRadius={12}
           style={{ flex: 1 }}
         />
 
         <GlassButton
           onPress={() => handleQuickAdd(250)}
-          title="+250ml Glass"
+          title="+250ml"
           titleColor="#4FA3E2"
-          icon={<Plus size={13} color="#4FA3E2" />}
+          icon={<Plus size={12} color="#4FA3E2" />}
           size="xs"
-          height={36}
+          height={34}
           borderRadius={12}
-          style={{ flex: 1.25 }}
+          style={{ flex: 1 }}
         />
 
         <GlassButton
           onPress={() => handleQuickAdd(500)}
-          title="+500ml Bottle"
+          title="+500ml"
           titleColor="#4FA3E2"
-          icon={<Plus size={13} color="#4FA3E2" />}
+          icon={<Plus size={12} color="#4FA3E2" />}
           size="xs"
-          height={36}
+          height={34}
           borderRadius={12}
-          style={{ flex: 1.3 }}
+          style={{ flex: 1 }}
         />
 
         {waterLoggedMl > 0 && (
           <GlassButton
             onPress={() => handleQuickAdd(-100)}
-            icon={<Minus size={14} color="#FFFFFF" />}
+            icon={<Minus size={13} color="#FFFFFF" />}
             titleColor="#FFFFFF"
             size="xs"
-            height={36}
+            height={34}
             borderRadius={12}
-            style={{ width: 36 }}
+            style={{ width: 34 }}
           />
         )}
       </View>
@@ -329,6 +329,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 18,
     elevation: 6,
+    overflow: 'hidden',
   },
   glassContainer: {
     width: '100%',
