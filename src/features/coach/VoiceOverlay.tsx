@@ -10,12 +10,14 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
+import { Image } from 'expo-image';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
-import { HealthFreakLogo } from '../../components/common/HealthFreakLogo';
 import { GlassButton } from '../../components/common/GlassButton';
 import { voiceClient, VoiceSessionState } from '../../services/voiceClient';
 import { useApp } from '../../state/AppContext';
+
+const CALLING_LOGO = require('../../../assets/callLogo/callingLogo.png');
 
 interface VoiceOverlayProps {
   onClose: () => void;
@@ -200,7 +202,11 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
         <Animated.View pointerEvents="none" style={[styles.waveCircle, styles.waveOuter, animatedWave2]} />
         <Animated.View pointerEvents="none" style={[styles.waveCircle, styles.waveMiddle, animatedWave1]} />
         <View style={styles.coreCircle}>
-          <HealthFreakLogo size={68} animated={true} />
+          <Image
+            source={CALLING_LOGO}
+            style={styles.callingLogoImage}
+            contentFit="contain"
+          />
           {sessionState.status === 'speaking' && (
             <View style={styles.speakingIndicator}>
               <Volume2 size={16} color={Colors.coralCTA} />
@@ -501,33 +507,33 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontFamilies.sansMedium,
   },
   sphereContainer: {
-    width: 250,
-    height: 250,
+    width: 270,
+    height: 270,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   waveCircle: {
     position: 'absolute',
-    borderRadius: 125,
+    borderRadius: 999,
     borderWidth: 1.5,
   },
   waveOuter: {
-    width: 240,
-    height: 240,
+    width: 260,
+    height: 260,
     borderColor: 'rgba(56, 93, 75, 0.3)',
     backgroundColor: 'rgba(56, 93, 75, 0.06)',
   },
   waveMiddle: {
-    width: 180,
-    height: 180,
+    width: 210,
+    height: 210,
     borderColor: 'rgba(201, 217, 202, 0.35)',
     backgroundColor: 'rgba(201, 217, 202, 0.08)',
   },
   coreCircle: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
+    width: 170,
+    height: 170,
+    borderRadius: 85,
     backgroundColor: '#1C2620',
     alignItems: 'center',
     justifyContent: 'center',
@@ -538,6 +544,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 18,
     elevation: 8,
+  },
+  callingLogoImage: {
+    width: 136,
+    height: 136,
   },
   speakingIndicator: {
     position: 'absolute',

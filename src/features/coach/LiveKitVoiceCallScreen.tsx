@@ -24,10 +24,12 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
+import { Image } from 'expo-image';
 import { Typography } from '../../theme/typography';
-import { HealthFreakLogo } from '../../components/common/HealthFreakLogo';
 import { voiceClient, VoiceSessionState } from '../../services/voiceClient';
 import { ScheduledAICall, AICallService, LiveKitTokenData } from '../../services/aiCallService';
+
+const CALLING_LOGO = require('../../../assets/callLogo/callingLogo.png');
 
 interface LiveKitVoiceCallScreenProps {
   call: ScheduledAICall;
@@ -213,7 +215,11 @@ export const LiveKitVoiceCallScreen: React.FC<LiveKitVoiceCallScreenProps> = ({
           accessibilityRole="button"
           accessibilityLabel="Coach Alex avatar. Tap to interrupt or talk."
         >
-          <HealthFreakLogo size={88} animated={true} />
+          <Image
+            source={CALLING_LOGO}
+            style={styles.callingLogoImage}
+            contentFit="contain"
+          />
         </Pressable>
 
         {/* Clean, Subtle Status Indicator underneath Avatar */}
@@ -330,22 +336,22 @@ const styles = StyleSheet.create({
   },
   waveCircle: {
     position: 'absolute',
-    borderRadius: 200,
+    borderRadius: 999,
   },
   waveOuter: {
-    width: 260,
-    height: 260,
+    width: 320,
+    height: 320,
     backgroundColor: 'rgba(74, 184, 122, 0.06)',
   },
   waveInner: {
-    width: 200,
-    height: 200,
+    width: 260,
+    height: 260,
     backgroundColor: 'rgba(74, 184, 122, 0.12)',
   },
   avatarCircle: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 210,
+    height: 210,
+    borderRadius: 105,
     backgroundColor: '#152219',
     alignItems: 'center',
     justifyContent: 'center',
@@ -357,11 +363,15 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 10,
   },
+  callingLogoImage: {
+    width: 176,
+    height: 176,
+  },
   statusIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 36,
+    marginTop: 28,
     backgroundColor: 'rgba(23, 36, 27, 0.85)',
     paddingHorizontal: 16,
     paddingVertical: 8,

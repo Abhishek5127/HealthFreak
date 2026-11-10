@@ -11,11 +11,13 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
+import { Image } from 'expo-image';
 import { Colors } from '../../theme/colors';
 import { Typography } from '../../theme/typography';
-import { HealthFreakLogo } from '../../components/common/HealthFreakLogo';
 import { ScheduledAICall, AICallService } from '../../services/aiCallService';
 import { ringtoneService } from '../../services/ringtoneService';
+
+const CALLING_LOGO = require('../../../assets/callLogo/callingLogo.png');
 
 interface IncomingCallModalProps {
   call: ScheduledAICall;
@@ -130,7 +132,11 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
         <Animated.View style={[styles.ring, styles.ringOuter, animatedRing2]} />
         <Animated.View style={[styles.ring, styles.ringInner, animatedRing1]} />
         <Animated.View style={[styles.avatarCircle, animatedPulse]}>
-          <HealthFreakLogo size={68} animated={true} />
+          <Image
+            source={CALLING_LOGO}
+            style={styles.callingLogoImage}
+            contentFit="contain"
+          />
         </Animated.View>
 
         <View style={styles.aiTag}>
@@ -234,28 +240,28 @@ const styles = StyleSheet.create({
   avatarContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 260,
-    width: 260,
+    height: 280,
+    width: 280,
   },
   ring: {
     position: 'absolute',
-    borderRadius: 200,
+    borderRadius: 999,
     borderWidth: 1.5,
   },
   ringOuter: {
-    width: 240,
-    height: 240,
+    width: 270,
+    height: 270,
     borderColor: 'rgba(74, 184, 122, 0.2)',
   },
   ringInner: {
-    width: 190,
-    height: 190,
+    width: 220,
+    height: 220,
     borderColor: 'rgba(74, 184, 122, 0.35)',
   },
   avatarCircle: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 170,
+    height: 170,
+    borderRadius: 85,
     backgroundColor: '#162319',
     alignItems: 'center',
     justifyContent: 'center',
@@ -267,9 +273,13 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
   },
+  callingLogoImage: {
+    width: 136,
+    height: 136,
+  },
   aiTag: {
     position: 'absolute',
-    bottom: 24,
+    bottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#4AB87A',
