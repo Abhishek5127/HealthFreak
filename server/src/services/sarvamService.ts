@@ -24,6 +24,41 @@ export class SarvamService {
   }
 
   /**
+   * Transcribes Indian spoken audio (Hindi, English, Hinglish) using Sarvam AI Saaras v3.
+   */
+  public static async transcribeAudio(audioBuffer: Buffer, mimeType: string = 'audio/wav'): Promise<string> {
+    const apiKey = this.getApiKey();
+    if (!apiKey || !audioBuffer || audioBuffer.length === 0) return '';
+
+    try {
+      const form = new FormData();
+      const extension = mimeType.includes('mp4') || mimeType.includes('m4a') ? 'audio.m4a' : 'audio.wav';
+      form.append('file', new Blob([audioBuffer], { type: mimeType }), extension);
+      form.append('model', 'saaras:v3');
+
+      const response = await fetch('https://api.sarvam.ai/speech-to-text', {
+        method: 'POST',
+        headers: {
+          'api-subscription-key': apiKey,
+        },
+        body: form,
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.warn(`[SarvamService] STT error (${response.status}):`, errText);
+        return '';
+      }
+
+      const data: any = await response.json();
+      return (data?.transcript || '').trim();
+    } catch (err: any) {
+      console.warn('[SarvamService] STT exception:', err?.message || err);
+      return '';
+    }
+  }
+
+  /**
    * Normalizes raw LLM output text for clean, natural phonetic pronunciation by Sarvam Bulbul TTS.
    * Strips markdown, expands measurement units and ranges into spoken words.
    */

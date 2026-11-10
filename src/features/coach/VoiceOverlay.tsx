@@ -33,7 +33,8 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
   // Subscribe to voice client
   useEffect(() => {
     voiceClient.unlockAudio();
-    voiceClient.startSession(userProfile?.id || 'usr_synthetic_alex');
+    const firstName = userProfile?.name ? userProfile.name.split(' ')[0] : 'Abhishek';
+    voiceClient.startSession(userProfile?.id || 'usr_synthetic_alex', undefined, firstName);
     const unsubscribe = voiceClient.subscribe((state) => {
       setSessionState(state);
     });
@@ -42,7 +43,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
       unsubscribe();
       voiceClient.endSession();
     };
-  }, [userProfile?.id]);
+  }, [userProfile?.id, userProfile?.name]);
 
   // Drive animation based on real conversational states and mic volume
   useEffect(() => {

@@ -316,9 +316,9 @@ const greetingAudioCache = new Map<string, string>();
 
 voiceRouter.post('/greeting', async (req: Request, res: Response) => {
   try {
-    const { userId = 'usr_synthetic_alex' } = req.body;
+    const { userId = 'usr_synthetic_alex', userName: incomingUserName } = req.body;
     const user = db.getUser(userId) || db.getUser('usr_synthetic_alex');
-    const firstName = user?.name ? user.name.split(' ')[0] : 'friend';
+    const firstName = incomingUserName?.trim() || (user?.name ? user.name.split(' ')[0] : 'Abhishek');
     const hour = new Date().getHours();
     let timeGreeting = 'Namaste';
     if (hour >= 5 && hour < 12) timeGreeting = 'Suprabhat';
@@ -349,7 +349,7 @@ voiceRouter.post('/greeting', async (req: Request, res: Response) => {
 // 13. Health Coach Streaming Turn (SSE: Sarvam AI 105B + Bulbul Neural Voice)
 voiceRouter.post('/chat/stream', async (req: Request, res: Response) => {
   const startTime = Date.now();
-  const { message, userId = 'usr_synthetic_alex', activityContext } = req.body;
+  const { message, userId = 'usr_synthetic_alex', userName: incomingUserName, activityContext } = req.body;
 
   if (!message || typeof message !== 'string') {
     res.status(400).json({ error: 'message is required' });
@@ -372,7 +372,7 @@ voiceRouter.post('/chat/stream', async (req: Request, res: Response) => {
   };
 
   const user = db.getUser(userId) || db.getUser('usr_synthetic_alex');
-  const userName = user?.name ? user.name.split(' ')[0] : 'friend';
+  const userName = incomingUserName?.trim() || (user?.name ? user.name.split(' ')[0] : 'Abhishek');
   const lowerMsg = message.toLowerCase();
 
   // 1. Critical Health Safety & Red Flag Escalation
@@ -518,14 +518,14 @@ Core Coaching Instructions:
 // 14. Health Coach Chat Turn (Synchronous JSON Fallback)
 voiceRouter.post('/chat', async (req: Request, res: Response) => {
   try {
-    const { message, userId = 'usr_synthetic_alex', activityContext } = req.body;
+    const { message, userId = 'usr_synthetic_alex', userName: incomingUserName, activityContext } = req.body;
     if (!message || typeof message !== 'string') {
       res.status(400).json({ error: 'message is required' });
       return;
     }
 
     const user = db.getUser(userId) || db.getUser('usr_synthetic_alex');
-    const userName = user?.name ? user.name.split(' ')[0] : 'friend';
+    const userName = incomingUserName?.trim() || (user?.name ? user.name.split(' ')[0] : 'Abhishek');
     const lower = message.toLowerCase();
 
     // Critical Red Flag check
@@ -718,22 +718,173 @@ export function isSelfEcho(userText: string, coachText: string): boolean {
   return false;
 }
 
-// 14. Audio Turn (Live Standalone Sarvam AI Voice Agent)
+// 14. Audio Turn (Full Speech-to-Speech: Sarvam Saaras v3 STT -> Sarvam 105B LLM -> Bulbul v3 Shubh TTS)
 voiceRouter.post('/audio-turn', async (req: Request, res: Response) => {
+  const turnStart = Date.now();
   try {
-    const events = VoiceAgentProcess.getLatestTranscripts();
-    const lastEvent = events[events.length - 1];
+    const {
+      audioBase64,
+      mimeType = 'audio/m4a',
+      userId = 'usr_synthetic_alex',
+      lastCoachReply = '',
+      userName: incomingUserName,
+    } = req.body;
+
+    const user = db.getUser(userId) || db.getUser('usr_synthetic_alex');
+    const userName = incomingUserName?.trim() || (user?.name ? user.name.split(' ')[0] : 'Abhishek');
+
+    if (!audioBase64) {
+      res.status(400).json({ error: 'audioBase64 is required' });
+      return;
+    }
+
+    const audioBuffer = Buffer.from(audioBase64, 'base64');
+    console.log(`[VoiceRoutes/AudioTurn] Received audio chunk (${audioBuffer.length} bytes, ${mimeType})`);
+
+    // 1. Indian Spoken Speech-to-Text via Sarvam Saaras v3
+    let userTranscript = '';
+    if (SarvamService.isConfigured()) {
+      userTranscript = await SarvamService.transcribeAudio(audioBuffer, mimeType);
+    }
+
+    userTranscript = (userTranscript || '').trim();
+    console.log(`[VoiceRoutes/AudioTurn] Transcribed text in ${Date.now() - turnStart}ms: "${userTranscript}"`);
+
+    // 2. Silence or Empty Transcript Check
+    if (!userTranscript) {
+      res.json({
+        userTranscript: '',
+        coachReply: '',
+        isEcho: false,
+        provider: 'sarvam',
+      });
+      return;
+    }
+
+    // 3. Acoustic Speaker Echo Suppression
+    if (isSelfEcho(userTranscript, lastCoachReply)) {
+      console.log(`[VoiceRoutes/AudioTurn] Speaker echo detected and suppressed: "${userTranscript}"`);
+      res.json({
+        userTranscript,
+        coachReply: '',
+        isEcho: true,
+        provider: 'sarvam',
+      });
+      return;
+    }
+
+    const lower = userTranscript.toLowerCase();
+
+    // 4. Critical Health Safety & Red Flag Escalation
+    const isRedFlag =
+      lower.includes('chest pain') ||
+      lower.includes('chhati') ||
+      lower.includes('chhaati') ||
+      lower.includes('shortness of breath') ||
+      lower.includes('saans nahi') ||
+      lower.includes('faint') ||
+      lower.includes('behoshi') ||
+      lower.includes('palpitation');
+
+    if (isRedFlag) {
+      const safetyReply = `Dhyan se sunein ${userName}: Chest discomfort ya saans lene mein takleef serious medical conditions ke lakshan ho sakte hain. Kripya turant kisi emergency room ya physician se consult karein aur sabhi exercises band kar dein.`;
+      let audioBase64Reply: string | undefined;
+      if (SarvamService.isConfigured()) {
+        audioBase64Reply = await SarvamService.synthesizeSpeech(safetyReply);
+      }
+      res.json({
+        userTranscript,
+        coachReply: safetyReply,
+        audioBase64: audioBase64Reply,
+        audioMime: 'audio/wav',
+        provider: 'safety_guard',
+        isEcho: false,
+      });
+      return;
+    }
+
+    // 5. Context Retrieval and Background Symptom Ingestion
+    const healthContext = await HealthMemoryEngine.getRelevantContext(userId, userTranscript);
+    HealthMemoryEngine.scheduleSymptomIngestion(userId, userTranscript);
+
+    // 6. Primary LLM Generation: Sarvam 105B Conversations
+    let coachReply = '';
+    if (SarvamService.isConfigured()) {
+      const sarvamResult = await SarvamService.generateChatReply({
+        message: userTranscript,
+        userName,
+        conditions: user?.knownConditions || [],
+        memorySnippet: healthContext.promptSnippet,
+        synthesizeVoice: false,
+      });
+      if (sarvamResult?.text) {
+        coachReply = sarvamResult.text;
+      }
+    }
+
+    // 7. Secondary Fallback: Google Gemini
+    if (!coachReply && config.gemini.apiKey) {
+      try {
+        const ai = getGeminiClient();
+        const systemPrompt = `You are Coach Alex, an elite AI Health and Wellness Coach at HealthFreak speaking directly with ${userName}.
+${healthContext.promptSnippet}
+Rules:
+1. Respond in natural, warm, empathetic Hinglish (e.g. 'Arre ${userName}!').
+2. Keep your answer concise: exactly 2 to 3 short sentences. Motivating, clinically sound, and actionable.
+3. Plain spoken conversational text only. No markdown, asterisks, or emoji.`;
+
+        const resp = await ai.models.generateContent({
+          model: config.gemini.model || 'gemini-3.5-flash-lite',
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: `${systemPrompt}\n\nUser says: ${userTranscript}` }],
+            },
+          ],
+        });
+        const geminiText = resp.text?.trim();
+        if (geminiText) {
+          coachReply = SarvamService.normalizeForSpokenTTS(geminiText);
+        }
+      } catch (geminiErr: any) {
+        console.warn('[VoiceRoutes/AudioTurn] Gemini fallback notice:', geminiErr?.message || geminiErr);
+      }
+    }
+
+    // 8. Offline Intelligent Clinical Fallback
+    if (!coachReply) {
+      if (lower.includes('knee') || lower.includes('pain') || lower.includes('dard')) {
+        coachReply = `Arre ${userName}, please stop heavy leg movements right now! Rest your knee, apply a cold compress, and stick to gentle stretches today.`;
+      } else if (lower.includes('dinner') || lower.includes('khana') || lower.includes('food') || lower.includes('eat')) {
+        coachReply = `For dinner ${userName}, focus on light protein and veggies like grilled paneer, dal, and a fresh salad. Avoid heavy carbs late at night!`;
+      } else if (lower.includes('workout') || lower.includes('exercise') || lower.includes('gym')) {
+        coachReply = `Great energy ${userName}! Let us start with a light 15-minute warmup and mobility flow to protect your joints.`;
+      } else {
+        coachReply = `Namaste ${userName}! Main Coach Alex bol raha hoon. Maine aapki baat sun li hai—aaj diet ya workout mein kis par dhyan dein?`;
+      }
+    }
+
+    // 9. Neural Speech Synthesis via Sarvam Bulbul (Shubh)
+    let audioReplyBase64: string | undefined;
+    if (SarvamService.isConfigured()) {
+      audioReplyBase64 = await SarvamService.synthesizeSpeech(coachReply, 'shubh');
+    }
+
+    console.log(`[VoiceRoutes/AudioTurn] Completed full turn in ${Date.now() - turnStart}ms. Coach: "${coachReply}"`);
 
     res.json({
-      userTranscript: lastEvent?.user_transcript || 'Voice note received',
-      coachReply: lastEvent?.coach_reply || 'नमस्ते! मैं सुन रहा हूँ, आज आपकी fitness और diet में क्या help करूँ?',
+      userTranscript,
+      coachReply,
+      audioBase64: audioReplyBase64,
+      audioMime: 'audio/wav',
       provider: 'sarvam',
       isEcho: false,
     });
   } catch (err: any) {
+    console.error('❌ [AudioTurn Error]:', err?.message || err);
     res.status(500).json({
-      userTranscript: 'Voice input received',
-      coachReply: 'नमस्ते! मैं सुन रहा हूँ।',
+      userTranscript: 'Voice note received',
+      coachReply: 'Namaste! Main sun raha hoon. Kripya apna sawal dobara batayein.',
       error: err.message,
     });
   }

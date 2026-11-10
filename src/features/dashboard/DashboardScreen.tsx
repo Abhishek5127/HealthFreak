@@ -311,6 +311,7 @@ export const DashboardScreen: React.FC = () => {
             size="xs"
             height={30}
             borderRadius={10}
+            style={{ flexShrink: 0 }}
             onPress={() => setActiveModal('onboarding')}
           />
         </View>
@@ -346,7 +347,7 @@ export const DashboardScreen: React.FC = () => {
 
       {/* 6. DAILY NUTRITION & MACROS (COMPACT GLANCEABLE CARD) */}
       <View style={styles.compactNutritionHeaderRow}>
-        <Text style={styles.compactSectionTitle}>Nutrition & Macros</Text>
+        <Text style={[styles.compactSectionTitle, { flex: 1, marginRight: 8 }]}>Nutrition & Macros</Text>
         <GlassButton
           title="View Breakdown"
           titleColor={Colors.coralCTA}
@@ -354,6 +355,7 @@ export const DashboardScreen: React.FC = () => {
           size="xs"
           height={30}
           borderRadius={10}
+          style={{ flexShrink: 0 }}
           onPress={() => setShowNutritionModal(true)}
         />
       </View>
@@ -756,6 +758,7 @@ export const DashboardScreen: React.FC = () => {
               size="sm"
               height={38}
               borderRadius={12}
+              style={{ flexShrink: 0 }}
               onPress={() => {
                 if (focusWorkout.category === 'movement') {
                   setActiveModal('activity_session');
@@ -769,7 +772,7 @@ export const DashboardScreen: React.FC = () => {
               style={styles.focusPlanLinkBtn}
               onPress={() => setActiveTab('plan')}
             >
-              <Text style={styles.focusPlanLinkText}>
+              <Text style={styles.focusPlanLinkText} numberOfLines={1}>
                 All {activities.length} Routines in Plan →
               </Text>
             </Pressable>
@@ -930,10 +933,14 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: Colors.borderSubtle,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   protocolTargetPillGroup: {
     flexDirection: 'row',
-    gap: 8,
+    flexWrap: 'wrap',
+    flexShrink: 1,
+    gap: 6,
   },
   targetMetricChip: {
     alignItems: 'center',
@@ -981,9 +988,12 @@ const styles = StyleSheet.create({
     borderColor: '#262F28',
   },
   checkInLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    marginRight: 8,
+    minWidth: 0,
   },
   checkInMiniAvatar: {
     width: 42,
@@ -1477,6 +1487,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
     marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
@@ -1496,8 +1508,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   focusPlanLinkBtn: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 8,
+    flexShrink: 1,
   },
   focusPlanLinkText: {
     fontFamily: Typography.fontFamilies.sansBold,

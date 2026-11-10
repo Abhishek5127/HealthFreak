@@ -696,6 +696,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await streamHealthCoachAI({
         message: trimmed,
         userId: userProfile.id || 'usr_synthetic_alex',
+        userName: userProfile.name ? userProfile.name.split(' ')[0] : 'Abhishek',
         activityContext: {
           todaySteps: todaySummary.steps,
           stepGoal: todaySummary.stepGoal,

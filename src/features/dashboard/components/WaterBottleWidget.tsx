@@ -178,6 +178,7 @@ export const WaterBottleWidget: React.FC<WaterBottleWidgetProps> = ({
               size="xs"
               height={30}
               borderRadius={10}
+              style={{ flexShrink: 0 }}
             />
           </View>
 
@@ -394,8 +395,11 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   headerLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    marginRight: 8,
+    minWidth: 0,
   },
   iconCircle: {
     width: 38,

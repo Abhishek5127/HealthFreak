@@ -256,13 +256,12 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   glassContainer: {
-    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
     overflow: 'hidden',
     borderWidth: 1.2,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
   },
   grainTexture: {
     opacity: 0.055,
@@ -293,7 +292,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   contentRow: {
-    width: '100%',
     height: '100%',
     flexDirection: 'row',
     alignItems: 'center',

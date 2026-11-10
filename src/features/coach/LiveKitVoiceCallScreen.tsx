@@ -66,7 +66,7 @@ export const LiveKitVoiceCallScreen: React.FC<LiveKitVoiceCallScreenProps> = ({
       greeting ||
       'Hello! I am Coach Alex, your AI health coach from HealthFreak. How is your energy and body feeling today?';
 
-    voiceClient.startSession(call.userId || 'usr_synthetic_alex', initialGreeting);
+    voiceClient.startSession(call.userId || 'usr_synthetic_alex', initialGreeting, 'Abhishek');
 
     const unsubscribe = voiceClient.subscribe((state) => {
       if (isMountedRef.current) {

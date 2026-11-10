@@ -18,6 +18,17 @@ export function getBackendBaseUrl(): string {
     }
   }
 
+  // In development mode on physical devices (Expo Go), prioritize local laptop IP running backend
+  if (__DEV__) {
+    const hostUri = Constants.expoConfig?.hostUri;
+    if (hostUri) {
+      const ip = hostUri.split(':')[0];
+      if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+        return `http://${ip}:3001`;
+      }
+    }
+  }
+
   const envUrl = process.env.EXPO_PUBLIC_BACKEND_URL?.trim();
   if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
     return envUrl.replace(/\/$/, '');
@@ -128,6 +139,7 @@ export async function askHealthCoachAI(
 export async function streamHealthCoachAI(params: {
   message: string;
   userId?: string;
+  userName?: string;
   activityContext?: any;
   onTextDelta?: (delta: string) => void;
   onAudioChunk?: (chunk: AudioChunkPayload) => void;
@@ -135,13 +147,13 @@ export async function streamHealthCoachAI(params: {
   signal?: AbortSignal;
 }): Promise<{ text: string; suggestions: string[] }> {
   const backendUrl = getBackendBaseUrl();
-  const { message, userId = 'usr_synthetic_alex', activityContext, onTextDelta, onAudioChunk, onComplete, signal } = params;
+  const { message, userId = 'usr_synthetic_alex', userName, activityContext, onTextDelta, onAudioChunk, onComplete, signal } = params;
 
   try {
     const res = await fetch(`${backendUrl}/api/voice/chat/stream`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, userId, activityContext }),
+      body: JSON.stringify({ message, userId, userName, activityContext }),
       signal,
     });
 
@@ -303,6 +315,7 @@ export async function transcribeAndReplyAudio(
         audioBase64: base64Audio,
         mimeType,
         userId: userId || 'usr_synthetic_alex',
+        userName,
         lastCoachReply,
       }),
       signal: controller.signal,

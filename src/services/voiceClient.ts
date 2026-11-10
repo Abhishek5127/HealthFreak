@@ -58,6 +58,7 @@ export class VoiceClientService {
   private isSynthetic: boolean = true;
   private hasAudioPermission: boolean = false;
   private currentUserId: string = 'usr_synthetic_alex';
+  private currentUserName: string = 'Abhishek';
   private audioLevel: number = 0;
   private isHandsFree: boolean = true;
   private consolePollTimer: any = null;
@@ -898,7 +899,7 @@ export class VoiceClientService {
       const result = await transcribeAndReplyAudio(
         base64Data,
         mimeType,
-        'Alex',
+        this.currentUserName || 'Abhishek',
         ['patellofemoral_knee_pain'],
         this.lastCoachReply,
         this.currentUserId || 'usr_synthetic_alex'
@@ -1282,6 +1283,7 @@ export class VoiceClientService {
       await streamHealthCoachAI({
         message: text,
         userId: this.currentUserId,
+        userName: this.currentUserName || 'Abhishek',
         signal: this.currentStreamAbortController.signal,
         onTextDelta: (delta) => {
           this.status = 'speaking';
@@ -1317,15 +1319,20 @@ export class VoiceClientService {
   /**
    * Starts a live hands-free voice session.
    */
-  public async startSession(userId = 'usr_synthetic_alex', customGreeting?: string): Promise<void> {
+  public async startSession(
+    userId = 'usr_synthetic_alex',
+    customGreeting?: string,
+    userName = 'Abhishek'
+  ): Promise<void> {
     this.currentUserId = userId;
+    this.currentUserName = userName;
     this.status = 'connecting';
     this.errorMessage = null;
     this.durationSeconds = 0;
     this.provider = 'sarvam';
     const defaultGreeting =
       customGreeting ||
-      'नमस्ते! मैं HealthFreak voice coach हूँ। आज आपकी fitness और diet में क्या help कर सकता हूँ?';
+      `Namaste ${userName}! Main Coach Alex hoon. Aaj aapki fitness aur diet mein kya help karoon?`;
     this.coachTranscript = defaultGreeting;
     this.userTranscript = '';
     this.currentSpeechText = '';
@@ -1347,7 +1354,7 @@ export class VoiceClientService {
         const res = await fetch(`${backendUrl}/api/voice/session`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId }),
+          body: JSON.stringify({ userId, userName }),
         });
 
         if (res.ok) {
@@ -1381,7 +1388,7 @@ export class VoiceClientService {
         const greetRes = await fetch(`${backendUrl}/api/voice/greeting`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId }),
+          body: JSON.stringify({ userId, userName }),
           signal: controller.signal,
         });
         clearTimeout(timeout);
