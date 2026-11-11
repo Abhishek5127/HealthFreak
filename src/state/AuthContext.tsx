@@ -11,6 +11,7 @@ import {
 import { UserProfile } from '../types';
 import { voiceClient } from '../services/voiceClient';
 import { expoSecureStoreAdapter } from '../services/auth/secureStorageAdapter';
+import { getBackendBaseUrl } from '../services/aiChatService';
 
 export type AuthState =
   | 'initializing'
@@ -35,13 +36,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const getBackendUrl = (): string => {
-  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
-    const host = window.location.hostname || 'localhost';
-    return `http://${host}:3001`;
-  }
-  return process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3001';
-};
+const getBackendUrl = (): string => getBackendBaseUrl();
 
 const DEMO_SESSION_KEY = 'HEALTHFREAK_DEMO_SESSION_ACTIVE';
 const DEMO_PROFILE_KEY = 'HEALTHFREAK_DEMO_USER_PROFILE';
@@ -57,36 +52,38 @@ export async function getLocalDemoSession(): Promise<{
     if (raw) savedDemoProfile = JSON.parse(raw);
   } catch {}
 
+  const guestId = savedDemoProfile.id || `usr_guest_${Date.now()}`;
+
   const demoUser = {
-    id: 'usr_synthetic_alex',
-    app_metadata: { provider: 'demo' },
-    user_metadata: { full_name: 'Alex Sharma' },
+    id: guestId,
+    app_metadata: { provider: 'guest' },
+    user_metadata: { full_name: 'Guest' },
     aud: 'authenticated',
     created_at: new Date().toISOString(),
-    email: 'alex.sharma@healthfreak.com',
+    email: '',
   } as any;
 
   const demoSession = {
-    access_token: 'demo_token_usr_synthetic_alex',
+    access_token: `guest_token_${guestId}`,
     token_type: 'bearer',
     user: demoUser,
     expires_in: 3600,
-    refresh_token: 'demo_refresh_token',
+    refresh_token: 'guest_refresh_token',
   } as any;
 
   const demoProfile: UserProfile = {
-    id: 'usr_synthetic_alex',
-    name: 'Alex Sharma',
-    email: 'alex.sharma@healthfreak.com',
+    id: guestId,
+    name: '',
+    email: '',
     avatarUrl: undefined,
     streakDays: 0,
     selectedGoal: 'metabolic_fitness',
     goalLabel: 'Metabolic Fitness & Energy',
-    language: 'Hinglish',
-    onboardingCompleted: true,
-    currentMood: 'balanced',
-    healthConditions: ['patellofemoral_knee_pain', 'sedentary_desk_job'],
-    authProvider: 'demo',
+    language: 'English',
+    onboardingCompleted: false,
+    currentMood: 'energized',
+    healthConditions: [],
+    authProvider: 'guest',
     ...savedDemoProfile,
   };
 

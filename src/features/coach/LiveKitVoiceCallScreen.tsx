@@ -28,6 +28,7 @@ import { Image } from 'expo-image';
 import { Typography } from '../../theme/typography';
 import { voiceClient, VoiceSessionState } from '../../services/voiceClient';
 import { ScheduledAICall, AICallService, LiveKitTokenData } from '../../services/aiCallService';
+import { useApp } from '../../state/AppContext';
 
 const CALLING_LOGO = require('../../../assets/callLogo/callingLogo.png');
 
@@ -44,6 +45,7 @@ export const LiveKitVoiceCallScreen: React.FC<LiveKitVoiceCallScreenProps> = ({
   onCallEnded,
 }) => {
   const insets = useSafeAreaInsets();
+  const { userProfile } = useApp();
   const [sessionState, setSessionState] = useState<VoiceSessionState>(voiceClient.getState());
   const [isSpeakerMuted, setIsSpeakerMuted] = useState<boolean>(false);
 
@@ -60,7 +62,10 @@ export const LiveKitVoiceCallScreen: React.FC<LiveKitVoiceCallScreenProps> = ({
       greeting ||
       'Hello! I am Coach Alex, your AI health coach from HealthFreak. How is your energy and body feeling today?';
 
-    voiceClient.startSession(call.userId || 'usr_synthetic_alex', initialGreeting, 'Abhishek');
+    const userName = userProfile?.name?.trim() ? userProfile.name.split(' ')[0] : 'friend';
+    const effectiveUserId = call.userId || userProfile?.id || 'usr_guest';
+
+    voiceClient.startSession(effectiveUserId, initialGreeting, userName);
 
     const unsubscribe = voiceClient.subscribe((state) => {
       if (isMountedRef.current) {

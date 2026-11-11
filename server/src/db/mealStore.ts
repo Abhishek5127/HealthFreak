@@ -7,7 +7,7 @@ export class MealStore {
   private drafts: Map<string, MealAnalysisResult> = new Map();
 
   private constructor() {
-    this.seedInitialMeals();
+    // Starts clean - user meals only
   }
 
   public static getInstance(): MealStore {

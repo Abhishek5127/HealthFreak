@@ -21,25 +21,8 @@ export const getAuthHeaders = async (): Promise<Record<string, string>> => {
   return headers;
 };
 
-// Dynamic Backend URL resolver for LAN, emulator, and web
-export const getBackendBaseUrl = (): string => {
-  if (process.env.EXPO_PUBLIC_BACKEND_URL) {
-    return process.env.EXPO_PUBLIC_BACKEND_URL;
-  }
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const host = window.location.hostname || 'localhost';
-    return `http://${host}:3001`;
-  }
-  // Metro host IP e.g. "192.168.43.249:8081" -> "http://192.168.43.249:3001"
-  const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest?.debuggerHost || (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
-  if (hostUri) {
-    const ip = hostUri.split(':')[0];
-    if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
-      return `http://${ip}:3001`;
-    }
-  }
-  return 'http://localhost:3001';
-};
+import { getBackendBaseUrl } from './aiChatService';
+export { getBackendBaseUrl };
 
 const DIRECT_GEMINI_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 const DIRECT_GEMINI_MODEL = process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-3.5-flash-lite';
@@ -215,8 +198,8 @@ export class MealScannerService {
       }
     }
 
-    // 3. Fallback only if both backend and direct Gemini failed (e.g. airplane mode)
-    return this.generateSmartLocalPlate(preprocessed.uri, userName, healthGoals, userId);
+    // 3. If both backend and direct Gemini failed, throw explicit error (no fake demo dishes)
+    throw new Error('Could not identify food items from this photo. Please retake with clearer lighting or check your internet connection.');
   }
 
   /**
@@ -675,72 +658,6 @@ export class MealScannerService {
         { name: 'Vitamin A', amount: Math.round(Math.max(50, vitA)), unit: 'mcg', dailyValuePercent: Math.min(100, Math.round((Math.max(50, vitA) / 900) * 100)), category: 'vitamin' },
         { name: 'Vitamin C', amount: parseFloat(Math.max(10, vitC).toFixed(1)), unit: 'mg', dailyValuePercent: Math.min(100, Math.round((Math.max(10, vitC) / 90) * 100)), category: 'vitamin' },
       ],
-    };
-  }
-
-  /**
-   * Only used if completely offline (no cellular data, no wifi, no backend)
-   */
-  private static generateSmartLocalPlate(
-    imageUri: string,
-    userName: string,
-    _healthGoals: string[],
-    userId: string = 'usr_synthetic_alex'
-  ): MealAnalysisResult {
-    const mealId = `meal_${Date.now()}`;
-    const foods: FoodItem[] = [
-      {
-        id: 'off_1',
-        name: 'Whole Grain Meal / Bowl',
-        servingDescription: '1 medium bowl (~150g)',
-        estimatedWeightGrams: 150,
-        confidence: 0.88,
-        visibleIngredients: ['Grains', 'Fresh vegetables'],
-        inferredIngredients: ['Seasoning'],
-        cookingMethod: 'Freshly prepared',
-        nutrition: {
-          calories: 220,
-          protein: 7.5,
-          carbs: 38.0,
-          fat: 4.5,
-          fiber: 5.2,
-          sugar: 2.0,
-          sodium: 210,
-          potassium: 260,
-        },
-      },
-    ];
-
-    const recalculation = this.recalculateClientNutrition(foods);
-
-    return {
-      id: mealId,
-      userId: userId || 'usr_synthetic_alex',
-      mealName: 'Scanned Healthy Bowl (Offline)',
-      mealType: 'lunch',
-      timestamp: new Date().toISOString(),
-      imageUri,
-      recognitionConfidence: 0.88,
-      foods: recalculation.foods,
-      totalNutrition: recalculation.totalNutrition,
-      micronutrients: recalculation.micronutrients,
-      healthBenefits: [
-        {
-          title: 'Steady Macronutrient Release',
-          description: 'Balanced carbohydrates and fiber maintain sustained physical and mental energy.',
-          category: 'energy',
-        },
-      ],
-      considerations: [
-        {
-          title: 'Offline Estimate',
-          description: 'Device was offline during capture. Connect to Wi-Fi/Mobile Data for real-time multimodal Gemini plate recognition.',
-          type: 'info',
-        },
-      ],
-      coachInsight: `Recorded offline ${userName.split(' ')[0]}. You can tap "Edit Portions" to customize grams and ingredients anytime.`,
-      uncertainties: ['Estimated in offline mode'],
-      status: 'draft',
     };
   }
 }

@@ -10,7 +10,7 @@ export interface AudioChunkPayload {
 }
 
 export function getBackendBaseUrl(): string {
-  // If running in browser on localhost or local IP, always prioritize local dev server
+  // If running in browser on localhost or local IP, prioritize local dev server
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const host = window.location.hostname || 'localhost';
     if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.')) {
@@ -18,35 +18,12 @@ export function getBackendBaseUrl(): string {
     }
   }
 
-  // In development mode on physical devices (Expo Go), resolve laptop LAN IP
-  if (__DEV__) {
-    const hostCandidates = [
-      Constants.expoConfig?.hostUri,
-      (Constants as any).manifest?.debuggerHost,
-      (Constants as any).manifest2?.extra?.expoGo?.debuggerHost,
-      (Constants as any).manifest2?.extra?.expoClient?.hostUri,
-      Constants.linkingUri,
-      Constants.experienceUrl,
-    ];
-
-    for (const cand of hostCandidates) {
-      if (typeof cand === 'string' && cand) {
-        const clean = cand.replace(/^https?:\/\//, '').replace(/^exp:\/\//, '');
-        const hostPart = clean.split('/')[0].split(':')[0];
-        if (hostPart && hostPart !== 'localhost' && hostPart !== '127.0.0.1') {
-          return `http://${hostPart}:3001`;
-        }
-      }
-    }
-
-    return 'http://192.168.43.249:3001';
-  }
-
   const envUrl = process.env.EXPO_PUBLIC_BACKEND_URL?.trim();
   if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
     return envUrl.replace(/\/$/, '');
   }
 
+  // Standalone APK and mobile devices connect directly to live Render deployment
   return 'https://healthfreak-1.onrender.com';
 }
 

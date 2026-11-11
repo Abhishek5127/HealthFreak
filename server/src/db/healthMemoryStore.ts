@@ -120,8 +120,6 @@ export class HealthMemoryStore {
 
   private constructor() {
     this.seedReferenceCatalogs();
-    this.seedSyntheticAlex();
-    this.seedSyntheticPriya();
   }
 
   public static getInstance(): HealthMemoryStore {

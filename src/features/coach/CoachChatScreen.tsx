@@ -115,11 +115,38 @@ export const CoachChatScreen: React.FC = () => {
         style={styles.messagesScrollView}
         contentContainerStyle={[
           styles.messagesContent,
+          chatMessages.length === 0 && styles.messagesContentEmpty,
           { paddingBottom: Spacing.layout.tabBarHeight + 70 },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {chatMessages.map((msg) => {
+        {chatMessages.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyAvatar}>
+              <HealthFreakLogo size={52} animated={false} />
+            </View>
+            <Text style={styles.emptyTitle}>Chat with Coach Alex</Text>
+            <Text style={styles.emptySubtitle}>
+              Ask anything about your nutrition, workouts, macro targets, and recovery tips.
+            </Text>
+            <View style={styles.startersWrapper}>
+              {[
+                'How should I plan my nutrition today?',
+                'Suggest a 20-minute movement routine',
+                'What are healthy snacks for afternoon energy?',
+              ].map((starter, idx) => (
+                <Pressable
+                  key={idx}
+                  style={styles.starterChip}
+                  onPress={() => sendChatMessage(starter)}
+                >
+                  <Text style={styles.starterChipText}>{starter}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : (
+          chatMessages.map((msg) => {
           const isUser = msg.sender === 'user';
 
           return (
@@ -177,7 +204,7 @@ export const CoachChatScreen: React.FC = () => {
               </View>
             </View>
           );
-        })}
+        }))}
 
         {/* Animated Typing Indicator */}
         {isCoachTyping && (
@@ -343,6 +370,63 @@ const styles = StyleSheet.create({
   messagesContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
+  },
+  messagesContentEmpty: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 32,
+    width: '100%',
+  },
+  emptyAvatar: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#162319',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(74, 184, 122, 0.35)',
+  },
+  emptyTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontFamily: Typography.fontFamilies.sansBold,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    color: '#8CA091',
+    fontSize: 13,
+    fontFamily: Typography.fontFamilies.sansRegular,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 24,
+    maxWidth: 290,
+  },
+  startersWrapper: {
+    width: '100%',
+    gap: 10,
+  },
+  starterChip: {
+    backgroundColor: '#152218',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#243527',
+  },
+  starterChipText: {
+    color: '#DCE8DE',
+    fontSize: 13,
+    fontFamily: Typography.fontFamilies.sansMedium,
+    textAlign: 'center',
   },
   messageRow: {
     flexDirection: 'row',

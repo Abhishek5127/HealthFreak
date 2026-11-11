@@ -1,40 +1,6 @@
 import { ChatMessage } from '../types';
 
-export const initialCoachMessages: ChatMessage[] = [
-  {
-    id: 'msg_1',
-    sender: 'coach',
-    text: "Hello Alex! I'm Coach Alex, your HealthFreak AI wellness coach. I'm here to listen, answer your health questions, and guide your daily nutrition & movement. What would you like to focus on today?",
-    timestamp: '9:30 AM',
-    suggestions: [
-      'Help me plan my day',
-      'Explain my recent lab report',
-      'Suggest a balanced dinner',
-      'How to lower insulin spikes?',
-    ],
-  },
-  {
-    id: 'msg_2',
-    sender: 'user',
-    text: 'What should I eat before my 5 PM strength yoga session?',
-    timestamp: '9:32 AM',
-  },
-  {
-    id: 'msg_3',
-    sender: 'coach',
-    text: "For a high-intensity strength yoga session at 5 PM, aim for easily digestible complex carbs with a touch of healthy fat around 3:45–4:00 PM.\n\nGreat options:\n• 1-2 Medjool dates with 4 soaked almonds\n• Small bowl of roasted makhana (foxnuts) seasoned with pink salt\n• Half an apple with 1 spoon of almond butter\n\nAvoid heavy oily snacks right before, so your prana and core remain light!",
-    timestamp: '9:33 AM',
-    suggestions: [
-      'Remind me at 3:45 PM',
-      'View today’s full plan',
-      'Tell me about post-workout hydration',
-    ],
-    actionLink: {
-      type: 'open_plan',
-      label: 'View Your Today Plan',
-    },
-  },
-];
+export const initialCoachMessages: ChatMessage[] = [];
 
 export const coachResponses: Record<string, { text: string; suggestions: string[]; actionLink?: { type: 'open_plan' | 'open_checkin' | 'open_labs'; label: string } }> = {
   'help me plan my day': {

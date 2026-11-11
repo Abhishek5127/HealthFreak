@@ -28,7 +28,7 @@ export const LabReportsScreen: React.FC = () => {
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [processingStep, setProcessingStep] = useState<string>('');
-  const [selectedFile, setSelectedFile] = useState<string | null>('Metabolic_Panel_Oct2026.pdf');
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [expandedBiomarker, setExpandedBiomarker] = useState<string | null>('bio_4');
 
   const report = mockRecentLabReport;
@@ -141,74 +141,78 @@ export const LabReportsScreen: React.FC = () => {
         )}
 
         {/* AI Health Coach Synthesis Summary */}
-        <View style={styles.coachSummaryCard}>
-          <View style={styles.coachSummaryHeader}>
-            <Sparkles size={18} color={Colors.softYellow} />
-            <Text style={styles.coachSummaryTag}>HealthFreak AI Analysis</Text>
-          </View>
-          <Text style={styles.coachSummaryTitle}>
-            {report.title}
-          </Text>
-          <Text style={styles.coachSummaryBody}>
-            {report.coachRecommendation}
-          </Text>
-        </View>
-
-        {/* Biomarkers Section */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Tracked Biomarkers ({report.biomarkers.length})</Text>
-          <Text style={styles.sectionDate}>{report.date}</Text>
-        </View>
-
-        {report.biomarkers.map((bio) => {
-          const badge = getStatusBadge(bio.status);
-          const isExpanded = expandedBiomarker === bio.id;
-
-          return (
-            <Pressable
-              key={bio.id}
-              style={[
-                styles.biomarkerCard,
-                isExpanded && styles.biomarkerCardExpanded,
-              ]}
-              onPress={() => setExpandedBiomarker(isExpanded ? null : bio.id)}
-            >
-              <View style={styles.biomarkerTopRow}>
-                <View style={styles.biomarkerNameCol}>
-                  <Text style={styles.biomarkerName}>{bio.name}</Text>
-                  <Text style={styles.biomarkerCategory}>{bio.category}</Text>
-                </View>
-
-                <View style={styles.biomarkerValueCol}>
-                  <Text style={styles.biomarkerValue}>
-                    {bio.value} <Text style={styles.biomarkerUnit}>{bio.unit}</Text>
-                  </Text>
-                  <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
-                    <Text style={[styles.statusBadgeText, { color: badge.color }]}>
-                      {badge.label}
-                    </Text>
-                  </View>
-                </View>
+        {selectedFile && !isProcessing && (
+          <>
+            <View style={styles.coachSummaryCard}>
+              <View style={styles.coachSummaryHeader}>
+                <Sparkles size={18} color={Colors.softYellow} />
+                <Text style={styles.coachSummaryTag}>HealthFreak AI Analysis</Text>
               </View>
+              <Text style={styles.coachSummaryTitle}>
+                {report.title}
+              </Text>
+              <Text style={styles.coachSummaryBody}>
+                {report.coachRecommendation}
+              </Text>
+            </View>
 
-              {/* Reference Range Bar */}
-              <View style={styles.rangeRow}>
-                <Text style={styles.rangeLabel}>Normal reference: {bio.referenceRange}</Text>
-              </View>
+            {/* Biomarkers Section */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Tracked Biomarkers ({report.biomarkers.length})</Text>
+              <Text style={styles.sectionDate}>{report.date}</Text>
+            </View>
 
-              {/* Expanded AI Insight */}
-              {isExpanded && (
-                <View style={styles.insightBox}>
-                  <View style={styles.insightHeader}>
-                    <Info size={14} color={Colors.lightSage} />
-                    <Text style={styles.insightHeaderTitle}>Clinical Significance</Text>
+            {report.biomarkers.map((bio) => {
+              const badge = getStatusBadge(bio.status);
+              const isExpanded = expandedBiomarker === bio.id;
+
+              return (
+                <Pressable
+                  key={bio.id}
+                  style={[
+                    styles.biomarkerCard,
+                    isExpanded && styles.biomarkerCardExpanded,
+                  ]}
+                  onPress={() => setExpandedBiomarker(isExpanded ? null : bio.id)}
+                >
+                  <View style={styles.biomarkerTopRow}>
+                    <View style={styles.biomarkerNameCol}>
+                      <Text style={styles.biomarkerName}>{bio.name}</Text>
+                      <Text style={styles.biomarkerCategory}>{bio.category}</Text>
+                    </View>
+
+                    <View style={styles.biomarkerValueCol}>
+                      <Text style={styles.biomarkerValue}>
+                        {bio.value} <Text style={styles.biomarkerUnit}>{bio.unit}</Text>
+                      </Text>
+                      <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
+                        <Text style={[styles.statusBadgeText, { color: badge.color }]}>
+                          {badge.label}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
-                  <Text style={styles.insightText}>{bio.insight}</Text>
-                </View>
-              )}
-            </Pressable>
-          );
-        })}
+
+                  {/* Reference Range Bar */}
+                  <View style={styles.rangeRow}>
+                    <Text style={styles.rangeLabel}>Normal reference: {bio.referenceRange}</Text>
+                  </View>
+
+                  {/* Expanded AI Insight */}
+                  {isExpanded && (
+                    <View style={styles.insightBox}>
+                      <View style={styles.insightHeader}>
+                        <Info size={14} color={Colors.lightSage} />
+                        <Text style={styles.insightHeaderTitle}>Clinical Significance</Text>
+                      </View>
+                      <Text style={styles.insightText}>{bio.insight}</Text>
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </>
+        )}
       </ScrollView>
     </View>
   );

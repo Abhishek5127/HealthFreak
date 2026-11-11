@@ -33,7 +33,6 @@ import { ScreenContainer } from '../../components/common/ScreenContainer';
 import { SectionHeader } from '../../components/common/SectionHeader';
 import { ProgressMetricCard } from '../../components/cards/ProgressMetricCard';
 import { CheckInCharacterView } from '../../components/illustrations/CheckInCharacters';
-import { SAMPLE_MEAL_TEMPLATES } from '../../mock-data/sampleMealTemplates';
 import { StepCounterCard } from '../activity/components/StepCounterCard';
 import { usePedometer } from '../activity/hooks/usePedometer';
 import { WaterBottleWidget } from './components/WaterBottleWidget';
@@ -511,22 +510,20 @@ export const DashboardScreen: React.FC = () => {
             <Pressable
               style={styles.massFoodChip}
               onPress={() => {
-                const s = SAMPLE_MEAL_TEMPLATES.find((t) => t.id === 'sample_meal_poha') || SAMPLE_MEAL_TEMPLATES[0];
-                openMealResult(s);
+                openMealScanner();
               }}
             >
-              <Text style={styles.massFoodChipTitle}>Sprouted Moong Chaat 👆</Text>
-              <Text style={styles.massFoodChipSub}>190 kcal • 16g Protein • Quick Log</Text>
+              <Text style={styles.massFoodChipTitle}>Scan Healthy Snack</Text>
+              <Text style={styles.massFoodChipSub}>Tap to open camera and log</Text>
             </Pressable>
             <Pressable
               style={styles.massFoodChip}
               onPress={() => {
-                const s = SAMPLE_MEAL_TEMPLATES.find((t) => t.id === 'sample_meal_chicken_rice') || SAMPLE_MEAL_TEMPLATES[0];
-                openMealResult(s);
+                openMealScanner();
               }}
             >
-              <Text style={styles.massFoodChipTitle}>Tawa Chicken & Rice 👆</Text>
-              <Text style={styles.massFoodChipSub}>510 kcal • 50g Protein • Quick Log</Text>
+              <Text style={styles.massFoodChipTitle}>Scan Balanced Meal</Text>
+              <Text style={styles.massFoodChipSub}>Tap to open camera and log</Text>
             </Pressable>
           </View>
         </View>

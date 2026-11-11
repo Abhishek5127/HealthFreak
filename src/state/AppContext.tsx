@@ -403,7 +403,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateUserProfile = (updates: Partial<UserProfile>) => {
-    setUserProfileState((prev) => ({ ...prev, ...updates }));
+    setUserProfileState((prev) => {
+      const next = { ...prev, ...updates };
+      expoSecureStoreAdapter.setItem('HEALTHFREAK_USER_PROFILE', JSON.stringify(next)).catch(() => {});
+      return next;
+    });
     if (updateProfileState) {
       updateProfileState(updates);
     }
@@ -585,8 +589,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             } catch {}
           }
         }
+
+        // Restore saved profile from storage
+        try {
+          const savedProfileRaw = await expoSecureStoreAdapter.getItem('HEALTHFREAK_USER_PROFILE');
+          if (savedProfileRaw) {
+            const parsedProfile: UserProfile = JSON.parse(savedProfileRaw);
+            if (parsedProfile && (parsedProfile.name || parsedProfile.selectedGoal)) {
+              setUserProfileState((prev) => ({ ...prev, ...parsedProfile }));
+            }
+          }
+        } catch {}
+
+        // Restore saved chat messages from storage
+        try {
+          const savedChatsRaw = await expoSecureStoreAdapter.getItem('HEALTHFREAK_CHAT_MESSAGES');
+          if (savedChatsRaw) {
+            const parsedChats: ChatMessage[] = JSON.parse(savedChatsRaw);
+            if (Array.isArray(parsedChats) && parsedChats.length > 0) {
+              setChatMessages(parsedChats);
+            }
+          }
+        } catch {}
       } catch (err: any) {
-        console.warn('[AppContext] Could not restore saved survey:', err?.message);
+        console.warn('[AppContext] Could not restore saved survey or profile:', err?.message);
       }
     }
     loadSavedAssessment();
@@ -677,7 +703,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    setChatMessages((prev) => [...prev, userMsg]);
+    setChatMessages((prev) => {
+      const next = [...prev, userMsg];
+      expoSecureStoreAdapter.setItem('HEALTHFREAK_CHAT_MESSAGES', JSON.stringify(next)).catch(() => {});
+      return next;
+    });
     setIsCoachTyping(true);
 
     const coachMsgId = `msg_coach_${Date.now()}`;
@@ -700,10 +730,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         todaySummary = null;
       }
 
+      const activeName = userProfile.name?.trim() ? userProfile.name.split(' ')[0] : 'friend';
+      const effectiveUserId = userProfile.id || 'usr_guest';
+
       await streamHealthCoachAI({
         message: trimmed,
-        userId: userProfile.id || 'usr_synthetic_alex',
-        userName: userProfile.name ? userProfile.name.split(' ')[0] : 'Abhishek',
+        userId: effectiveUserId,
+        userName: activeName,
         activityContext: todaySummary
           ? {
               todaySteps: todaySummary.steps || todaySummary.todaySteps || 0,
@@ -720,28 +753,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           );
         },
         onComplete: (res) => {
-          setChatMessages((prev) =>
-            prev.map((m) =>
+          setChatMessages((prev) => {
+            const next = prev.map((m) =>
               m.id === coachMsgId
                 ? {
                     ...m,
                     text: res.fullText || accumulatedCoachText,
                     suggestions: res.suggestions || [
                       'Help me plan my day',
-                      'Explain my recent lab report',
+                      'Explain my nutrition target',
                       'Suggest a balanced dinner',
                     ],
                   }
                 : m
-            )
-          );
+            );
+            expoSecureStoreAdapter.setItem('HEALTHFREAK_CHAT_MESSAGES', JSON.stringify(next)).catch(() => {});
+            return next;
+          });
           setIsCoachTyping(false);
           triggerHaptic('selection');
         },
       });
     } catch (err) {
       console.error('[sendChatMessage error]', err);
-      const firstName = userProfile.name ? userProfile.name.split(' ')[0] : 'Abhishek';
+      const firstName = userProfile.name?.trim() ? userProfile.name.split(' ')[0] : 'friend';
       let fallbackText = accumulatedCoachText;
       let fallbackSuggestions = ['Help me plan my day', 'Check workout routine', 'Suggest a balanced dinner'];
 
@@ -757,8 +792,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } catch {}
       }
 
-      setChatMessages((prev) =>
-        prev.map((m) =>
+      setChatMessages((prev) => {
+        const next = prev.map((m) =>
           m.id === coachMsgId
             ? {
                 ...m,
@@ -768,23 +803,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 suggestions: fallbackSuggestions,
               }
             : m
-        )
-      );
+        );
+        expoSecureStoreAdapter.setItem('HEALTHFREAK_CHAT_MESSAGES', JSON.stringify(next)).catch(() => {});
+        return next;
+      });
       setIsCoachTyping(false);
       triggerHaptic('selection');
     }
   };
 
-  const resetAll = () => {
+  const resetAll = async () => {
     if (isVoiceActive) {
       voiceClient.endSession();
       setIsVoiceActiveState(false);
     }
     pedometerService.resetTodaySteps().catch(() => {});
+    try {
+      await expoSecureStoreAdapter.removeItem('HEALTHFREAK_SURVEY_ASSESSMENT');
+      await expoSecureStoreAdapter.removeItem('HEALTHFREAK_TODAYS_MEALS');
+      await expoSecureStoreAdapter.removeItem('HEALTHFREAK_WATER_LOGGED');
+      await expoSecureStoreAdapter.removeItem('HEALTHFREAK_WATER_LOGGED_DATE');
+      await expoSecureStoreAdapter.removeItem('HEALTHFREAK_CHAT_MESSAGES');
+      await expoSecureStoreAdapter.removeItem('HEALTHFREAK_USER_PROFILE');
+    } catch {}
     setUserProfileState(initialUserProfile);
+    setRecentMeals([]);
     setActivities(mockDailyActivities);
     setMetrics(computeProgressMetrics(0, mockDailyActivities));
-    setChatMessages(initialCoachMessages);
+    setChatMessages([]);
     setActiveTabState('home');
     setActiveModalState(null);
   };
@@ -822,14 +868,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSleepSession(sess);
 
     const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const userFirstName = userProfile.name?.trim() ? userProfile.name.split(' ')[0] : 'friend';
     const bedtimeMsg: ChatMessage = {
       id: `msg_sleep_${Date.now()}`,
       sender: 'coach',
-      text: `Shubh Ratri ${userProfile.name.split(' ')[0]}! 🌙 Bedtime logged at ${nowStr}. Keep your phone on silent and rest deeply. Kal subah milte hain!`,
+      text: `Shubh Ratri ${userFirstName}! 🌙 Bedtime logged at ${nowStr}. Keep your phone on silent and rest deeply. Kal subah milte hain!`,
       timestamp: nowStr,
       suggestions: ['Sleep meditation', 'Set wake-up goal'],
     };
-    setChatMessages((prev) => [...prev, bedtimeMsg]);
+    setChatMessages((prev) => {
+      const next = [...prev, bedtimeMsg];
+      expoSecureStoreAdapter.setItem('HEALTHFREAK_CHAT_MESSAGES', JSON.stringify(next)).catch(() => {});
+      return next;
+    });
   };
 
   const wakeUp = async () => {
@@ -838,14 +889,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSleepSession(sess);
 
     const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const userFirstName = userProfile.name?.trim() ? userProfile.name.split(' ')[0] : 'friend';
     const wakeupMsg: ChatMessage = {
       id: `msg_wake_${Date.now()}`,
       sender: 'coach',
-      text: `Suprabhat ${userProfile.name.split(' ')[0]}! ☀️ You completed ${summaryText}. Sleep recovery recorded! Hydrate with water to kickstart your metabolic energy today.`,
+      text: `Suprabhat ${userFirstName}! ☀️ You completed ${summaryText}. Sleep recovery recorded! Hydrate with water to kickstart your metabolic energy today.`,
       timestamp: nowStr,
       suggestions: ['Log 350ml water', 'View morning routine', 'Plan breakfast'],
     };
-    setChatMessages((prev) => [...prev, wakeupMsg]);
+    setChatMessages((prev) => {
+      const next = [...prev, wakeupMsg];
+      expoSecureStoreAdapter.setItem('HEALTHFREAK_CHAT_MESSAGES', JSON.stringify(next)).catch(() => {});
+      return next;
+    });
   };
 
   // Scheduled AI Calls Handlers
@@ -855,11 +911,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const startCall = async (customGreeting?: string) => {
     voiceClient.unlockAudio();
+    const effectiveUserId = userProfile.id || 'usr_guest';
     const callId = `call_direct_${Date.now()}`;
     const directCall: ScheduledAICall = {
       id: callId,
-      roomName: `room_${userProfile.id || 'usr_synthetic_alex'}_${Date.now()}`,
-      userId: userProfile.id || 'usr_synthetic_alex',
+      roomName: `room_${effectiveUserId}_${Date.now()}`,
+      userId: effectiveUserId,
       topic: 'Direct Coaching Call with Coach Alex',
       type: 'in_app',
       status: 'connected',
@@ -910,7 +967,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Initialize push notification listener & periodic incoming call check
   useEffect(() => {
-    const effectiveUserId = userProfile.id || 'usr_synthetic_alex';
+    const effectiveUserId = userProfile.id || 'usr_guest';
     NotificationService.init(effectiveUserId);
 
     const unsubscribe = NotificationService.listenForIncomingCalls(async ({ callId, roomName }) => {

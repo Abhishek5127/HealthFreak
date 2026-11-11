@@ -135,25 +135,6 @@ export class HealthMemoryEngine {
       }
     }
 
-    // In-memory fallback / enrichment if user is synthetic or DB empty
-    if (activeIssues.length === 0 && userId === 'usr_synthetic_alex') {
-      const memory = db.getUserMemory(userId) || {};
-      const kneeFact = memory['symptom_knee_discomfort'];
-      if (kneeFact || isWorkoutOrMovement) {
-        activeIssues.push({
-          id: 'issue_knee_alex',
-          title: 'Right patellar knee discomfort after running & jumping',
-          category: 'pain',
-          severity: 'mild-to-moderate',
-          firstReported: '3 days ago',
-          lastMentioned: 'yesterday',
-          mentionCount: 2,
-          notes: ['Swapped plyometrics for flat walking', 'Applied ice pack for 10-15 mins'],
-        });
-      }
-      commitments.push('Replaced high-impact running with flat brisk walking', 'Drinking 2.5L water daily');
-    }
-
     // Relevance filtering: Only include orthopedic pain when relevant to movement or if user mentions pain
     if (isDietOrMeal && !isWorkoutOrMovement && !lower.includes('pain') && !lower.includes('knee')) {
       // Do not clutter nutrition query with knee pain

@@ -7,7 +7,7 @@ class MealStore {
     meals = new Map();
     drafts = new Map();
     constructor() {
-        this.seedInitialMeals();
+        // Starts clean - user meals only
     }
     static getInstance() {
         if (!MealStore.instance) {

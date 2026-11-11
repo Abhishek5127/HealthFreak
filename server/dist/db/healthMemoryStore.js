@@ -61,8 +61,6 @@ class HealthMemoryStore {
     auditLogs = [];
     constructor() {
         this.seedReferenceCatalogs();
-        this.seedSyntheticAlex();
-        this.seedSyntheticPriya();
     }
     static getInstance() {
         if (!HealthMemoryStore.instance) {

@@ -1,15 +1,15 @@
 import { UserProfile, DailyActivityItem, ActivitySession, ProgressMetric } from '../types';
 
 export const initialUserProfile: UserProfile = {
-  name: 'Alex Sharma',
+  name: '',
   streakDays: 0,
   selectedGoal: 'metabolic_fitness',
   goalLabel: 'Metabolic Health & Energy',
   language: 'English',
-  onboardingCompleted: true,
+  onboardingCompleted: false,
   currentMood: 'energized',
-  lastCheckInTime: 'Today',
-  healthConditions: ['Insulin Sensitivity', 'Metabolic Vitality'],
+  lastCheckInTime: '',
+  healthConditions: [],
 };
 
 export const mockProgressMetrics: ProgressMetric[] = [

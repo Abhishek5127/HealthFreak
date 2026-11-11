@@ -575,7 +575,7 @@ export const LoginScreen: React.FC = () => {
           </View>
         </IOSControlCenterGlassButton>
 
-        {/* Guest / Demo Mode Quick Access Bypass */}
+        {/* Guest Quick Access */}
         <Pressable
           onPress={() => {
             try {
@@ -587,7 +587,7 @@ export const LoginScreen: React.FC = () => {
           style={styles.demoGuestButton}
         >
           <Text style={styles.demoGuestText}>
-            Explore as Guest / Demo Mode
+            Continue as Guest
           </Text>
         </Pressable>
       </View>
