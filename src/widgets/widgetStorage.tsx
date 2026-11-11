@@ -133,11 +133,12 @@ export async function syncWidgetStateToHomeScreen(
     if (Platform.OS === 'android') {
       requestWidgetUpdate({
         widgetName: 'WaterBottleWidget',
-        renderWidget: () => (
+        renderWidget: (widgetInfo) => (
           <WaterBottleWidget
             waterLoggedMl={waterLoggedMl}
             waterTargetMl={waterTargetMl}
-            lastAddedAmount={lastAddedAmount}
+            widgetWidth={widgetInfo?.width}
+            widgetHeight={widgetInfo?.height}
           />
         ),
         widgetNotFound: () => {

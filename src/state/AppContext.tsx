@@ -422,7 +422,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED_DATE', today).catch(() => {});
       syncWidgetStateToHomeScreen(next, waterTargetMl, amountMl).catch(() => {});
       // Persist to database (Express / Supabase)
-      ActivitySyncService.syncDailyWater(userProfileState.id || 'usr_synthetic_alex', next, waterTargetMl, today).catch(() => {});
+      ActivitySyncService.syncDailyWater(userProfileState.id || 'user_local', next, waterTargetMl, today).catch(() => {});
       return next;
     });
   };
@@ -433,7 +433,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setWaterTargetMl(ml);
     await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_TARGET_ML', ml.toString());
     syncWidgetStateToHomeScreen(waterLoggedMl, ml).catch(() => {});
-    ActivitySyncService.syncDailyWater(userProfileState.id || 'usr_synthetic_alex', waterLoggedMl, ml, today).catch(() => {});
+    ActivitySyncService.syncDailyWater(userProfileState.id || 'user_local', waterLoggedMl, ml, today).catch(() => {});
   };
 
   const resetWaterLogged = async () => {
@@ -443,7 +443,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED', '0');
     await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED_DATE', today);
     syncWidgetStateToHomeScreen(0, waterTargetMl).catch(() => {});
-    ActivitySyncService.syncDailyWater(userProfileState.id || 'usr_synthetic_alex', 0, waterTargetMl, today).catch(() => {});
+    ActivitySyncService.syncDailyWater(userProfileState.id || 'user_local', 0, waterTargetMl, today).catch(() => {});
   };
 
   const applySurveyAssessment = async (assessment: UserSurveyAssessment) => {
@@ -654,7 +654,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         // Daily health snapshot sync to server on app open
-        HealthSyncService.syncDailySnapshot(userProfile?.id || 'usr_synthetic_alex').catch(() => {});
+        HealthSyncService.syncDailySnapshot(userProfile?.id || 'user_local').catch(() => {});
       }
     };
 

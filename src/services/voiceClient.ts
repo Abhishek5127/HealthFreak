@@ -56,7 +56,7 @@ export class VoiceClientService {
   private provider: 'sarvam' | 'livekit' | 'gemini' | 'openai' = 'sarvam';
   private isSynthetic: boolean = true;
   private hasAudioPermission: boolean = false;
-  private currentUserId: string = 'usr_synthetic_alex';
+  private currentUserId: string = 'user_local';
   private currentUserName: string = 'Abhishek';
   private audioLevel: number = 0;
   private isHandsFree: boolean = true;
@@ -714,7 +714,7 @@ export class VoiceClientService {
         this.currentUserName || 'Abhishek',
         ['patellofemoral_knee_pain'],
         this.lastCoachReply,
-        this.currentUserId || 'usr_synthetic_alex'
+        this.currentUserId || 'user_local'
       );
       console.log(`[VoiceClient] Turn response received from backend in ${Date.now() - turnStartTime}ms`);
 
@@ -1134,7 +1134,7 @@ export class VoiceClientService {
    * Starts a live hands-free voice session.
    */
   public async startSession(
-    userId = 'usr_synthetic_alex',
+    userId = 'user_local',
     customGreeting?: string,
     userName = 'Abhishek'
   ): Promise<void> {

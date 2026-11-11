@@ -110,7 +110,7 @@ export async function askHealthCoachAI(
     caloriesBurned?: number;
     activeMinutes?: number;
   },
-  userId: string = 'usr_synthetic_alex'
+  userId: string = 'user_local'
 ): Promise<{ text: string; suggestions: string[]; audioBase64?: string; audioMime?: string; audioUrl?: string }> {
   const backendUrl = getBackendBaseUrl();
 
@@ -123,7 +123,7 @@ export async function askHealthCoachAI(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message,
-        userId: userId || 'usr_synthetic_alex',
+        userId: userId || 'user_local',
         userName,
         activityContext,
       }),
@@ -171,7 +171,7 @@ export async function streamHealthCoachAI(params: {
   signal?: AbortSignal;
 }): Promise<{ text: string; suggestions: string[] }> {
   const backendUrl = getBackendBaseUrl();
-  const { message, userId = 'usr_synthetic_alex', userName, activityContext, onTextDelta, onAudioChunk, onComplete, signal } = params;
+  const { message, userId = 'user_local', userName, activityContext, onTextDelta, onAudioChunk, onComplete, signal } = params;
 
   try {
     const res = await fetch(`${backendUrl}/api/voice/chat/stream`, {
@@ -365,7 +365,7 @@ export async function transcribeAndReplyAudio(
   userName = 'Alex',
   conditions: string[] = [],
   lastCoachReply = '',
-  userId = 'usr_synthetic_alex'
+  userId = 'user_local'
 ): Promise<{ userTranscript: string; coachReply: string; audioBase64?: string; audioMime?: string; audioUrl?: string; isEcho?: boolean }> {
   const backendUrl = getBackendBaseUrl();
 
@@ -380,7 +380,7 @@ export async function transcribeAndReplyAudio(
       body: JSON.stringify({
         audioBase64: base64Audio,
         mimeType,
-        userId: userId || 'usr_synthetic_alex',
+        userId: userId || 'user_local',
         userName,
         lastCoachReply,
       }),

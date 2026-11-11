@@ -20,7 +20,7 @@ export class NotificationService {
   /**
    * Registers Android notification channels and permissions.
    */
-  public static async init(userId = 'usr_synthetic_alex'): Promise<string | null> {
+  public static async init(userId = 'user_local'): Promise<string | null> {
     if (this.isInitialized) return null;
     this.isInitialized = true;
 

@@ -4,7 +4,7 @@ import { WaterBottleWidget } from './WaterBottleWidget';
 import { getWaterWidgetState, addWaterFromWidget } from './widgetStorage';
 
 export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
-  const { widgetAction, clickAction, renderWidget } = props;
+  const { widgetAction, clickAction, renderWidget, widgetInfo } = props;
 
   switch (widgetAction) {
     case 'WIDGET_ADDED':
@@ -15,6 +15,8 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
         <WaterBottleWidget
           waterLoggedMl={state.waterLoggedMl}
           waterTargetMl={state.waterTargetMl}
+          widgetWidth={widgetInfo?.width}
+          widgetHeight={widgetInfo?.height}
         />
       );
       break;
@@ -28,7 +30,8 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
           <WaterBottleWidget
             waterLoggedMl={nextState.waterLoggedMl}
             waterTargetMl={nextState.waterTargetMl}
-            lastAddedAmount={amount}
+            widgetWidth={widgetInfo?.width}
+            widgetHeight={widgetInfo?.height}
           />
         );
       }
