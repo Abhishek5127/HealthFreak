@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { HealthSnapshotService, DailySyncPayloadSchema } from '../services/healthSnapshotService.js';
 import { CoachContextService } from '../services/coachContextService.js';
 import { authenticateSupabaseToken, AuthenticatedRequest } from '../middleware/authMiddleware.js';
+import { verifyCoachSignature, AuthenticatedCoachRequest } from '../middleware/coachAuthMiddleware.js';
 
 export const healthRouter = Router();
 
@@ -44,10 +45,11 @@ healthRouter.get('/daily-snapshots', authenticateSupabaseToken as any, async (re
 /**
  * GET /api/health/context-pack
  * Generates the compact context pack for the voice coach (under ~1,000 tokens).
+ * Strictly requires verified server-to-server coach HMAC signature.
  */
-healthRouter.get('/context-pack', async (req: Request, res: Response): Promise<void> => {
+healthRouter.get('/context-pack', verifyCoachSignature as any, async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req.query.userId as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedCoachRequest).coachUserId!;
     const now = req.query.now ? new Date(req.query.now as string) : new Date();
     const contextPack = await CoachContextService.buildContextPack(userId, now);
     res.json({ success: true, contextPack });

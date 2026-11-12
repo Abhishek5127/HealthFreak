@@ -5,6 +5,7 @@ const express_1 = require("express");
 const healthSnapshotService_js_1 = require("../services/healthSnapshotService.js");
 const coachContextService_js_1 = require("../services/coachContextService.js");
 const authMiddleware_js_1 = require("../middleware/authMiddleware.js");
+const coachAuthMiddleware_js_1 = require("../middleware/coachAuthMiddleware.js");
 exports.healthRouter = (0, express_1.Router)();
 /**
  * POST /api/health/daily-sync
@@ -43,10 +44,11 @@ exports.healthRouter.get('/daily-snapshots', authMiddleware_js_1.authenticateSup
 /**
  * GET /api/health/context-pack
  * Generates the compact context pack for the voice coach (under ~1,000 tokens).
+ * Strictly requires verified server-to-server coach HMAC signature.
  */
-exports.healthRouter.get('/context-pack', async (req, res) => {
+exports.healthRouter.get('/context-pack', coachAuthMiddleware_js_1.verifyCoachSignature, async (req, res) => {
     try {
-        const userId = req.query.userId || 'usr_synthetic_alex';
+        const userId = req.coachUserId;
         const now = req.query.now ? new Date(req.query.now) : new Date();
         const contextPack = await coachContextService_js_1.CoachContextService.buildContextPack(userId, now);
         res.json({ success: true, contextPack });

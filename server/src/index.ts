@@ -27,7 +27,12 @@ process.on('unhandledRejection', (reason: any) => {
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: '25mb' }));
+app.use(express.json({
+  limit: '25mb',
+  verify: (req: any, _res, buf) => {
+    req.rawBody = buf;
+  },
+}));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // Serve static assets (images, graphics, media)

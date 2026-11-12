@@ -70,6 +70,7 @@ export interface ServerConfig {
     phoneCallsEnabled: boolean;
     agentName: string;
     explicitDispatchEnabled: boolean;
+    hmacSecret: string;
   };
   supabase: {
     url: string;
@@ -136,6 +137,7 @@ export const config: ServerConfig = {
     phoneCallsEnabled: process.env.COACH_PHONE_CALLS_ENABLED === 'true',
     agentName: process.env.LIVEKIT_AGENT_NAME || 'healthfreak-coach',
     explicitDispatchEnabled: process.env.COACH_EXPLICIT_DISPATCH_ENABLED !== 'false',
+    hmacSecret: process.env.COACH_HMAC_SECRET || 'healthfreak_coach_hmac_secret_default',
   },
   supabase: {
     url: process.env.SUPABASE_URL || '',

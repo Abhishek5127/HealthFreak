@@ -1,4 +1,6 @@
 import asyncio
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -231,12 +233,26 @@ class HealthFreakCoachAgent(Agent):
         logger.info(f"Logging workout: {exercise_name} for {duration_minutes} mins")
         return f"शाबाश! आपका {duration_minutes} मिनट का {exercise_name} session save हो गया है।"
 
-async def _fetch_context_pack(user_id: str) -> ContextPack:
+def sign_coach_request(method: str, path_with_query: str, call_id: str, body: bytes = b"") -> dict[str, str]:
+    secret = os.getenv("COACH_HMAC_SECRET", "healthfreak_coach_hmac_secret_default")
+    timestamp = str(int(time.time() * 1000))
+    body_sha256 = hashlib.sha256(body).hexdigest()
+    canonical = f"{timestamp}\n{method.upper()}\n{path_with_query}\n{body_sha256}\n{call_id}"
+    signature = hmac.new(secret.encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256).hexdigest()
+    return {
+        "X-Coach-Call-Id": call_id,
+        "X-Coach-Timestamp": timestamp,
+        "X-Coach-Signature": signature,
+    }
+
+async def _fetch_context_pack(call_id: str) -> ContextPack:
     port = os.getenv("PORT", "3001")
     backend_url = os.getenv("BACKEND_URL", f"http://127.0.0.1:{port}").rstrip("/")
+    path = "/api/health/context-pack"
+    headers = sign_coach_request("GET", path, call_id)
     try:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=2.5)) as http_session:
-            async with http_session.get(f"{backend_url}/api/health/context-pack?userId={user_id}") as resp:
+            async with http_session.get(f"{backend_url}{path}", headers=headers) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     if data.get("success") and data.get("contextPack"):
@@ -336,8 +352,8 @@ async def entrypoint(ctx: JobContext) -> None:
 
     # 3. Context Pack
     context_pack = None
-    if not is_anonymous and validated_user_id:
-        context_pack = await _fetch_context_pack(validated_user_id)
+    if not is_anonymous and call_id:
+        context_pack = await _fetch_context_pack(call_id)
 
     # 4. Typed Session Userdata
     coach_state = CoachState(

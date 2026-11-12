@@ -31,7 +31,12 @@ process.on('unhandledRejection', (reason) => {
 const app = (0, express_1.default)();
 exports.app = app;
 app.use((0, cors_1.default)());
-app.use(express_1.default.json({ limit: '25mb' }));
+app.use(express_1.default.json({
+    limit: '25mb',
+    verify: (req, _res, buf) => {
+        req.rawBody = buf;
+    },
+}));
 app.use(express_1.default.urlencoded({ extended: true, limit: '25mb' }));
 // Serve static assets (images, graphics, media)
 app.use('/assets', express_1.default.static(path_1.default.resolve(__dirname, '../../../assets')));
