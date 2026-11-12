@@ -176,6 +176,18 @@ def _setup_eval_logging(session: AgentSession, stt_language: str) -> None:
                 logger.warning(f"Failed to append to transcripts.jsonl: {err}")
             last_user_turn["start_time"] = 0.0
 
+def sign_coach_request(method: str, path_with_query: str, call_id: str, body: bytes = b"") -> dict[str, str]:
+    secret = os.getenv("COACH_HMAC_SECRET", "healthfreak_coach_hmac_secret_default")
+    timestamp = str(int(time.time() * 1000))
+    body_sha256 = hashlib.sha256(body).hexdigest()
+    canonical = f"{timestamp}\n{method.upper()}\n{path_with_query}\n{body_sha256}\n{call_id}"
+    signature = hmac.new(secret.encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256).hexdigest()
+    return {
+        "X-Coach-Call-Id": call_id,
+        "X-Coach-Timestamp": timestamp,
+        "X-Coach-Signature": signature,
+    }
+
 class HealthFreakCoachAgent(Agent):
     def __init__(self, instructions: str, coach_state: CoachState) -> None:
         super().__init__(
@@ -219,8 +231,37 @@ class HealthFreakCoachAgent(Agent):
         meal_type: Annotated[str, Field(description="breakfast, lunch, dinner, or snack")] = "snack",
     ) -> str:
         """Saves a meal after reading back and confirming with the user."""
-        logger.info(f"Logging meal: {food_name}, quantity: {quantity}, type: {meal_type}")
-        return f"बढ़िया! मैंने {quantity} {food_name} आपके {meal_type} में note कर लिया है।"
+        call_id = self.coach_state.call_id
+        if not call_id:
+            logger.error("Cannot log meal: call_id missing in coach_state")
+            return "Error: Call session ID missing, cannot save meal."
+
+        port = os.getenv("PORT", "3001")
+        backend_url = os.getenv("BACKEND_URL", f"http://127.0.0.1:{port}").rstrip("/")
+        path = "/api/coach/log-meal"
+        body_dict = {
+            "food_name": food_name,
+            "quantity": quantity,
+            "meal_type": meal_type,
+        }
+        body_bytes = json.dumps(body_dict).encode("utf-8")
+        headers = sign_coach_request("POST", path, call_id, body_bytes)
+        headers["Content-Type"] = "application/json"
+
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=4.0)) as http_session:
+                async with http_session.post(f"{backend_url}{path}", headers=headers, data=body_bytes) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        if data.get("success"):
+                            logger.info(f"Successfully logged meal: {food_name}")
+                            return f"बढ़िया! मैंने {quantity} {food_name} आपके {meal_type} में note कर लिया है।"
+                    error_text = await resp.text()
+                    logger.error(f"Failed to log meal (status {resp.status}): {error_text}")
+                    return f"माफ़ कीजिए, meal save करने में server error आया (code {resp.status})।"
+        except Exception as err:
+            logger.error(f"Exception logging meal: {err}")
+            return "माफ़ कीजिए, server से connect नहीं हो पाया meal save करने के लिए।"
 
     @function_tool
     async def log_workout(
@@ -230,20 +271,36 @@ class HealthFreakCoachAgent(Agent):
         duration_minutes: Annotated[int, Field(description="Duration in minutes")],
     ) -> str:
         """Saves a completed workout or activity session."""
-        logger.info(f"Logging workout: {exercise_name} for {duration_minutes} mins")
-        return f"शाबाश! आपका {duration_minutes} मिनट का {exercise_name} session save हो गया है।"
+        call_id = self.coach_state.call_id
+        if not call_id:
+            logger.error("Cannot log workout: call_id missing in coach_state")
+            return "Error: Call session ID missing, cannot save workout."
 
-def sign_coach_request(method: str, path_with_query: str, call_id: str, body: bytes = b"") -> dict[str, str]:
-    secret = os.getenv("COACH_HMAC_SECRET", "healthfreak_coach_hmac_secret_default")
-    timestamp = str(int(time.time() * 1000))
-    body_sha256 = hashlib.sha256(body).hexdigest()
-    canonical = f"{timestamp}\n{method.upper()}\n{path_with_query}\n{body_sha256}\n{call_id}"
-    signature = hmac.new(secret.encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256).hexdigest()
-    return {
-        "X-Coach-Call-Id": call_id,
-        "X-Coach-Timestamp": timestamp,
-        "X-Coach-Signature": signature,
-    }
+        port = os.getenv("PORT", "3001")
+        backend_url = os.getenv("BACKEND_URL", f"http://127.0.0.1:{port}").rstrip("/")
+        path = "/api/coach/log-workout"
+        body_dict = {
+            "exercise_name": exercise_name,
+            "duration_minutes": duration_minutes,
+        }
+        body_bytes = json.dumps(body_dict).encode("utf-8")
+        headers = sign_coach_request("POST", path, call_id, body_bytes)
+        headers["Content-Type"] = "application/json"
+
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=4.0)) as http_session:
+                async with http_session.post(f"{backend_url}{path}", headers=headers, data=body_bytes) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        if data.get("success"):
+                            logger.info(f"Successfully logged workout: {exercise_name}")
+                            return f"शाबाश! आपका {duration_minutes} मिनट का {exercise_name} session save हो गया है।"
+                    error_text = await resp.text()
+                    logger.error(f"Failed to log workout (status {resp.status}): {error_text}")
+                    return f"माफ़ कीजिए, workout save करने में server error आया (code {resp.status})।"
+        except Exception as err:
+            logger.error(f"Exception logging workout: {err}")
+            return "माफ़ कीजिए, server से connect नहीं हो पाया workout save करने के लिए।"
 
 async def _fetch_context_pack(call_id: str) -> ContextPack:
     port = os.getenv("PORT", "3001")

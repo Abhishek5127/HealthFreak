@@ -15,6 +15,7 @@ import { ScheduledCallQueue } from './queue/scheduledCallQueue.js';
 import { aiCallRouter } from './routes/aiCallRoutes.js';
 import { AICallScheduler } from './queue/aiCallScheduler.js';
 import { VoiceAgentProcess } from './services/voiceAgentProcess.js';
+import { coachRouter } from './routes/coachRoutes.js';
 
 process.on('uncaughtException', (err) => {
   console.error('[HealthFreak Server] Uncaught exception:', err.message);
@@ -244,6 +245,9 @@ app.use('/api/followups', followupRouter);
 // Supabase Google OAuth & Authentication Routes
 app.use('/api/auth', authRouter);
 app.use('/api/activity', activityRouter);
+
+// Server-to-Server Signed Coach Agent Routes (P2/P3/P4)
+app.use('/api/coach', coachRouter);
 
 // OAuth Callback Bridge for Supabase Redirects
 app.get('/auth/callback', (req, res) => {

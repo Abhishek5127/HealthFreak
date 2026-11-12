@@ -22,6 +22,7 @@ const scheduledCallQueue_js_1 = require("./queue/scheduledCallQueue.js");
 const aiCallRoutes_js_1 = require("./routes/aiCallRoutes.js");
 const aiCallScheduler_js_1 = require("./queue/aiCallScheduler.js");
 const voiceAgentProcess_js_1 = require("./services/voiceAgentProcess.js");
+const coachRoutes_js_1 = require("./routes/coachRoutes.js");
 process.on('uncaughtException', (err) => {
     console.error('[HealthFreak Server] Uncaught exception:', err.message);
 });
@@ -235,6 +236,8 @@ app.use('/api/followups', followupRoutes_js_1.followupRouter);
 // Supabase Google OAuth & Authentication Routes
 app.use('/api/auth', authRoutes_js_1.authRouter);
 app.use('/api/activity', activityRoutes_js_1.activityRouter);
+// Server-to-Server Signed Coach Agent Routes (P2/P3/P4)
+app.use('/api/coach', coachRoutes_js_1.coachRouter);
 // OAuth Callback Bridge for Supabase Redirects
 app.get('/auth/callback', (req, res) => {
     res.send(`
