@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import { fetchWithAuth } from './apiClient';
 
 export interface AudioChunkPayload {
   sequence: number;
@@ -374,13 +375,12 @@ export async function transcribeAndReplyAudio(
     // Allow up to 35 seconds for end-to-end Sarvam STT -> 105B LLM -> Bulbul TTS generation
     const timeoutId = setTimeout(() => controller.abort(), 35000);
 
-    const res = await fetch(`${backendUrl}/api/voice/audio-turn`, {
+    const res = await fetchWithAuth(`${backendUrl}/api/voice/audio-turn`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         audioBase64: base64Audio,
         mimeType,
-        userId: userId || 'user_local',
         userName,
         lastCoachReply,
       }),

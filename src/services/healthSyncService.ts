@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getBackendBaseUrl } from './aiChatService';
+import { fetchWithAuth } from './apiClient';
 
 export interface DailyHealthSyncData {
   local_date: string;
@@ -73,16 +74,12 @@ export class HealthSyncService {
         source: Platform.OS === 'web' ? 'web' : 'mobile_app',
       };
 
-      const res = await fetch(`${baseUrl}/health/daily-sync`, {
+      const res = await fetchWithAuth(`${baseUrl}/health/daily-sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': userId,
         },
-        body: JSON.stringify({
-          userId,
-          ...payload,
-        }),
+        body: JSON.stringify(payload),
       });
 
       return res.ok;

@@ -4,14 +4,17 @@ exports.followupRouter = void 0;
 const express_1 = require("express");
 const healthMemoryStore_js_1 = require("../db/healthMemoryStore.js");
 const quietHoursGuard_js_1 = require("../queue/quietHoursGuard.js");
+const authMiddleware_js_1 = require("../middleware/authMiddleware.js");
 exports.followupRouter = (0, express_1.Router)();
+exports.followupRouter.use(authMiddleware_js_1.authenticateSupabaseToken);
 /**
  * POST /api/followups/schedule
  * Schedules an AI coach follow-up call with quiet hours and consent verification
  */
 exports.followupRouter.post('/schedule', (req, res) => {
     try {
-        const { userId = 'usr_synthetic_alex', scheduledTimeIST, type = 'daily_meal_checkin', targetDateToReview, targetQuestions = [], } = req.body;
+        const userId = req.userId;
+        const { scheduledTimeIST, type = 'daily_meal_checkin', targetDateToReview, targetQuestions = [], } = req.body;
         const consents = healthMemoryStore_js_1.healthMemoryStore.userConsents.get(userId);
         if (consents && !consents.outboundCallingConsent) {
             res.status(403).json({
@@ -52,7 +55,7 @@ exports.followupRouter.post('/schedule', (req, res) => {
  */
 exports.followupRouter.get('/', (req, res) => {
     try {
-        const userId = req.query.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const list = healthMemoryStore_js_1.healthMemoryStore.scheduledFollowups.get(userId) || [];
         res.json({ success: true, followups: list });
     }

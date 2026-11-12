@@ -1,15 +1,18 @@
 import { Router, Request, Response } from 'express';
 import { healthMemoryStore } from '../db/healthMemoryStore.js';
 import { PlanGenerationService } from '../plans/planGenerationService.js';
+import { authenticateSupabaseToken, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
 export const planRouter = Router();
+
+planRouter.use(authenticateSupabaseToken as any);
 
 /**
  * GET /api/plans/active
  */
 planRouter.get('/active', (req: Request, res: Response): void => {
   try {
-    const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedRequest).userId!;
     const plans = healthMemoryStore.healthPlans.get(userId) || [];
     const active = plans.find((p) => p.status === 'active') || plans[0];
 
@@ -25,7 +28,7 @@ planRouter.get('/active', (req: Request, res: Response): void => {
  */
 planRouter.get('/history', (req: Request, res: Response): void => {
   try {
-    const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedRequest).userId!;
     const plans = healthMemoryStore.healthPlans.get(userId) || [];
     const reasons = healthMemoryStore.planPersonalizationReasons.get(userId) || [];
     const safetyReviews = healthMemoryStore.planSafetyReviews.get(userId) || [];
@@ -47,7 +50,8 @@ planRouter.get('/history', (req: Request, res: Response): void => {
  */
 planRouter.post('/generate-draft', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userId = 'usr_synthetic_alex', requestedLevel = 2, reason = 'User requested routine update' } = req.body;
+    const userId = (req as AuthenticatedRequest).userId!;
+    const { requestedLevel = 2, reason = 'User requested routine update' } = req.body;
     const result = await PlanGenerationService.generatePersonalizedPlanDraft({
       userId,
       requestedLevel,
@@ -67,7 +71,7 @@ planRouter.post('/generate-draft', async (req: Request, res: Response): Promise<
 planRouter.post('/:id/approve', (req: Request, res: Response): void => {
   try {
     const planId = req.params.id;
-    const userId = (req.body?.userId as string) || (req.headers['x-user-id'] as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedRequest).userId!;
 
     const activated = PlanGenerationService.approveAndActivatePlan(userId, planId);
     if (!activated) {

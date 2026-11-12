@@ -2,8 +2,11 @@ import { Router, Request, Response } from 'express';
 import { healthMemoryStore } from '../db/healthMemoryStore.js';
 import { ScheduledFollowupEntity } from '../types/healthMemory.js';
 import { QuietHoursGuard } from '../queue/quietHoursGuard.js';
+import { authenticateSupabaseToken, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
 export const followupRouter = Router();
+
+followupRouter.use(authenticateSupabaseToken as any);
 
 /**
  * POST /api/followups/schedule
@@ -11,8 +14,8 @@ export const followupRouter = Router();
  */
 followupRouter.post('/schedule', (req: Request, res: Response): void => {
   try {
+    const userId = (req as AuthenticatedRequest).userId!;
     const {
-      userId = 'usr_synthetic_alex',
       scheduledTimeIST,
       type = 'daily_meal_checkin',
       targetDateToReview,
@@ -63,7 +66,7 @@ followupRouter.post('/schedule', (req: Request, res: Response): void => {
  */
 followupRouter.get('/', (req: Request, res: Response): void => {
   try {
-    const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedRequest).userId!;
     const list = healthMemoryStore.scheduledFollowups.get(userId) || [];
     res.json({ success: true, followups: list });
   } catch (err: any) {

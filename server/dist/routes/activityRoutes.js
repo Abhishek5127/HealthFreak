@@ -4,7 +4,9 @@ exports.activityRouter = void 0;
 const express_1 = require("express");
 const healthMemoryStore_js_1 = require("../db/healthMemoryStore.js");
 const supabaseClient_js_1 = require("../db/supabaseClient.js");
+const authMiddleware_js_1 = require("../middleware/authMiddleware.js");
 exports.activityRouter = (0, express_1.Router)();
+exports.activityRouter.use(authMiddleware_js_1.authenticateSupabaseToken);
 const memoryStore = healthMemoryStore_js_1.HealthMemoryStore.getInstance();
 function getTodayDateString() {
     const now = new Date();
@@ -19,7 +21,7 @@ function getTodayDateString() {
  */
 exports.activityRouter.get('/today', async (req, res) => {
     try {
-        const userId = req.query.userId || 'usr_synthetic_alex';
+        const userId = req.userId;
         const date = req.query.date || getTodayDateString();
         // 1. Try Supabase
         if (supabaseClient_js_1.SupabaseDb.isConfigured()) {
@@ -81,11 +83,12 @@ exports.activityRouter.get('/today', async (req, res) => {
  */
 exports.activityRouter.post('/sync', async (req, res) => {
     try {
-        const { userId, records } = req.body;
-        if (!userId || !Array.isArray(records)) {
-            return res.status(400).json({ error: 'userId and records array are required' });
+        const userId = req.userId;
+        const { records } = req.body;
+        if (!Array.isArray(records)) {
+            return res.status(400).json({ error: 'records array is required' });
         }
-        const effectiveUserId = userId || 'usr_synthetic_alex';
+        const effectiveUserId = userId;
         let upsertedCount = 0;
         for (const rec of records) {
             if (!rec.activity_date)
@@ -159,7 +162,7 @@ exports.activityRouter.post('/sync', async (req, res) => {
  */
 exports.activityRouter.get('/history', async (req, res) => {
     try {
-        const userId = req.query.userId || 'usr_synthetic_alex';
+        const userId = req.userId;
         const daysCount = parseInt(req.query.days, 10) || 7;
         // 1. Try Supabase
         if (supabaseClient_js_1.SupabaseDb.isConfigured()) {
@@ -205,11 +208,12 @@ exports.activityRouter.get('/history', async (req, res) => {
  */
 exports.activityRouter.put('/goal', async (req, res) => {
     try {
-        const { userId, stepGoal } = req.body;
+        const userId = req.userId;
+        const { stepGoal } = req.body;
         if (!stepGoal || stepGoal <= 0) {
             return res.status(400).json({ error: 'Valid stepGoal is required' });
         }
-        const effectiveUserId = userId || 'usr_synthetic_alex';
+        const effectiveUserId = userId;
         const today = getTodayDateString();
         const key = `${effectiveUserId}_${today}`;
         const existingMem = memoryStore.dailyActivities.get(key);

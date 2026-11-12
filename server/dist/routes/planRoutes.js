@@ -4,13 +4,15 @@ exports.planRouter = void 0;
 const express_1 = require("express");
 const healthMemoryStore_js_1 = require("../db/healthMemoryStore.js");
 const planGenerationService_js_1 = require("../plans/planGenerationService.js");
+const authMiddleware_js_1 = require("../middleware/authMiddleware.js");
 exports.planRouter = (0, express_1.Router)();
+exports.planRouter.use(authMiddleware_js_1.authenticateSupabaseToken);
 /**
  * GET /api/plans/active
  */
 exports.planRouter.get('/active', (req, res) => {
     try {
-        const userId = req.query.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const plans = healthMemoryStore_js_1.healthMemoryStore.healthPlans.get(userId) || [];
         const active = plans.find((p) => p.status === 'active') || plans[0];
         res.json({ success: true, plan: active || null });
@@ -25,7 +27,7 @@ exports.planRouter.get('/active', (req, res) => {
  */
 exports.planRouter.get('/history', (req, res) => {
     try {
-        const userId = req.query.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const plans = healthMemoryStore_js_1.healthMemoryStore.healthPlans.get(userId) || [];
         const reasons = healthMemoryStore_js_1.healthMemoryStore.planPersonalizationReasons.get(userId) || [];
         const safetyReviews = healthMemoryStore_js_1.healthMemoryStore.planSafetyReviews.get(userId) || [];
@@ -46,7 +48,8 @@ exports.planRouter.get('/history', (req, res) => {
  */
 exports.planRouter.post('/generate-draft', async (req, res) => {
     try {
-        const { userId = 'usr_synthetic_alex', requestedLevel = 2, reason = 'User requested routine update' } = req.body;
+        const userId = req.userId;
+        const { requestedLevel = 2, reason = 'User requested routine update' } = req.body;
         const result = await planGenerationService_js_1.PlanGenerationService.generatePersonalizedPlanDraft({
             userId,
             requestedLevel,
@@ -65,7 +68,7 @@ exports.planRouter.post('/generate-draft', async (req, res) => {
 exports.planRouter.post('/:id/approve', (req, res) => {
     try {
         const planId = req.params.id;
-        const userId = req.body?.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const activated = planGenerationService_js_1.PlanGenerationService.approveAndActivatePlan(userId, planId);
         if (!activated) {
             res.status(404).json({ success: false, error: 'Plan not found or could not be activated.' });

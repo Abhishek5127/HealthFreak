@@ -11,7 +11,9 @@ const mealStore_js_1 = require("../db/mealStore.js");
 const healthMemoryStore_js_1 = require("../db/healthMemoryStore.js");
 const nutritionDatabase_js_1 = require("../services/nutritionDatabase.js");
 const mealFollowupService_js_1 = require("../nutrition/mealFollowupService.js");
+const authMiddleware_js_1 = require("../middleware/authMiddleware.js");
 exports.mealRouter = (0, express_1.Router)();
+exports.mealRouter.use(authMiddleware_js_1.authenticateSupabaseToken);
 // Multer in-memory storage config (max 10MB) - Transient memory only, NEVER stored to disk
 const upload = (0, multer_1.default)({
     storage: multer_1.default.memoryStorage(),
@@ -92,6 +94,7 @@ exports.mealRouter.post('/analyze', upload.single('image'), async (req, res) => 
  */
 exports.mealRouter.post('/', (req, res) => {
     try {
+        const userId = req.userId;
         const mealData = req.body;
         if (!mealData || !mealData.id || !mealData.foods) {
             res.status(400).json({
@@ -100,6 +103,8 @@ exports.mealRouter.post('/', (req, res) => {
             });
             return;
         }
+        // Bind strictly to verified authenticated user
+        mealData.userId = userId;
         // Strip any possible image properties
         delete mealData.imageUri;
         delete mealData.imageBase64;
@@ -189,7 +194,7 @@ exports.mealRouter.post('/', (req, res) => {
  */
 exports.mealRouter.get('/', (req, res) => {
     try {
-        const userId = req.query.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const date = req.query.date;
         const meals = mealStore.getMealsByUser(userId, date);
         res.json({
@@ -211,7 +216,7 @@ exports.mealRouter.get('/', (req, res) => {
  */
 exports.mealRouter.get('/daily-summary', (req, res) => {
     try {
-        const userId = req.query.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const date = req.query.date;
         const summary = mealStore.getDailySummary(userId, date);
         res.json({
@@ -265,7 +270,7 @@ exports.mealRouter.patch('/:mealId', (req, res) => {
 exports.mealRouter.delete('/:mealId', (req, res) => {
     try {
         const { mealId } = req.params;
-        const userId = req.query.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const deleted = mealStore.deleteMeal(mealId);
         healthMemoryStore_js_1.healthMemoryStore.deleteMeal(userId, mealId);
         const dailySummary = mealStore.getDailySummary(userId);
@@ -323,7 +328,8 @@ exports.mealRouter.post('/recalculate', (req, res) => {
  */
 exports.mealRouter.post('/followups', (req, res) => {
     try {
-        const { userId = 'usr_synthetic_alex', utterance, sessionId } = req.body;
+        const userId = req.userId;
+        const { utterance, sessionId } = req.body;
         if (!utterance) {
             res.status(400).json({ success: false, error: 'utterance is required' });
             return;
@@ -411,7 +417,7 @@ exports.mealRouter.post('/followups', (req, res) => {
  */
 exports.mealRouter.get('/followups/history', (req, res) => {
     try {
-        const userId = req.query.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const followups = healthMemoryStore_js_1.healthMemoryStore.mealFollowupEvents.get(userId) || [];
         const corrections = healthMemoryStore_js_1.healthMemoryStore.mealItemCorrectionEvents.get(userId) || [];
         res.json({

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { HealthSnapshotService, DailySyncPayloadSchema } from '../services/healthSnapshotService.js';
 import { CoachContextService } from '../services/coachContextService.js';
+import { authenticateSupabaseToken, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
 export const healthRouter = Router();
 
@@ -8,9 +9,9 @@ export const healthRouter = Router();
  * POST /api/health/daily-sync
  * Authenticated & idempotent daily snapshot sync from mobile/web app.
  */
-healthRouter.post('/daily-sync', async (req: Request, res: Response): Promise<void> => {
+healthRouter.post('/daily-sync', authenticateSupabaseToken as any, async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req.body.userId as string) || (req.headers['x-user-id'] as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedRequest).userId!;
     const parsed = DailySyncPayloadSchema.safeParse(req.body);
 
     if (!parsed.success) {
@@ -29,9 +30,9 @@ healthRouter.post('/daily-sync', async (req: Request, res: Response): Promise<vo
  * GET /api/health/daily-snapshots
  * Fetch recent snapshots for a user.
  */
-healthRouter.get('/daily-snapshots', async (req: Request, res: Response): Promise<void> => {
+healthRouter.get('/daily-snapshots', authenticateSupabaseToken as any, async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req.query.userId as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedRequest).userId!;
     const days = parseInt(req.query.days as string, 10) || 7;
     const snapshots = await HealthSnapshotService.getRecentSnapshots(userId, days);
     res.json({ success: true, snapshots });

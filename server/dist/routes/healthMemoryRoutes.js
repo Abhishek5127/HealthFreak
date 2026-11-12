@@ -5,13 +5,15 @@ const express_1 = require("express");
 const healthMemoryStore_js_1 = require("../db/healthMemoryStore.js");
 const healthHistoryService_js_1 = require("../health-memory/healthHistoryService.js");
 const memoryRetrievalService_js_1 = require("../health-memory/memoryRetrievalService.js");
+const authMiddleware_js_1 = require("../middleware/authMiddleware.js");
 exports.healthMemoryRouter = (0, express_1.Router)();
+exports.healthMemoryRouter.use(authMiddleware_js_1.authenticateSupabaseToken);
 /**
  * GET /api/health/profile
  */
 exports.healthMemoryRouter.get('/profile', (req, res) => {
     try {
-        const userId = req.query.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const profile = healthMemoryStore_js_1.healthMemoryStore.profiles.get(userId);
         const preferences = healthMemoryStore_js_1.healthMemoryStore.userPreferences.get(userId);
         const goals = healthMemoryStore_js_1.healthMemoryStore.userGoals.get(userId) || [];
@@ -40,7 +42,7 @@ exports.healthMemoryRouter.get('/profile', (req, res) => {
  */
 exports.healthMemoryRouter.get('/memory', (req, res) => {
     try {
-        const userId = req.query.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const activeFacts = healthMemoryStore_js_1.healthMemoryStore.getActiveProfileFacts(userId);
         const context = memoryRetrievalService_js_1.MemoryRetrievalService.getSessionContext(userId);
         res.json({
@@ -59,7 +61,7 @@ exports.healthMemoryRouter.get('/memory', (req, res) => {
  */
 exports.healthMemoryRouter.get('/history', (req, res) => {
     try {
-        const userId = req.query.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const allFactsHistory = healthMemoryStore_js_1.healthMemoryStore.getAllProfileFactsHistory(userId);
         const factEvents = healthMemoryStore_js_1.healthMemoryStore.profileFactEvents.get(userId) || [];
         const measurements = healthMemoryStore_js_1.healthMemoryStore.healthMeasurements.get(userId) || [];
@@ -81,7 +83,8 @@ exports.healthMemoryRouter.get('/history', (req, res) => {
  */
 exports.healthMemoryRouter.post('/memory/propose-update', (req, res) => {
     try {
-        const { userId = 'usr_synthetic_alex', category, key, value, verificationStatus } = req.body;
+        const userId = req.userId;
+        const { category, key, value, verificationStatus } = req.body;
         const fact = healthMemoryStore_js_1.healthMemoryStore.setProfileFact({
             userId,
             category: category || 'routine',
@@ -102,7 +105,7 @@ exports.healthMemoryRouter.post('/memory/propose-update', (req, res) => {
  */
 exports.healthMemoryRouter.get('/export', (req, res) => {
     try {
-        const userId = req.query.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const exportData = healthMemoryStore_js_1.healthMemoryStore.exportUserData(userId);
         res.json({ success: true, exportData });
     }
@@ -116,7 +119,7 @@ exports.healthMemoryRouter.get('/export', (req, res) => {
  */
 exports.healthMemoryRouter.delete('/delete', (req, res) => {
     try {
-        const userId = req.body?.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const deleted = healthMemoryStore_js_1.healthMemoryStore.deleteUserData(userId);
         res.json({ success: deleted, message: 'User data completely purged from system' });
     }

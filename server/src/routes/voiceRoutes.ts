@@ -12,6 +12,8 @@ import { buildCoachSystemPrompt } from '../agent/coachPrompt.js';
 import { VoiceAgentProcess } from '../services/voiceAgentProcess.js';
 import { SarvamService, SentenceTTSBuffer } from '../services/sarvamService.js';
 import { HealthMemoryEngine } from '../services/healthMemoryEngine.js';
+import { authenticateSupabaseToken, AuthenticatedRequest } from '../middleware/authMiddleware.js';
+import { SupabaseDb } from '../db/supabaseClient.js';
 
 let geminiClient: GoogleGenAI | null = null;
 function getGeminiClient(): GoogleGenAI {
@@ -48,12 +50,45 @@ voiceRouter.get('/audio/:id.wav', (req: Request, res: Response) => {
 });
 
 // 1. In-App Call Session Token
-voiceRouter.post('/session', async (req: Request, res: Response) => {
+voiceRouter.post('/session', authenticateSupabaseToken as any, async (req: Request, res: Response) => {
   try {
-    const { userId, providerOverride, purpose, scheduledCallId } = req.body;
-    if (!userId) {
-      res.status(400).json({ error: 'userId is required' });
-      return;
+    const userId = (req as AuthenticatedRequest).userId!;
+    const { providerOverride, purpose, scheduledCallId } = req.body;
+
+    if (scheduledCallId) {
+      let callUserId: string | null = null;
+      const pool = SupabaseDb.getPool();
+      if (pool) {
+        try {
+          const checkRes = await pool.query('SELECT user_id FROM scheduled_calls WHERE id = $1 LIMIT 1', [scheduledCallId]);
+          if (checkRes.rows[0]) {
+            callUserId = checkRes.rows[0].user_id;
+          }
+        } catch {}
+      }
+      if (!callUserId && SupabaseDb.isConfigured()) {
+        try {
+          const { data } = await SupabaseDb.getClient()
+            .from('scheduled_calls')
+            .select('user_id')
+            .eq('id', scheduledCallId)
+            .maybeSingle();
+          if (data?.user_id) {
+            callUserId = data.user_id;
+          }
+        } catch {}
+      }
+      if (!callUserId) {
+        const memSession = db.getCallSession(scheduledCallId);
+        if (memSession) {
+          callUserId = memSession.userId;
+        }
+      }
+
+      if (!callUserId || callUserId !== userId) {
+        res.status(403).json({ error: 'Forbidden: scheduled call does not belong to user' });
+        return;
+      }
     }
 
     const result = await LiveKitTokenService.createCallSessionAndToken({
@@ -787,13 +822,13 @@ export function isSelfEcho(userText: string, coachText: string): boolean {
 }
 
 // 14. Audio Turn (Full Speech-to-Speech: Sarvam Saaras v3 STT -> Sarvam 105B LLM -> Bulbul v3 Shubh TTS)
-voiceRouter.post('/audio-turn', async (req: Request, res: Response) => {
+voiceRouter.post('/audio-turn', authenticateSupabaseToken as any, async (req: Request, res: Response) => {
   const turnStart = Date.now();
   try {
+    const userId = (req as AuthenticatedRequest).userId!;
     const {
       audioBase64,
       mimeType = 'audio/m4a',
-      userId = 'usr_synthetic_alex',
       lastCoachReply = '',
       userName: incomingUserName,
     } = req.body;

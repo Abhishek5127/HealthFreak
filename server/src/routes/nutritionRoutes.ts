@@ -1,8 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { healthMemoryStore } from '../db/healthMemoryStore.js';
 import { ThirtyDayAnalysisService } from '../nutrition/thirtyDayAnalysisService.js';
+import { authenticateSupabaseToken, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
 export const nutritionRouter = Router();
+
+nutritionRouter.use(authenticateSupabaseToken as any);
 
 /**
  * GET /api/nutrition/daily
@@ -10,7 +13,7 @@ export const nutritionRouter = Router();
  */
 nutritionRouter.get('/daily', (req: Request, res: Response): void => {
   try {
-    const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedRequest).userId!;
     const dateStr = (req.query.date as string) || new Date().toISOString().split('T')[0];
 
     const summary = healthMemoryStore.getDailySummary(userId, dateStr);
@@ -26,7 +29,7 @@ nutritionRouter.get('/daily', (req: Request, res: Response): void => {
  */
 nutritionRouter.get('/last-30-days', (req: Request, res: Response): void => {
   try {
-    const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedRequest).userId!;
     const timezone = (req.query.timezone as string) || 'Asia/Kolkata';
 
     const report = ThirtyDayAnalysisService.getThirtyDayNutritionHistory(userId, timezone);
@@ -42,7 +45,7 @@ nutritionRouter.get('/last-30-days', (req: Request, res: Response): void => {
  */
 nutritionRouter.get('/trends', (req: Request, res: Response): void => {
   try {
-    const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedRequest).userId!;
     const report = ThirtyDayAnalysisService.getThirtyDayNutritionHistory(userId);
 
     res.json({

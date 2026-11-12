@@ -7,21 +7,10 @@ import {
   FoodItem,
   MealType,
 } from '../types/meal';
-import { getSupabaseAccessToken } from './supabaseClient';
-
-export const getAuthHeaders = async (): Promise<Record<string, string>> => {
-  const token = await getSupabaseAccessToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
-};
-
+import { getAuthHeaders, fetchWithAuth } from './apiClient';
 import { getBackendBaseUrl } from './aiChatService';
+
+export { getAuthHeaders };
 export { getBackendBaseUrl };
 
 const DIRECT_GEMINI_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
@@ -121,7 +110,7 @@ export class MealScannerService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
 
-      const response = await fetch(`${backendBase}/api/meals/analyze`, {
+      const response = await fetchWithAuth(`${backendBase}/api/meals/analyze`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -132,7 +121,6 @@ export class MealScannerService {
           mimeType: 'image/jpeg',
           userName,
           healthGoals,
-          userId: userId || 'user_local',
         }),
         signal: controller.signal,
       });
@@ -285,10 +273,11 @@ export class MealScannerService {
   public static async saveMeal(meal: MealAnalysisResult): Promise<{ meal: MealAnalysisResult; dailySummary?: DailyNutritionSummary }> {
     const backendBase = getBackendBaseUrl();
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(`${backendBase}/api/meals`, {
+      const response = await fetchWithAuth(`${backendBase}/api/meals`, {
         method: 'POST',
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(meal),
       });
 
@@ -306,13 +295,10 @@ export class MealScannerService {
   /**
    * Fetch daily summary
    */
-  public static async fetchDailySummary(userId: string = 'user_local'): Promise<DailyNutritionSummary | null> {
+  public static async fetchDailySummary(_userId: string = 'user_local'): Promise<DailyNutritionSummary | null> {
     const backendBase = getBackendBaseUrl();
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(`${backendBase}/api/meals/daily-summary?userId=${userId}`, {
-        headers,
-      });
+      const response = await fetchWithAuth(`${backendBase}/api/meals/daily-summary`);
       if (response.ok) {
         const data = await response.json();
         return data.summary;
@@ -326,13 +312,11 @@ export class MealScannerService {
   /**
    * Delete meal
    */
-  public static async deleteMeal(mealId: string, userId: string = 'user_local'): Promise<boolean> {
+  public static async deleteMeal(mealId: string, _userId: string = 'user_local'): Promise<boolean> {
     const backendBase = getBackendBaseUrl();
     try {
-      const headers = await getAuthHeaders();
-      const response = await fetch(`${backendBase}/api/meals/${mealId}?userId=${userId}`, {
+      const response = await fetchWithAuth(`${backendBase}/api/meals/${mealId}`, {
         method: 'DELETE',
-        headers,
       });
       return response.ok;
     } catch {
@@ -343,10 +327,10 @@ export class MealScannerService {
   /**
    * Fetch 30-day rolling food history, averages, and data coverage
    */
-  public static async fetchThirtyDayHistory(userId: string = 'user_local'): Promise<any> {
+  public static async fetchThirtyDayHistory(_userId: string = 'user_local'): Promise<any> {
     const backendBase = getBackendBaseUrl();
     try {
-      const response = await fetch(`${backendBase}/api/nutrition/last-30-days?userId=${userId}`, {
+      const response = await fetchWithAuth(`${backendBase}/api/nutrition/last-30-days`, {
         headers: { Accept: 'application/json' },
       });
       if (response.ok) {
@@ -362,10 +346,10 @@ export class MealScannerService {
   /**
    * Fetch 7-day and 30-day trends
    */
-  public static async fetchNutritionTrends(userId: string = 'user_local'): Promise<any> {
+  public static async fetchNutritionTrends(_userId: string = 'user_local'): Promise<any> {
     const backendBase = getBackendBaseUrl();
     try {
-      const response = await fetch(`${backendBase}/api/nutrition/trends?userId=${userId}`, {
+      const response = await fetchWithAuth(`${backendBase}/api/nutrition/trends`, {
         headers: { Accept: 'application/json' },
       });
       if (response.ok) {
@@ -381,13 +365,13 @@ export class MealScannerService {
   /**
    * Submit conversational follow-up utterance to resolve or correct past meals
    */
-  public static async submitFollowupUtterance(utterance: string, userId: string = 'user_local'): Promise<any> {
+  public static async submitFollowupUtterance(utterance: string, _userId: string = 'user_local'): Promise<any> {
     const backendBase = getBackendBaseUrl();
     try {
-      const response = await fetch(`${backendBase}/api/meals/followups`, {
+      const response = await fetchWithAuth(`${backendBase}/api/meals/followups`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ userId, utterance }),
+        body: JSON.stringify({ utterance }),
       });
       if (response.ok) {
         return await response.json();
@@ -401,10 +385,10 @@ export class MealScannerService {
   /**
    * Fetch active adaptive plan with justification reasons
    */
-  public static async fetchActivePlan(userId: string = 'user_local'): Promise<any> {
+  public static async fetchActivePlan(_userId: string = 'user_local'): Promise<any> {
     const backendBase = getBackendBaseUrl();
     try {
-      const response = await fetch(`${backendBase}/api/plans/active?userId=${userId}`, {
+      const response = await fetchWithAuth(`${backendBase}/api/plans/active`, {
         headers: { Accept: 'application/json' },
       });
       if (response.ok) {
@@ -420,13 +404,13 @@ export class MealScannerService {
   /**
    * Request adaptive plan draft generation
    */
-  public static async requestAdaptivePlan(reason: string, userId: string = 'user_local'): Promise<any> {
+  public static async requestAdaptivePlan(reason: string, _userId: string = 'user_local'): Promise<any> {
     const backendBase = getBackendBaseUrl();
     try {
-      const response = await fetch(`${backendBase}/api/plans/generate-draft`, {
+      const response = await fetchWithAuth(`${backendBase}/api/plans/generate-draft`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ userId, reason, requestedLevel: 2 }),
+        body: JSON.stringify({ reason, requestedLevel: 2 }),
       });
       if (response.ok) {
         return await response.json();
@@ -440,13 +424,13 @@ export class MealScannerService {
   /**
    * Approve and activate a reviewed plan version
    */
-  public static async approvePlan(planId: string, userId: string = 'user_local'): Promise<any> {
+  public static async approvePlan(planId: string, _userId: string = 'user_local'): Promise<any> {
     const backendBase = getBackendBaseUrl();
     try {
-      const response = await fetch(`${backendBase}/api/plans/${planId}/approve`, {
+      const response = await fetchWithAuth(`${backendBase}/api/plans/${planId}/approve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({}),
       });
       if (response.ok) {
         return await response.json();

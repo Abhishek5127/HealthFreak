@@ -2,15 +2,18 @@ import { Router, Request, Response } from 'express';
 import { healthMemoryStore } from '../db/healthMemoryStore.js';
 import { HealthHistoryService } from '../health-memory/healthHistoryService.js';
 import { MemoryRetrievalService } from '../health-memory/memoryRetrievalService.js';
+import { authenticateSupabaseToken, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
 export const healthMemoryRouter = Router();
+
+healthMemoryRouter.use(authenticateSupabaseToken as any);
 
 /**
  * GET /api/health/profile
  */
 healthMemoryRouter.get('/profile', (req: Request, res: Response): void => {
   try {
-    const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedRequest).userId!;
     const profile = healthMemoryStore.profiles.get(userId);
     const preferences = healthMemoryStore.userPreferences.get(userId);
     const goals = healthMemoryStore.userGoals.get(userId) || [];
@@ -41,7 +44,7 @@ healthMemoryRouter.get('/profile', (req: Request, res: Response): void => {
  */
 healthMemoryRouter.get('/memory', (req: Request, res: Response): void => {
   try {
-    const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedRequest).userId!;
     const activeFacts = healthMemoryStore.getActiveProfileFacts(userId);
     const context = MemoryRetrievalService.getSessionContext(userId);
 
@@ -61,7 +64,7 @@ healthMemoryRouter.get('/memory', (req: Request, res: Response): void => {
  */
 healthMemoryRouter.get('/history', (req: Request, res: Response): void => {
   try {
-    const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedRequest).userId!;
     const allFactsHistory = healthMemoryStore.getAllProfileFactsHistory(userId);
     const factEvents = healthMemoryStore.profileFactEvents.get(userId) || [];
     const measurements = healthMemoryStore.healthMeasurements.get(userId) || [];
@@ -84,7 +87,8 @@ healthMemoryRouter.get('/history', (req: Request, res: Response): void => {
  */
 healthMemoryRouter.post('/memory/propose-update', (req: Request, res: Response): void => {
   try {
-    const { userId = 'usr_synthetic_alex', category, key, value, verificationStatus } = req.body;
+    const userId = (req as AuthenticatedRequest).userId!;
+    const { category, key, value, verificationStatus } = req.body;
     const fact = healthMemoryStore.setProfileFact({
       userId,
       category: category || 'routine',
@@ -106,7 +110,7 @@ healthMemoryRouter.post('/memory/propose-update', (req: Request, res: Response):
  */
 healthMemoryRouter.get('/export', (req: Request, res: Response): void => {
   try {
-    const userId = (req.query.userId as string) || (req.headers['x-user-id'] as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedRequest).userId!;
     const exportData = healthMemoryStore.exportUserData(userId);
     res.json({ success: true, exportData });
   } catch (err: any) {
@@ -120,7 +124,7 @@ healthMemoryRouter.get('/export', (req: Request, res: Response): void => {
  */
 healthMemoryRouter.delete('/delete', (req: Request, res: Response): void => {
   try {
-    const userId = (req.body?.userId as string) || (req.headers['x-user-id'] as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedRequest).userId!;
     const deleted = healthMemoryStore.deleteUserData(userId);
     res.json({ success: deleted, message: 'User data completely purged from system' });
   } catch (err: any) {

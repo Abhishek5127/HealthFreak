@@ -4,14 +4,15 @@ exports.healthRouter = void 0;
 const express_1 = require("express");
 const healthSnapshotService_js_1 = require("../services/healthSnapshotService.js");
 const coachContextService_js_1 = require("../services/coachContextService.js");
+const authMiddleware_js_1 = require("../middleware/authMiddleware.js");
 exports.healthRouter = (0, express_1.Router)();
 /**
  * POST /api/health/daily-sync
  * Authenticated & idempotent daily snapshot sync from mobile/web app.
  */
-exports.healthRouter.post('/daily-sync', async (req, res) => {
+exports.healthRouter.post('/daily-sync', authMiddleware_js_1.authenticateSupabaseToken, async (req, res) => {
     try {
-        const userId = req.body.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const parsed = healthSnapshotService_js_1.DailySyncPayloadSchema.safeParse(req.body);
         if (!parsed.success) {
             res.status(400).json({ error: 'Invalid snapshot payload', details: parsed.error.issues });
@@ -28,9 +29,9 @@ exports.healthRouter.post('/daily-sync', async (req, res) => {
  * GET /api/health/daily-snapshots
  * Fetch recent snapshots for a user.
  */
-exports.healthRouter.get('/daily-snapshots', async (req, res) => {
+exports.healthRouter.get('/daily-snapshots', authMiddleware_js_1.authenticateSupabaseToken, async (req, res) => {
     try {
-        const userId = req.query.userId || 'usr_synthetic_alex';
+        const userId = req.userId;
         const days = parseInt(req.query.days, 10) || 7;
         const snapshots = await healthSnapshotService_js_1.HealthSnapshotService.getRecentSnapshots(userId, days);
         res.json({ success: true, snapshots });

@@ -2,8 +2,11 @@ import { Router, Request, Response } from 'express';
 import { HealthMemoryStore } from '../db/healthMemoryStore.js';
 import { SupabaseDb } from '../db/supabaseClient.js';
 import { DailyActivityEntity } from '../types/healthMemory.js';
+import { authenticateSupabaseToken, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 
 export const activityRouter = Router();
+
+activityRouter.use(authenticateSupabaseToken as any);
 
 const memoryStore = HealthMemoryStore.getInstance();
 
@@ -21,7 +24,7 @@ function getTodayDateString(): string {
  */
 activityRouter.get('/today', async (req: Request, res: Response) => {
   try {
-    const userId = (req.query.userId as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedRequest).userId!;
     const date = (req.query.date as string) || getTodayDateString();
 
     // 1. Try Supabase
@@ -87,12 +90,13 @@ activityRouter.get('/today', async (req: Request, res: Response) => {
  */
 activityRouter.post('/sync', async (req: Request, res: Response) => {
   try {
-    const { userId, records } = req.body;
-    if (!userId || !Array.isArray(records)) {
-      return res.status(400).json({ error: 'userId and records array are required' });
+    const userId = (req as AuthenticatedRequest).userId!;
+    const { records } = req.body;
+    if (!Array.isArray(records)) {
+      return res.status(400).json({ error: 'records array is required' });
     }
 
-    const effectiveUserId = userId || 'usr_synthetic_alex';
+    const effectiveUserId = userId;
     let upsertedCount = 0;
 
     for (const rec of records) {
@@ -174,7 +178,7 @@ activityRouter.post('/sync', async (req: Request, res: Response) => {
  */
 activityRouter.get('/history', async (req: Request, res: Response) => {
   try {
-    const userId = (req.query.userId as string) || 'usr_synthetic_alex';
+    const userId = (req as AuthenticatedRequest).userId!;
     const daysCount = parseInt(req.query.days as string, 10) || 7;
 
     // 1. Try Supabase
@@ -224,12 +228,13 @@ activityRouter.get('/history', async (req: Request, res: Response) => {
  */
 activityRouter.put('/goal', async (req: Request, res: Response) => {
   try {
-    const { userId, stepGoal } = req.body;
+    const userId = (req as AuthenticatedRequest).userId!;
+    const { stepGoal } = req.body;
     if (!stepGoal || stepGoal <= 0) {
       return res.status(400).json({ error: 'Valid stepGoal is required' });
     }
 
-    const effectiveUserId = userId || 'usr_synthetic_alex';
+    const effectiveUserId = userId;
     const today = getTodayDateString();
     const key = `${effectiveUserId}_${today}`;
 

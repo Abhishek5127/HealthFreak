@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { fetchWithAuth } from './apiClient';
 import {
   AudioModule,
   setAudioModeAsync,
@@ -1165,10 +1166,10 @@ export class VoiceClientService {
 
     if (!isLocalhostOnNative) {
       try {
-        const res = await fetch(`${backendUrl}/api/voice/session`, {
+        const res = await fetchWithAuth(`${backendUrl}/api/voice/session`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, userName }),
+          body: JSON.stringify({ userName }),
         });
 
         if (res.ok) {

@@ -62,12 +62,6 @@ export async function authenticateSupabaseToken(
     return next();
   }
 
-  if (isSyntheticAllowed && !syntheticHeader) {
-    req.userId = (req.query.userId as string) || 'usr_synthetic_alex';
-    req.user = { id: req.userId, email: `${req.userId}@healthfreak.synthetic.test` };
-    return next();
-  }
-
   res.status(401).json({
     success: false,
     error: 'Missing Authorization header with valid Bearer token',

@@ -4,14 +4,16 @@ exports.nutritionRouter = void 0;
 const express_1 = require("express");
 const healthMemoryStore_js_1 = require("../db/healthMemoryStore.js");
 const thirtyDayAnalysisService_js_1 = require("../nutrition/thirtyDayAnalysisService.js");
+const authMiddleware_js_1 = require("../middleware/authMiddleware.js");
 exports.nutritionRouter = (0, express_1.Router)();
+exports.nutritionRouter.use(authMiddleware_js_1.authenticateSupabaseToken);
 /**
  * GET /api/nutrition/daily
  * Daily nutrition totals for a specific date (defaults to today)
  */
 exports.nutritionRouter.get('/daily', (req, res) => {
     try {
-        const userId = req.query.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const dateStr = req.query.date || new Date().toISOString().split('T')[0];
         const summary = healthMemoryStore_js_1.healthMemoryStore.getDailySummary(userId, dateStr);
         res.json({ success: true, summary });
@@ -26,7 +28,7 @@ exports.nutritionRouter.get('/daily', (req, res) => {
  */
 exports.nutritionRouter.get('/last-30-days', (req, res) => {
     try {
-        const userId = req.query.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const timezone = req.query.timezone || 'Asia/Kolkata';
         const report = thirtyDayAnalysisService_js_1.ThirtyDayAnalysisService.getThirtyDayNutritionHistory(userId, timezone);
         res.json({ success: true, report });
@@ -41,7 +43,7 @@ exports.nutritionRouter.get('/last-30-days', (req, res) => {
  */
 exports.nutritionRouter.get('/trends', (req, res) => {
     try {
-        const userId = req.query.userId || req.headers['x-user-id'] || 'usr_synthetic_alex';
+        const userId = req.userId;
         const report = thirtyDayAnalysisService_js_1.ThirtyDayAnalysisService.getThirtyDayNutritionHistory(userId);
         res.json({
             success: true,
