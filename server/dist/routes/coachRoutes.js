@@ -9,6 +9,8 @@ const nutritionDatabase_js_1 = require("../services/nutritionDatabase.js");
 const mealFollowupService_js_1 = require("../nutrition/mealFollowupService.js");
 const supabaseClient_js_1 = require("../db/supabaseClient.js");
 const healthSnapshotService_js_1 = require("../services/healthSnapshotService.js");
+const index_js_1 = require("../db/index.js");
+const postCallExtraction_js_1 = require("../coach/postCallExtraction.js");
 exports.coachRouter = (0, express_1.Router)();
 exports.coachRouter.use(coachAuthMiddleware_js_1.verifyCoachSignature);
 /**
@@ -186,5 +188,109 @@ exports.coachRouter.post('/log-workout', async (req, res) => {
     }
     catch (err) {
         res.status(500).json({ success: false, error: err?.message || 'Failed to log workout' });
+    }
+});
+/**
+ * POST /api/coach/transcript-turn
+ * Persist an individual dialogue turn idempotently
+ */
+exports.coachRouter.post('/transcript-turn', async (req, res) => {
+    try {
+        const coachReq = req;
+        const callId = coachReq.coachCallId;
+        const userId = coachReq.coachUserId;
+        const { turn_index, role, text } = req.body;
+        if (typeof turn_index !== 'number' || !role || !text) {
+            res.status(400).json({
+                success: false,
+                error: 'turn_index (number), role (user|agent), and text (string) are required',
+            });
+            return;
+        }
+        if (role !== 'user' && role !== 'agent') {
+            res.status(400).json({
+                success: false,
+                error: "role must be 'user' or 'agent'",
+            });
+            return;
+        }
+        const turn = await (0, postCallExtraction_js_1.saveTranscriptTurn)(callId, userId, turn_index, role, String(text));
+        res.json({
+            success: true,
+            call_id: callId,
+            turn_index: turn.turnIndex,
+            turn,
+        });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: err?.message || 'Failed to save transcript turn' });
+    }
+});
+/**
+ * POST /api/coach/call-ended
+ * Finalize call and trigger post-call extraction pipeline
+ */
+exports.coachRouter.post('/call-ended', async (req, res) => {
+    try {
+        const coachReq = req;
+        const callId = coachReq.coachCallId;
+        const userId = coachReq.coachUserId;
+        const { duration_s, reason } = req.body;
+        // Update in-memory call status
+        index_js_1.db.updateCallSession(callId, {
+            status: 'completed',
+            endedAt: new Date().toISOString(),
+        });
+        try {
+            const pool = supabaseClient_js_1.SupabaseDb.getPool();
+            if (pool) {
+                await pool.query(`UPDATE calls
+           SET status = 'completed', ended_at = NOW()
+           WHERE id = $1`, [callId]);
+            }
+        }
+        catch { }
+        // Run post-call extraction
+        const { job, result } = await (0, postCallExtraction_js_1.processCallExtraction)(callId, userId);
+        res.json({
+            success: true,
+            call_id: callId,
+            status: job.status,
+            job,
+            extracted: result,
+        });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: err?.message || 'Failed to process post-call extraction' });
+    }
+});
+/**
+ * GET /api/coach/transcript-turns
+ * Read all dialogue turns for a call in order
+ */
+exports.coachRouter.get('/transcript-turns', async (req, res) => {
+    try {
+        const coachReq = req;
+        const callId = coachReq.coachCallId;
+        const turns = await (0, postCallExtraction_js_1.getCallTranscriptTurns)(callId);
+        res.json({ success: true, call_id: callId, turns });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: err?.message || 'Failed to get turns' });
+    }
+});
+/**
+ * GET /api/coach/extraction-job
+ * Read extraction job state for a call
+ */
+exports.coachRouter.get('/extraction-job', async (req, res) => {
+    try {
+        const coachReq = req;
+        const callId = coachReq.coachCallId;
+        const job = await (0, postCallExtraction_js_1.getCallExtractionJob)(callId);
+        res.json({ success: true, call_id: callId, job });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: err?.message || 'Failed to get extraction job' });
     }
 });

@@ -7,6 +7,13 @@ import { MealFollowupService } from '../nutrition/mealFollowupService.js';
 import { SupabaseDb } from '../db/supabaseClient.js';
 import { HealthSnapshotService } from '../services/healthSnapshotService.js';
 import { DailyActivityEntity } from '../types/healthMemory.js';
+import { db } from '../db/index.js';
+import {
+  saveTranscriptTurn,
+  getCallTranscriptTurns,
+  processCallExtraction,
+  getCallExtractionJob,
+} from '../coach/postCallExtraction.js';
 
 export const coachRouter = Router();
 
@@ -200,3 +207,117 @@ coachRouter.post('/log-workout', async (req: Request, res: Response): Promise<vo
     res.status(500).json({ success: false, error: err?.message || 'Failed to log workout' });
   }
 });
+
+/**
+ * POST /api/coach/transcript-turn
+ * Persist an individual dialogue turn idempotently
+ */
+coachRouter.post('/transcript-turn', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const coachReq = req as AuthenticatedCoachRequest;
+    const callId = coachReq.coachCallId!;
+    const userId = coachReq.coachUserId!;
+    const { turn_index, role, text } = req.body;
+
+    if (typeof turn_index !== 'number' || !role || !text) {
+      res.status(400).json({
+        success: false,
+        error: 'turn_index (number), role (user|agent), and text (string) are required',
+      });
+      return;
+    }
+
+    if (role !== 'user' && role !== 'agent') {
+      res.status(400).json({
+        success: false,
+        error: "role must be 'user' or 'agent'",
+      });
+      return;
+    }
+
+    const turn = await saveTranscriptTurn(callId, userId, turn_index, role, String(text));
+    res.json({
+      success: true,
+      call_id: callId,
+      turn_index: turn.turnIndex,
+      turn,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to save transcript turn' });
+  }
+});
+
+/**
+ * POST /api/coach/call-ended
+ * Finalize call and trigger post-call extraction pipeline
+ */
+coachRouter.post('/call-ended', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const coachReq = req as AuthenticatedCoachRequest;
+    const callId = coachReq.coachCallId!;
+    const userId = coachReq.coachUserId!;
+    const { duration_s, reason } = req.body;
+
+    // Update in-memory call status
+    db.updateCallSession(callId, {
+      status: 'completed',
+      endedAt: new Date().toISOString(),
+    });
+
+    try {
+      const pool = SupabaseDb.getPool();
+      if (pool) {
+        await pool.query(
+          `UPDATE calls
+           SET status = 'completed', ended_at = NOW()
+           WHERE id = $1`,
+          [callId]
+        );
+      }
+    } catch {}
+
+    // Run post-call extraction
+    const { job, result } = await processCallExtraction(callId, userId);
+
+    res.json({
+      success: true,
+      call_id: callId,
+      status: job.status,
+      job,
+      extracted: result,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to process post-call extraction' });
+  }
+});
+
+/**
+ * GET /api/coach/transcript-turns
+ * Read all dialogue turns for a call in order
+ */
+coachRouter.get('/transcript-turns', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const coachReq = req as AuthenticatedCoachRequest;
+    const callId = coachReq.coachCallId!;
+    const turns = await getCallTranscriptTurns(callId);
+    res.json({ success: true, call_id: callId, turns });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to get turns' });
+  }
+});
+
+/**
+ * GET /api/coach/extraction-job
+ * Read extraction job state for a call
+ */
+coachRouter.get('/extraction-job', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const coachReq = req as AuthenticatedCoachRequest;
+    const callId = coachReq.coachCallId!;
+    const job = await getCallExtractionJob(callId);
+    res.json({ success: true, call_id: callId, job });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to get extraction job' });
+  }
+});
+

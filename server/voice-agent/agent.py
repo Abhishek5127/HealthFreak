@@ -132,8 +132,25 @@ def _build_tts():
         temperature=0.6,
     )
 
-def _setup_eval_logging(session: AgentSession, stt_language: str) -> None:
+def _setup_eval_logging(session: AgentSession, stt_language: str, call_id: str | None = None) -> None:
     last_user_turn = {"transcript": "", "language": stt_language, "start_time": 0.0}
+    turn_counter = {"index": 0}
+
+    async def _send_transcript_turn(turn_idx: int, role: str, text: str) -> None:
+        if not call_id:
+            return
+        try:
+            backend_url = os.getenv("BACKEND_URL", "http://localhost:3000").rstrip("/")
+            path = "/api/coach/transcript-turn"
+            payload = json.dumps({"turn_index": turn_idx, "role": role, "text": text}).encode("utf-8")
+            headers = sign_coach_request("POST", path, call_id, payload)
+            headers["Content-Type"] = "application/json"
+            async with aiohttp.ClientSession() as http_sess:
+                async with http_sess.post(f"{backend_url}{path}", data=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                    if resp.status != 200:
+                        logger.warning(f"Failed to persist turn {turn_idx}: HTTP {resp.status}")
+        except Exception as err:
+            logger.warning(f"Non-fatal error persisting transcript turn {turn_idx}: {err}")
 
     @session.on("user_input_transcribed")
     def _on_transcript(ev: UserInputTranscribedEvent) -> None:
@@ -155,10 +172,17 @@ def _setup_eval_logging(session: AgentSession, stt_language: str) -> None:
             except Exception as err:
                 logger.warning(f"Failed to append to transcripts.jsonl: {err}")
 
+            turn_idx = turn_counter["index"]
+            turn_counter["index"] += 1
+            try:
+                asyncio.create_task(_send_transcript_turn(turn_idx, "user", transcript_text))
+            except Exception as err:
+                logger.warning(f"Failed to schedule user turn persistence: {err}")
+
     @session.on("conversation_item_added")
     def _on_item_added(ev: ConversationItemAddedEvent) -> None:
         if isinstance(ev.item, ChatMessage) and ev.item.role == "assistant":
-            reply_text = ev.item.text_content or ""
+            reply_text = (ev.item.text_content or "").strip()
             latency = round(time.time() - last_user_turn["start_time"], 3) if last_user_turn["start_time"] > 0 else 0.0
             record = {
                 "event": "coach_reply",
@@ -175,6 +199,32 @@ def _setup_eval_logging(session: AgentSession, stt_language: str) -> None:
             except Exception as err:
                 logger.warning(f"Failed to append to transcripts.jsonl: {err}")
             last_user_turn["start_time"] = 0.0
+
+            if reply_text:
+                turn_idx = turn_counter["index"]
+                turn_counter["index"] += 1
+                try:
+                    asyncio.create_task(_send_transcript_turn(turn_idx, "agent", reply_text))
+                except Exception as err:
+                    logger.warning(f"Failed to schedule agent turn persistence: {err}")
+
+async def _notify_call_ended(call_id: str) -> None:
+    if not call_id:
+        return
+    try:
+        backend_url = os.getenv("BACKEND_URL", "http://localhost:3000").rstrip("/")
+        path = "/api/coach/call-ended"
+        payload = json.dumps({"reason": "completed"}).encode("utf-8")
+        headers = sign_coach_request("POST", path, call_id, payload)
+        headers["Content-Type"] = "application/json"
+        async with aiohttp.ClientSession() as http_sess:
+            async with http_sess.post(f"{backend_url}{path}", data=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                if resp.status == 200:
+                    logger.info(f"Post-call extraction completed for {call_id}")
+                else:
+                    logger.warning(f"Call-ended notification returned HTTP {resp.status}")
+    except Exception as err:
+        logger.warning(f"Non-fatal error notifying call-ended for {call_id}: {err}")
 
 def sign_coach_request(method: str, path_with_query: str, call_id: str, body: bytes = b"") -> dict[str, str]:
     secret = os.getenv("COACH_HMAC_SECRET", "healthfreak_coach_hmac_secret_default")
@@ -457,7 +507,12 @@ async def entrypoint(ctx: JobContext) -> None:
     )
     session.userdata = coach_state
 
-    _setup_eval_logging(session, stt_language)
+    _setup_eval_logging(session, stt_language, call_id=call_id)
+
+    if call_id:
+        async def _handle_shutdown():
+            await _notify_call_ended(call_id)
+        ctx.add_shutdown_callback(_handle_shutdown)
 
     room_options = None
     if not is_console and noise_cancellation is not None:
