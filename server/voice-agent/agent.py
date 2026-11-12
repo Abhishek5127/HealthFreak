@@ -102,7 +102,7 @@ def _build_instructions(context_pack: Optional[ContextPack] = None, is_anonymous
         'Say "आप" and "जी". No markdown, lists, emoji, symbols or abbreviations. '
         'Spell out units ("किलो", "ग्राम", "कैलोरी"). End sentences with "।" or ".". '
         'Use fillers sparingly ("हाँ जी", "अच्छा", "ठीक है").\n'
-        "Call opening: greet briefly in one short sentence, then follow up on the single highest-priority open issue with ONE short question. "
+        "Call opening: Follow up ONLY on issues under Open Issues. Never mention anything under Resolved recently unless the user brings it up. "
         'Never recite all data. Mention numbers naturally ("kal aapne 8 हज़ार steps किए").\n'
         "Wrap-up: Before ending the call, recap commitments made, confirm the next call time (if any), then end the call with the end_call tool.\n"
         "Transcripts may contain mishearings or spelling variants. Before saving any meal, workout or health detail "
@@ -256,26 +256,43 @@ class HealthFreakCoachAgent(Agent):
         gender = _get_speaker_gender()
         suffix = "सकती हूँ" if gender == "female" else "सकता हूँ"
 
-        # Check for single highest-priority open issue to follow up on
         if not self.coach_state.is_anonymous and self.coach_state.context_pack:
             pack = self.coach_state.context_pack
-            first_name = pack.profile.first_name
+            first_name = pack.profile.first_name if (pack.profile.first_name and pack.profile.first_name != "Friend") else None
+            greeting_prefix = f"Greet {first_name} warmly in one short sentence" if first_name else "Greet the user warmly in one short sentence"
 
+            # (a) the top open issue with a follow_up_question
             if pack.open_issues and pack.open_issues[0].follow_up_question:
                 question = pack.open_issues[0].follow_up_question
                 instructions = (
-                    f'Greet {first_name} warmly in one short sentence, then ask this follow-up question naturally: "{question}"'
-                )
-                self.session.generate_reply(instructions=instructions)
-                return
-            elif first_name and first_name != "Friend":
-                instructions = (
-                    f'Greet {first_name} warmly in one short sentence and ask how their energy and activity are going today.'
+                    f'{greeting_prefix}, then ask this follow-up question naturally: "{question}"'
                 )
                 self.session.generate_reply(instructions=instructions)
                 return
 
-        instructions = "Greet the user warmly in one short sentence and ask how you can help with their fitness or nutrition today."
+            # (b) a real data hook: today\'s workout from an active plan or a user commitment from the last call
+            if pack.active_plan and pack.active_plan.today_workout:
+                workout = pack.active_plan.today_workout
+                instructions = (
+                    f'{greeting_prefix}, then ask about today\'s planned workout: "{workout}".'
+                )
+                self.session.generate_reply(instructions=instructions)
+                return
+
+            if pack.last_call and pack.last_call.commitments:
+                commitment = pack.last_call.commitments[0]
+                instructions = (
+                    f'{greeting_prefix}, then check in on their commitment from last time: "{commitment}".'
+                )
+                self.session.generate_reply(instructions=instructions)
+                return
+
+            # (c) otherwise a short greeting asking what they want to work on today
+            instructions = f"{greeting_prefix} and ask what they want to work on today."
+            self.session.generate_reply(instructions=instructions)
+            return
+
+        instructions = "Greet the user warmly in one short sentence and ask what they want to work on today."
         self.session.generate_reply(instructions=instructions)
 
     @function_tool

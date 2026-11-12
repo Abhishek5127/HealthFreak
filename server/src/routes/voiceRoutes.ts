@@ -376,15 +376,38 @@ const greetingAudioCache = new Map<string, string>();
 voiceRouter.post('/greeting', async (req: Request, res: Response) => {
   try {
     const { userId = 'usr_synthetic_alex', userName: incomingUserName } = req.body;
-    const user = db.getUser(userId) || db.getUser('usr_synthetic_alex');
-    const firstName = incomingUserName?.trim() || (user?.name ? user.name.split(' ')[0] : 'Abhishek');
-    const hour = new Date().getHours();
+    let pool = SupabaseDb.getPool();
+    let userTz = 'Asia/Kolkata';
+    let dbName = '';
+    if (pool && userId && userId !== 'usr_synthetic_alex') {
+      try {
+        const pRes = await pool.query('SELECT name, timezone FROM profiles WHERE id = $1 LIMIT 1;', [userId]);
+        if (pRes.rows[0]) {
+          if (pRes.rows[0].timezone) userTz = pRes.rows[0].timezone;
+          if (pRes.rows[0].name) dbName = pRes.rows[0].name.split(' ')[0];
+        }
+      } catch {}
+    }
+
+    const user = db.getUser(userId) || (userId === 'usr_synthetic_alex' ? db.getUser('usr_synthetic_alex') : null);
+    const resolvedName = incomingUserName?.trim() || dbName || (user?.name ? user.name.split(' ')[0] : '');
+    const firstName = resolvedName && resolvedName !== 'Friend' ? resolvedName : '';
+
+    const hourStr = new Intl.DateTimeFormat('en-US', {
+      timeZone: userTz,
+      hour: 'numeric',
+      hour12: false,
+    }).format(new Date());
+    const hour = parseInt(hourStr, 10);
+
     let timeGreeting = 'Namaste';
     if (hour >= 5 && hour < 12) timeGreeting = 'Suprabhat';
     else if (hour >= 18 && hour < 22) timeGreeting = 'Shubh Sandhya';
 
-    const greeting = `${timeGreeting} ${firstName}! Main Coach Mack hoon. Aaj aapki fitness aur diet mein kya help karoon?`;
-    const cacheKey = `${timeGreeting}_${firstName}`;
+    const greeting = firstName
+      ? `${timeGreeting} ${firstName}! Main Coach Mack hoon. Aaj aapki fitness aur diet mein kya help karoon?`
+      : `${timeGreeting}! Main Coach Mack hoon. Aaj aapki fitness aur diet mein kya help karoon?`;
+    const cacheKey = `${timeGreeting}_${firstName || 'noname'}`;
 
     let audioBase64 = greetingAudioCache.get(cacheKey);
     if (!audioBase64 && SarvamService.isConfigured()) {
@@ -462,8 +485,17 @@ voiceRouter.post('/chat/stream', async (req: Request, res: Response) => {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
-  const user = db.getUser(userId) || db.getUser('usr_synthetic_alex');
-  const userName = incomingUserName?.trim() || (user?.name ? user.name.split(' ')[0] : 'Abhishek');
+  let dbName = '';
+  const pool = SupabaseDb.getPool();
+  if (pool && userId && userId !== 'usr_synthetic_alex') {
+    try {
+      const pRes = await pool.query('SELECT name FROM profiles WHERE id = $1 LIMIT 1;', [userId]);
+      if (pRes.rows[0]?.name) dbName = pRes.rows[0].name.split(' ')[0];
+    } catch {}
+  }
+  const user = db.getUser(userId) || (userId === 'usr_synthetic_alex' ? db.getUser('usr_synthetic_alex') : null);
+  const resolvedUserName = incomingUserName?.trim() || dbName || (user?.name ? user.name.split(' ')[0] : '');
+  const userName = resolvedUserName && resolvedUserName !== 'Friend' ? resolvedUserName : '';
   const lowerMsg = message.toLowerCase();
 
   // 1. Critical Health Safety & Red Flag Escalation
@@ -478,7 +510,9 @@ voiceRouter.post('/chat/stream', async (req: Request, res: Response) => {
     lowerMsg.includes('palpitation');
 
   if (isRedFlag) {
-    const safetyReply = `Dhyan se sunein ${userName}: Chest discomfort ya saans lene mein takleef serious medical condition ke lakshan ho sakte hain. Kripya turant kisi physician ya emergency room se consult karein aur saare workouts immediately rok dein.`;
+    const safetyReply = userName
+      ? `Dhyan se sunein ${userName}: Chest discomfort ya saans lene mein takleef serious medical condition ke lakshan ho sakte hain. Kripya turant kisi physician ya emergency room se consult karein aur saare workouts immediately rok dein.`
+      : `Dhyan se sunein: Chest discomfort ya saans lene mein takleef serious medical condition ke lakshan ho sakte hain. Kripya turant kisi physician ya emergency room se consult karein aur saare workouts immediately rok dein.`;
     sendEvent('response_start', { timestamp: Date.now(), isSafetyAlert: true });
     sendEvent('text_delta', { delta: safetyReply });
     sendEvent('text_complete', {
@@ -631,14 +665,26 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
       return;
     }
 
-    const user = db.getUser(userId) || db.getUser('usr_synthetic_alex');
-    const userName = incomingUserName?.trim() || (user?.name ? user.name.split(' ')[0] : 'Abhishek');
+    let dbName = '';
+    const pool = SupabaseDb.getPool();
+    if (pool && userId && userId !== 'usr_synthetic_alex') {
+      try {
+        const pRes = await pool.query('SELECT name FROM profiles WHERE id = $1 LIMIT 1;', [userId]);
+        if (pRes.rows[0]?.name) dbName = pRes.rows[0].name.split(' ')[0];
+      } catch {}
+    }
+    const user = db.getUser(userId) || (userId === 'usr_synthetic_alex' ? db.getUser('usr_synthetic_alex') : null);
+    const resolvedUserName = incomingUserName?.trim() || dbName || (user?.name ? user.name.split(' ')[0] : '');
+    const userName = resolvedUserName && resolvedUserName !== 'Friend' ? resolvedUserName : '';
     const lower = message.toLowerCase();
 
     // Critical Red Flag check
     if (lower.includes('chest pain') || lower.includes('chhati') || lower.includes('shortness of breath')) {
+      const safetyReply = userName
+        ? `Dhyan se sunein ${userName}: Chest discomfort ya saans lene mein takleef serious signs hain. Turant kisi emergency medical center se contact karein aur sabhi exercises band kar dein.`
+        : `Dhyan se sunein: Chest discomfort ya saans lene mein takleef serious signs hain. Turant kisi emergency medical center se contact karein aur sabhi exercises band kar dein.`;
       res.json({
-        text: `Dhyan se sunein ${userName}: Chest discomfort ya saans lene mein takleef serious signs hain. Turant kisi emergency medical center se contact karein aur sabhi exercises band kar dein.`,
+        text: safetyReply,
         suggestions: ['Contact emergency care', 'Consult a doctor', 'Rest immediately'],
         provider: 'safety_guard',
       });
@@ -833,8 +879,17 @@ voiceRouter.post('/audio-turn', authenticateSupabaseToken as any, async (req: Re
       userName: incomingUserName,
     } = req.body;
 
-    const user = db.getUser(userId) || db.getUser('usr_synthetic_alex');
-    const userName = incomingUserName?.trim() || (user?.name ? user.name.split(' ')[0] : 'Abhishek');
+    let dbName = '';
+    const pool = SupabaseDb.getPool();
+    if (pool && userId && userId !== 'usr_synthetic_alex') {
+      try {
+        const pRes = await pool.query('SELECT name FROM profiles WHERE id = $1 LIMIT 1;', [userId]);
+        if (pRes.rows[0]?.name) dbName = pRes.rows[0].name.split(' ')[0];
+      } catch {}
+    }
+    const user = db.getUser(userId) || (userId === 'usr_synthetic_alex' ? db.getUser('usr_synthetic_alex') : null);
+    const resolvedUserName = incomingUserName?.trim() || dbName || (user?.name ? user.name.split(' ')[0] : '');
+    const userName = resolvedUserName && resolvedUserName !== 'Friend' ? resolvedUserName : '';
 
     if (!audioBase64) {
       res.status(400).json({ error: 'audioBase64 is required' });
@@ -890,7 +945,9 @@ voiceRouter.post('/audio-turn', authenticateSupabaseToken as any, async (req: Re
       lower.includes('palpitation');
 
     if (isRedFlag) {
-      const safetyReply = `Dhyan se sunein ${userName}: Chest discomfort ya saans lene mein takleef serious medical conditions ke lakshan ho sakte hain. Kripya turant kisi emergency room ya physician se consult karein aur sabhi exercises band kar dein.`;
+      const safetyReply = userName
+        ? `Dhyan se sunein ${userName}: Chest discomfort ya saans lene mein takleef serious medical conditions ke lakshan ho sakte hain. Kripya turant kisi emergency room ya physician se consult karein aur sabhi exercises band kar dein.`
+        : `Dhyan se sunein: Chest discomfort ya saans lene mein takleef serious medical conditions ke lakshan ho sakte hain. Kripya turant kisi emergency room ya physician se consult karein aur sabhi exercises band kar dein.`;
       let audioBase64Reply: string | undefined;
       if (SarvamService.isConfigured()) {
         audioBase64Reply = await SarvamService.synthesizeSpeech(safetyReply);
