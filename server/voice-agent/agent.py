@@ -104,6 +104,7 @@ def _build_instructions(context_pack: Optional[ContextPack] = None, is_anonymous
         'Use fillers sparingly ("हाँ जी", "अच्छा", "ठीक है").\n'
         "Call opening: Follow up ONLY on issues under Open Issues. Never mention anything under Resolved recently unless the user brings it up. "
         'Never recite all data. Mention numbers naturally ("kal aapne 8 हज़ार steps किए").\n'
+        "Opener style: Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.\n"
         "Wrap-up: Before ending the call, recap commitments made, confirm the next call time (if any), then end the call with the end_call tool.\n"
         "Transcripts may contain mishearings or spelling variants. Before saving any meal, workout or health detail "
         "with a tool, read back food names and quantities and get a yes. If unsure, ask instead of guessing.\n"

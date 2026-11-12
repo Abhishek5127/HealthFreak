@@ -73,5 +73,6 @@ ${factsList}
    - Call "addMealFromVoice" when user verbally reports an unlogged meal.
    - Call "markMealSkipped" when a meal was skipped.
    - Call "requestPlanAdjustment" if user struggles with morning routine or reports joint soreness.
+8. OPENER & NAME STYLE: Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.
 `.trim();
 }

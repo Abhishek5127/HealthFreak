@@ -10,6 +10,26 @@ export interface AudioChunkPayload {
   sampleRate?: number;
 }
 
+export function stripFormulaicOpener(text: string, userName?: string): string {
+  if (!text) return '';
+  let cleaned = text.trim();
+
+  const escapedName = userName && userName !== 'Friend' ? userName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
+
+  if (escapedName) {
+    const combinedRegex = new RegExp(`^(?:(?:arre|are|arey|oye|hey)(?:\\s+${escapedName})?|${escapedName})\\s*[!,.:-]?\\s*`, 'i');
+    cleaned = cleaned.replace(combinedRegex, '');
+  } else {
+    const genericRegex = /^(?:arre|are|arey|oye|hey)\s*[!,.:-]?\s*/i;
+    cleaned = cleaned.replace(genericRegex, '');
+  }
+
+  if (cleaned.length > 0) {
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+  return cleaned;
+}
+
 export function getBackendBaseUrl(): string {
   // If running in browser on localhost or local IP, prioritize local dev server
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -45,7 +65,7 @@ export async function askGeminiDirect(
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
       const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak speaking directly with ${userName}.
 Rules:
-1. Respond in natural, warm, motivating Hinglish (Hindi + English blended in Latin alphabet, e.g. 'Arre ${userName}!').
+1. Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.
 2. Keep your answer concise: exactly 2 to 3 short sentences. Be clinically sound, encouraging, and actionable.
 3. Suggest 3 short relevant follow-up actions (under 4 words each).
 4. No markdown, asterisks, hashtags, or emojis. Plain conversational text only.
@@ -80,7 +100,7 @@ Rules:
           const parsed = JSON.parse(rawText);
           if (parsed.text) {
             return {
-              text: parsed.text.trim(),
+              text: stripFormulaicOpener(parsed.text.trim(), userName),
               suggestions: Array.isArray(parsed.suggestions) && parsed.suggestions.length > 0
                 ? parsed.suggestions
                 : ['Check my workout plan', 'Hydration target', 'Log today meal'],

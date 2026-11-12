@@ -10,7 +10,7 @@ import { CostAndPrivacyTracker } from '../services/costTracker.js';
 import { config } from '../config/index.js';
 import { buildCoachSystemPrompt } from '../agent/coachPrompt.js';
 import { VoiceAgentProcess } from '../services/voiceAgentProcess.js';
-import { SarvamService, SentenceTTSBuffer } from '../services/sarvamService.js';
+import { SarvamService, SentenceTTSBuffer, stripFormulaicOpener } from '../services/sarvamService.js';
 import { HealthMemoryEngine } from '../services/healthMemoryEngine.js';
 import { authenticateSupabaseToken, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { SupabaseDb } from '../db/supabaseClient.js';
@@ -455,7 +455,7 @@ voiceRouter.post('/tts', async (req: Request, res: Response) => {
 // 13. Health Coach Streaming Turn (SSE: Sarvam AI 105B + Bulbul Neural Voice)
 voiceRouter.post('/chat/stream', async (req: Request, res: Response) => {
   const startTime = Date.now();
-  const { message, userId = 'usr_synthetic_alex', userName: incomingUserName, activityContext } = req.body;
+  const { message, userId = 'usr_synthetic_alex', userName: incomingUserName, activityContext, lastCoachReply = '' } = req.body;
 
   if (!message || typeof message !== 'string') {
     res.status(400).json({ error: 'message is required' });
@@ -542,16 +542,21 @@ voiceRouter.post('/chat/stream', async (req: Request, res: Response) => {
 
   sendEvent('response_start', { timestamp: Date.now(), model: 'sarvam-105b-conversations' });
 
+  const prevWords = typeof lastCoachReply === 'string' && lastCoachReply.trim()
+    ? lastCoachReply.trim().split(/\s+/).slice(0, 3).join(' ')
+    : '';
+  const antiRepeatInstruction = prevWords ? `\n5. Do not start with these words: "${prevWords}".` : '';
+
   // 4. Construct System Prompt with contextual memory snippet
   const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak.
 You are speaking directly with ${userName}.
 ${healthContext.promptSnippet}
 
 Core Coaching Instructions:
-1. Respond in warm, authentic, motivating Hinglish (Hindi + English blended in Latin script, e.g. "Arre ${userName}!").
+1. Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.
 2. Show continuity naturally: If user mentions pain (like knee discomfort), reference their earlier reports without reciting bullet lists.
 3. Keep response concise: exactly 2 to 3 short sentences. Be clinically sound, encouraging, and actionable.
-4. Do NOT use emojis, asterisks, hashtags, or markdown. Output plain spoken conversational text only.`;
+4. Do NOT use emojis, asterisks, hashtags, or markdown. Output plain spoken conversational text only.${antiRepeatInstruction}`;
 
   let totalAudioChunks = 0;
   const ttsBuffer = new SentenceTTSBuffer((chunk) => {
@@ -659,7 +664,7 @@ Core Coaching Instructions:
 // 14. Health Coach Chat Turn (Synchronous JSON Fallback)
 voiceRouter.post('/chat', async (req: Request, res: Response) => {
   try {
-    const { message, userId = 'usr_synthetic_alex', userName: incomingUserName, activityContext } = req.body;
+    const { message, userId = 'usr_synthetic_alex', userName: incomingUserName, activityContext, lastCoachReply = '' } = req.body;
     if (!message || typeof message !== 'string') {
       res.status(400).json({ error: 'message is required' });
       return;
@@ -703,6 +708,11 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
       : '';
 
     // PRIMARY: Generate conversational reply and neural voice directly via Sarvam AI
+    const prevWords = typeof lastCoachReply === 'string' && lastCoachReply.trim()
+      ? lastCoachReply.trim().split(/\s+/).slice(0, 3).join(' ')
+      : '';
+    const antiRepeatInstruction = prevWords ? `\n5. Do not start with these words: "${prevWords}".` : '';
+
     if (SarvamService.isConfigured()) {
       const sarvamResult = await SarvamService.generateChatReply({
         message,
@@ -711,6 +721,7 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
         memorySnippet,
         activitySnippet,
         synthesizeVoice: true,
+        antiRepeatWords: prevWords,
       });
 
       if (sarvamResult) {
@@ -735,10 +746,10 @@ You are speaking directly with ${userName}.
 ${healthContext.promptSnippet}
 
 Rules:
-1. Respond in natural, warm, empathetic Hinglish using Latin alphabet (e.g. 'Arre ${userName}!').
+1. Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.
 2. Keep your answer concise: 2 to 3 short sentences maximum. Be clinically sound, motivating, and actionable.
 3. Provide 3 short relevant follow-up suggestions (under 4 words each).
-4. Return strict JSON: { "text": "...", "suggestions": ["...", "...", "..."] }`;
+4. Return strict JSON: { "text": "...", "suggestions": ["...", "...", "..."] }${antiRepeatInstruction}`;
 
       const modelsToTry = [
         config.gemini.model || 'gemini-3.5-flash-lite',
@@ -767,7 +778,7 @@ Rules:
           if (rawText) {
             const parsed = JSON.parse(rawText);
             if (parsed.text) {
-              replyText = parsed.text;
+              replyText = stripFormulaicOpener(parsed.text, userName);
               suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
               break;
             }
@@ -969,6 +980,10 @@ voiceRouter.post('/audio-turn', authenticateSupabaseToken as any, async (req: Re
 
     // 6. Primary LLM Generation: Sarvam 105B Conversations
     let coachReply = '';
+    const prevWords = typeof lastCoachReply === 'string' && lastCoachReply.trim()
+      ? lastCoachReply.trim().split(/\s+/).slice(0, 3).join(' ')
+      : '';
+
     if (SarvamService.isConfigured()) {
       const sarvamResult = await SarvamService.generateChatReply({
         message: userTranscript,
@@ -976,6 +991,7 @@ voiceRouter.post('/audio-turn', authenticateSupabaseToken as any, async (req: Re
         conditions: user?.knownConditions || [],
         memorySnippet: healthContext.promptSnippet,
         synthesizeVoice: false,
+        antiRepeatWords: prevWords,
       });
       if (sarvamResult?.text) {
         coachReply = sarvamResult.text;
@@ -986,12 +1002,14 @@ voiceRouter.post('/audio-turn', authenticateSupabaseToken as any, async (req: Re
     if (!coachReply && config.gemini.apiKey) {
       try {
         const ai = getGeminiClient();
-        const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak speaking directly with ${userName}.
+        const antiRepeatInstruction = prevWords ? `\n4. Do not start with these words: "${prevWords}".` : '';
+        const greetingTarget = userName ? `speaking directly with ${userName}` : '';
+        const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak ${greetingTarget}.
 ${healthContext.promptSnippet}
 Rules:
-1. Respond in natural, warm, empathetic Hinglish (e.g. 'Arre ${userName}!').
+1. Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.
 2. Keep your answer concise: exactly 2 to 3 short sentences. Motivating, clinically sound, and actionable.
-3. Plain spoken conversational text only. No markdown, asterisks, or emoji.`;
+3. Plain spoken conversational text only. No markdown, asterisks, or emoji.${antiRepeatInstruction}`;
 
         const resp = await ai.models.generateContent({
           model: config.gemini.model || 'gemini-3.5-flash-lite',
@@ -1004,7 +1022,7 @@ Rules:
         });
         const geminiText = resp.text?.trim();
         if (geminiText) {
-          coachReply = SarvamService.normalizeForSpokenTTS(geminiText);
+          coachReply = stripFormulaicOpener(SarvamService.normalizeForSpokenTTS(geminiText), userName);
         }
       } catch (geminiErr: any) {
         console.warn('[VoiceRoutes/AudioTurn] Gemini fallback notice:', geminiErr?.message || geminiErr);

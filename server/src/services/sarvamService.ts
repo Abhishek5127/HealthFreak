@@ -14,6 +14,26 @@ export interface AudioChunkEvent {
   sampleRate: number;
 }
 
+export function stripFormulaicOpener(text: string, userName?: string): string {
+  if (!text) return '';
+  let cleaned = text.trim();
+
+  const escapedName = userName && userName !== 'Friend' ? userName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
+
+  if (escapedName) {
+    const combinedRegex = new RegExp(`^(?:(?:arre|are|arey|oye|hey)(?:\\s+${escapedName})?|${escapedName})\\s*[!,.:-]?\\s*`, 'i');
+    cleaned = cleaned.replace(combinedRegex, '');
+  } else {
+    const genericRegex = /^(?:arre|are|arey|oye|hey)\s*[!,.:-]?\s*/i;
+    cleaned = cleaned.replace(genericRegex, '');
+  }
+
+  if (cleaned.length > 0) {
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+  return cleaned;
+}
+
 export class SarvamService {
   private static getApiKey(): string {
     return (process.env.SARVAM_API_KEY || config.sarvam?.apiKey || '').trim();
@@ -108,6 +128,7 @@ export class SarvamService {
     memorySnippet?: string;
     activitySnippet?: string;
     synthesizeVoice?: boolean;
+    antiRepeatWords?: string;
   }): Promise<SarvamChatResult | null> {
     const apiKey = this.getApiKey();
     if (!apiKey) return null;
@@ -119,7 +140,10 @@ export class SarvamService {
       memorySnippet = '',
       activitySnippet = '',
       synthesizeVoice = true,
+      antiRepeatWords = '',
     } = params;
+
+    const antiRepeatLine = antiRepeatWords ? `\n5. Do not start with these words: "${antiRepeatWords}".` : '';
 
     const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak.
 You are speaking directly with ${userName}.
@@ -129,10 +153,10 @@ User Profile:
 - Physical activity today: ${activitySnippet || 'Not synced'}
 
 Rules:
-1. Respond in natural, warm, motivating Hinglish (Hindi + English blend, written in Latin script, e.g., "Arre ${userName}!").
+1. Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.
 2. Keep your answer concise: 2 to 3 short sentences maximum. Be clinically sensible, supportive, and actionable.
 3. Suggest 3 short relevant follow-up actions (under 4 words each).
-4. Do NOT use emojis, asterisks, bullet points or markdown. Plain spoken conversational text only.`;
+4. Do NOT use emojis, asterisks, bullet points or markdown. Plain spoken conversational text only.${antiRepeatLine}`;
 
     try {
       const response = await fetch('https://api.sarvam.ai/v1/chat/completions', {
@@ -162,7 +186,8 @@ Rules:
       const rawReply = data?.choices?.[0]?.message?.content?.trim();
       if (!rawReply) return null;
 
-      const cleanReply = this.normalizeForSpokenTTS(rawReply);
+      const normalizedReply = this.normalizeForSpokenTTS(rawReply);
+      const cleanReply = stripFormulaicOpener(normalizedReply, userName);
       const suggestions = this.generateSuggestions(message);
 
       let audioBase64: string | undefined;
