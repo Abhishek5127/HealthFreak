@@ -345,7 +345,7 @@ exports.voiceRouter.post('/greeting', async (req, res) => {
             timeGreeting = 'Suprabhat';
         else if (hour >= 18 && hour < 22)
             timeGreeting = 'Shubh Sandhya';
-        const greeting = `${timeGreeting} ${firstName}! Main Coach Alex hoon. Aaj aapki fitness aur diet mein kya help karoon?`;
+        const greeting = `${timeGreeting} ${firstName}! Main Coach Mack hoon. Aaj aapki fitness aur diet mein kya help karoon?`;
         const cacheKey = `${timeGreeting}_${firstName}`;
         let audioBase64 = greetingAudioCache.get(cacheKey);
         if (!audioBase64 && sarvamService_js_1.SarvamService.isConfigured()) {
@@ -456,7 +456,7 @@ exports.voiceRouter.post('/chat/stream', async (req, res) => {
     healthMemoryEngine_js_1.HealthMemoryEngine.scheduleSymptomIngestion(userId, message);
     sendEvent('response_start', { timestamp: Date.now(), model: 'sarvam-105b-conversations' });
     // 4. Construct System Prompt with contextual memory snippet
-    const systemPrompt = `You are Coach Alex, an elite AI Health and Wellness Coach at HealthFreak.
+    const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak.
 You are speaking directly with ${userName}.
 ${healthContext.promptSnippet}
 
@@ -538,7 +538,7 @@ Core Coaching Instructions:
     // Per instruction: No default fallback messages. Report error clearly.
     if (!fullGeneratedText.trim()) {
         console.error('[VoiceRoutes/Stream] AI generation failed completely.');
-        const errorMsg = 'Error: Coach Alex could not generate a response. Please try again.';
+        const errorMsg = 'Error: Coach Mack could not generate a response. Please try again.';
         sendEvent('text_delta', { delta: errorMsg });
         sendEvent('text_complete', {
             fullText: errorMsg,
@@ -613,7 +613,7 @@ exports.voiceRouter.post('/chat', async (req, res) => {
         let replyText = '';
         let suggestions = [];
         if (index_js_2.config.gemini.apiKey) {
-            const systemPrompt = `You are Coach Alex, an elite AI Health and Wellness Coach at HealthFreak.
+            const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak.
 You are speaking directly with ${userName}.
 ${healthContext.promptSnippet}
 
@@ -662,7 +662,7 @@ Rules:
         if (!replyText) {
             res.status(500).json({
                 error: 'AI generation failed. Please try again.',
-                text: 'Error: Coach Alex could not generate a response. Please try again.',
+                text: 'Error: Coach Mack could not generate a response. Please try again.',
                 suggestions: ['Try asking again', 'Check connection'],
             });
             return;
@@ -707,11 +707,11 @@ function isSelfEcho(userText, coachText) {
         return true;
     }
     const coachIdentityPhrases = [
-        'main alex bol raha hoon',
-        'main alex bol raha',
-        'main alex hoon',
-        'alex bol raha hoon',
-        'coach alex here',
+        'main mack bol raha hoon',
+        'main mack bol raha',
+        'main mack hoon',
+        'mack bol raha hoon',
+        'coach mack here',
         'aapki ai health coach',
         'aapki health coach',
         'healthfreak coach',
@@ -826,7 +826,7 @@ exports.voiceRouter.post('/audio-turn', authMiddleware_js_1.authenticateSupabase
         if (!coachReply && index_js_2.config.gemini.apiKey) {
             try {
                 const ai = getGeminiClient();
-                const systemPrompt = `You are Coach Alex, an elite AI Health and Wellness Coach at HealthFreak speaking directly with ${userName}.
+                const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak speaking directly with ${userName}.
 ${healthContext.promptSnippet}
 Rules:
 1. Respond in natural, warm, empathetic Hinglish (e.g. 'Arre ${userName}!').

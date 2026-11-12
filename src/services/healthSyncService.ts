@@ -26,7 +26,7 @@ export class HealthSyncService {
    * Syncs daily snapshot to server idempotently.
    */
   public static async syncDailySnapshot(
-    userId: string = 'user_local',
+    userId: string = '',
     data?: Partial<DailyHealthSyncData>
   ): Promise<boolean> {
     const now = Date.now();

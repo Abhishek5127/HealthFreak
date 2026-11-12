@@ -8,19 +8,16 @@ export class ActivitySyncService {
 
   /**
    * Synchronizes today's activity and any queued offline records with the backend / Supabase.
-   * If user is a guest (null or guest token), skips cloud sync and preserves local records.
    */
   public static async syncActivities(
-    userId?: string | null,
-    isGuest: boolean = false
+    userId?: string | null
   ): Promise<{ success: boolean; syncedCount: number; error?: string }> {
     if (this.isSyncing) {
       return { success: false, syncedCount: 0, error: 'Sync already in progress' };
     }
 
-    if (!userId || isGuest) {
-      // Guest mode: data remains strictly local in secure storage
-      return { success: true, syncedCount: 0 };
+    if (!userId) {
+      return { success: false, syncedCount: 0, error: 'No user ID' };
     }
 
     this.isSyncing = true;
@@ -154,7 +151,8 @@ export class ActivitySyncService {
     waterTargetMl: number = 3000,
     dateStr?: string
   ): Promise<boolean> {
-    const effectiveUserId = userId || 'usr_synthetic_alex';
+    const effectiveUserId = userId || '';
+    if (!effectiveUserId) return false;
     const date = dateStr || new Date().toISOString().split('T')[0];
     let synced = false;
 

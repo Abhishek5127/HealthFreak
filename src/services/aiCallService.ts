@@ -70,7 +70,7 @@ export class AICallService {
     const localCall: ScheduledAICall = {
       id: callId,
       roomName: `healthfreak-room-${Date.now()}`,
-      userId: params.userId || 'user_local',
+      userId: params.userId || '',
       type: 'in_app',
       status: 'scheduled',
       scheduledTime: params.scheduledTime,
@@ -117,7 +117,7 @@ export class AICallService {
       if (diffMs > 1000) {
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: '📞 Incoming Call from Coach Alex',
+            title: '📞 Incoming Call from Coach Mack',
             body: `HealthFreak AI Coach: ${localCall.topic}`,
             data: { callId: localCall.id, roomName: localCall.roomName, type: 'incoming_call' },
             sound: true,
@@ -136,7 +136,7 @@ export class AICallService {
   /**
    * Fetches upcoming scheduled calls for the user.
    */
-  public static async getUpcomingCalls(userId = 'user_local'): Promise<ScheduledAICall[]> {
+  public static async getUpcomingCalls(userId = ''): Promise<ScheduledAICall[]> {
     const localCalls = await AICallService.getLocalCalls();
     const now = Date.now();
     // Keep calls that are scheduled and not expired by more than 2 hours
@@ -182,7 +182,7 @@ export class AICallService {
    * Checks if an incoming call is currently ringing for the user.
    */
   public static async checkActiveIncomingCall(
-    userId = 'user_local'
+    userId = ''
   ): Promise<{ hasIncomingCall: boolean; call?: ScheduledAICall }> {
     const localCalls = await AICallService.getLocalCalls();
     const now = Date.now();
@@ -318,12 +318,12 @@ export class AICallService {
       call: call || {
         id: callId,
         roomName: `healthfreak-room-${Date.now()}`,
-        userId: 'user_local',
+        userId: '',
         type: 'in_app',
         status: 'connected',
         scheduledTime: new Date().toISOString(),
       },
-      greeting: 'Hello! I am Coach Alex, your AI health coach from HealthFreak. How is your energy and body feeling today?',
+      greeting: 'Hello! I am Coach Mack, your AI health coach from HealthFreak. How is your energy and body feeling today?',
     };
   }
 
@@ -412,7 +412,7 @@ export class AICallService {
   /**
    * Fetches past call history.
    */
-  public static async getCallHistory(userId = 'user_local'): Promise<ScheduledAICall[]> {
+  public static async getCallHistory(userId = ''): Promise<ScheduledAICall[]> {
     const localCalls = await AICallService.getLocalCalls();
     const pastLocal = localCalls.filter(
       (c) => (!c.userId || c.userId === userId) && c.status !== 'scheduled'
@@ -465,7 +465,7 @@ export class AICallService {
    * Triggers an immediate or delayed test incoming call.
    */
   public static async triggerTestCall(
-    userId = 'user_local',
+    userId = '',
     delaySeconds = 0
   ): Promise<{ success: boolean; callId?: string; error?: string }> {
     const callId = `call_test_${Date.now()}`;

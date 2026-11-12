@@ -57,7 +57,7 @@ export class VoiceClientService {
   private provider: 'sarvam' | 'livekit' | 'gemini' | 'openai' = 'sarvam';
   private isSynthetic: boolean = true;
   private hasAudioPermission: boolean = false;
-  private currentUserId: string = 'user_local';
+  private currentUserId: string = '';
   private currentUserName: string = 'Abhishek';
   private audioLevel: number = 0;
   private isHandsFree: boolean = true;
@@ -715,7 +715,7 @@ export class VoiceClientService {
         this.currentUserName || 'Abhishek',
         ['patellofemoral_knee_pain'],
         this.lastCoachReply,
-        this.currentUserId || 'user_local'
+        this.currentUserId || ''
       );
       console.log(`[VoiceClient] Turn response received from backend in ${Date.now() - turnStartTime}ms`);
 
@@ -1122,7 +1122,7 @@ export class VoiceClientService {
       }
       console.error('[VoiceClient] Streaming turn error:', err);
       this.isProcessingTurn = false;
-      this.coachTranscript = 'Error: Coach Alex could not connect. Please try speaking again.';
+      this.coachTranscript = 'Error: Coach Mack could not connect. Please try speaking again.';
       this.status = 'listening';
       this.notify();
       this.startListening();
@@ -1135,7 +1135,7 @@ export class VoiceClientService {
    * Starts a live hands-free voice session.
    */
   public async startSession(
-    userId = 'user_local',
+    userId = '',
     customGreeting?: string,
     userName = 'Abhishek'
   ): Promise<void> {
@@ -1147,7 +1147,7 @@ export class VoiceClientService {
     this.provider = 'sarvam';
     const defaultGreeting =
       customGreeting ||
-      `Coach Alex is ready. Ask anything about your fitness, nutrition, or recovery.`;
+      `Coach Mack is ready. Ask anything about your fitness, nutrition, or recovery.`;
     this.coachTranscript = defaultGreeting;
     this.userTranscript = '';
     this.currentSpeechText = '';

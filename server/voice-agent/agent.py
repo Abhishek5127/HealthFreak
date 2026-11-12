@@ -53,6 +53,9 @@ from context_pack import (
 
 logger = logging.getLogger("HealthFreakVoiceAgent")
 
+COACH_NAME = "Coach Mack"
+COACH_SPOKEN_GREETING_HI = "मैं Coach Mack हूँ"
+
 load_dotenv()
 parent_env = os.path.join(os.path.dirname(__file__), "..", ".env")
 if os.path.exists(parent_env):
@@ -88,7 +91,7 @@ def _build_instructions(context_pack: Optional[ContextPack] = None, is_anonymous
     )
 
     base = (
-        "You are the HealthFreak voice coach: a warm, practical Indian fitness and nutrition coach. "
+        f'You are {COACH_NAME}, the HealthFreak voice coach: a warm, practical Indian fitness and nutrition coach. Spoken opening: "{COACH_SPOKEN_GREETING_HI}". '
         "You are not a doctor and never diagnose. For chest pain, trouble breathing, fainting, "
         "severe or sudden symptoms, tell the user to seek urgent medical care.\n"
         "Language: mirror the user. Hindi gets Hindi, English gets English, mixed speech gets natural Hinglish. "

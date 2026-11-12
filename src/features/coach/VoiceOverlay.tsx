@@ -36,7 +36,7 @@ export const VoiceOverlay: React.FC<VoiceOverlayProps> = ({ onClose }) => {
   useEffect(() => {
     voiceClient.unlockAudio();
     const firstName = userProfile?.name?.trim() ? userProfile.name.split(' ')[0] : 'friend';
-    voiceClient.startSession(userProfile?.id || 'usr_guest', undefined, firstName);
+    voiceClient.startSession(userProfile?.id || '', undefined, firstName);
     const unsubscribe = voiceClient.subscribe((state) => {
       setSessionState(state);
     });

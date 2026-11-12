@@ -154,7 +154,7 @@ export const CameraScannerScreen: React.FC = () => {
         capturedPhotoUri,
         userProfile.name,
         userProfile.healthConditions || ['Metabolic fitness', 'Weight management'],
-        userProfile.id || 'usr_synthetic_alex'
+        userProfile.id || ''
       );
 
       triggerHaptic('success');

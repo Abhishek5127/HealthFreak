@@ -183,11 +183,11 @@ aiCallRouter.post('/:id/accept', async (req: Request, res: Response): Promise<vo
     const firstName = user.name ? user.name.split(' ')[0] : 'there';
     const lang = (session as any).language || 'English';
 
-    let greeting = `Hello ${firstName}! Coach Alex here. How is your energy and body feeling today?`;
+    let greeting = `Hello ${firstName}! Coach Mack here. How is your energy and body feeling today?`;
     if (lang === 'Hinglish') {
-      greeting = `Namaste ${firstName}! Coach Alex here. Aaj aap kaisa feel kar rahe hain?`;
+      greeting = `Namaste ${firstName}! Coach Mack here. Aaj aap kaisa feel kar rahe hain?`;
     } else if (lang === 'Hindi') {
-      greeting = `नमस्ते ${firstName}! कोच एलेक्स यहाँ है। आज आप कैसा महसूस कर रहे हैं?`;
+      greeting = `नमस्ते ${firstName}! मैं Coach Mack हूँ। आज आप कैसा महसूस कर रहे हैं?`;
     }
 
     db.appendTranscript(callId, 'coach', greeting);
@@ -236,7 +236,7 @@ async function generateCoachVoiceReply(params: {
   }
 
   // Return explicit error text if AI model is unreachable — no canned fallback strings
-  return 'Error: Coach Alex could not generate a response. Please check your network and try again.';
+  return 'Error: Coach Mack could not generate a response. Please check your network and try again.';
 }
 
 /**

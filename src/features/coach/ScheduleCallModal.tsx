@@ -34,7 +34,7 @@ export const ScheduleCallModal: React.FC<ScheduleCallModalProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const { session, profile } = useAuth();
-  const userId = session?.user?.id || profile?.id || 'usr_synthetic_alex';
+  const userId = session?.user?.id || profile?.id || '';
 
   const [selectedTiming, setSelectedTiming] = useState<'15s' | '5m' | 'tonight' | 'tomorrow'>('15s');
   const [selectedTopic, setSelectedTopic] = useState<string>('Daily Nutrition & Food Diary Review');

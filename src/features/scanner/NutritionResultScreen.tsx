@@ -94,7 +94,7 @@ export const NutritionResultScreen: React.FC = () => {
   const handleAskCoach = () => {
     triggerHaptic('impact');
     startCall(
-      `Coach Alex here! I see you scanned ${meal.mealName} (${Math.round(macros.calories)} kcal). How can I help you adjust this meal or answer your questions?`
+      `Coach Mack here! I see you scanned ${meal.mealName} (${Math.round(macros.calories)} kcal). How can I help you adjust this meal or answer your questions?`
     );
   };
 
@@ -420,7 +420,7 @@ export const NutritionResultScreen: React.FC = () => {
           </>
         )}
 
-        {/* 7. Coach Alex Commentary */}
+        {/* 7. Coach Mack Commentary */}
         <View style={styles.coachCard}>
           <View style={styles.coachHeader}>
             <View style={styles.coachAvatar}>

@@ -60,10 +60,10 @@ export const LiveKitVoiceCallScreen: React.FC<LiveKitVoiceCallScreenProps> = ({
 
     const initialGreeting =
       greeting ||
-      'Hello! I am Coach Alex, your AI health coach from HealthFreak. How is your energy and body feeling today?';
+      'Hello! I am Coach Mack, your AI health coach from HealthFreak. How is your energy and body feeling today?';
 
     const userName = userProfile?.name?.trim() ? userProfile.name.split(' ')[0] : 'friend';
-    const effectiveUserId = call.userId || userProfile?.id || 'usr_guest';
+    const effectiveUserId = call.userId || userProfile?.id || '';
 
     voiceClient.startSession(effectiveUserId, initialGreeting, userName);
 
@@ -218,7 +218,7 @@ export const LiveKitVoiceCallScreen: React.FC<LiveKitVoiceCallScreenProps> = ({
           onPress={handleTapToTalkOrInterrupt}
           hitSlop={16}
           accessibilityRole="button"
-          accessibilityLabel="Coach Alex avatar. Tap to interrupt or talk."
+          accessibilityLabel="Coach Mack avatar. Tap to interrupt or talk."
         >
           <Image
             source={CALLING_LOGO}

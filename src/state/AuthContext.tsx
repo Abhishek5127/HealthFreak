@@ -28,7 +28,6 @@ interface AuthContextType {
   profile: UserProfile | null;
   error: string | null;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string; cancelled?: boolean }>;
-  signInAsDemoUser: () => void;
   signOut: () => Promise<void>;
   clearError: () => void;
   updateProfileState: (updates: Partial<UserProfile>) => void;
@@ -38,56 +37,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const getBackendUrl = (): string => getBackendBaseUrl();
 
-const DEMO_SESSION_KEY = 'HEALTHFREAK_DEMO_SESSION_ACTIVE';
-const DEMO_PROFILE_KEY = 'HEALTHFREAK_DEMO_USER_PROFILE';
-
-export async function getLocalDemoSession(): Promise<{
-  demoUser: User;
-  demoSession: Session;
-  demoProfile: UserProfile;
-}> {
-  let savedDemoProfile: Partial<UserProfile> = {};
-  try {
-    const raw = await expoSecureStoreAdapter.getItem(DEMO_PROFILE_KEY);
-    if (raw) savedDemoProfile = JSON.parse(raw);
-  } catch {}
-
-  const guestId = savedDemoProfile.id || `usr_guest_${Date.now()}`;
-
-  const demoUser = {
-    id: guestId,
-    app_metadata: { provider: 'guest' },
-    user_metadata: { full_name: 'Guest' },
-    aud: 'authenticated',
-    created_at: new Date().toISOString(),
-    email: '',
-  } as any;
-
-  const demoSession = {
-    access_token: `guest_token_${guestId}`,
-    token_type: 'bearer',
-    user: demoUser,
-    expires_in: 3600,
-    refresh_token: 'guest_refresh_token',
-  } as any;
-
-  const demoProfile: UserProfile = {
-    id: guestId,
-    name: '',
-    email: '',
-    avatarUrl: undefined,
-    streakDays: 0,
-    selectedGoal: 'metabolic_fitness',
-    goalLabel: 'Metabolic Fitness & Energy',
-    language: 'English',
-    onboardingCompleted: false,
-    currentMood: 'energized',
-    healthConditions: [],
-    authProvider: 'guest',
-    ...savedDemoProfile,
-  };
-
-  return { demoUser, demoSession, demoProfile };
+/**
+ * Clean up any legacy guest/demo artifacts on device
+ */
+async function purgeLegacyGuestStorage(): Promise<void> {
+  const keys = [
+    'HEALTHFREAK_DEMO_SESSION_ACTIVE',
+    'HEALTHFREAK_DEMO_USER_PROFILE',
+    'healthfreak_demo_session_active',
+    'healthfreak_demo_profile',
+    '@healthfreak_guest',
+    '@guest_session',
+    '@demo_profile',
+    '@healthfreak_user_local',
+  ];
+  for (const k of keys) {
+    await expoSecureStoreAdapter.removeItem(k).catch(() => {});
+  }
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -227,6 +193,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     async function initializeAuth() {
       try {
+        // One-time startup purge of leftover guest/demo session keys
+        await purgeLegacyGuestStorage();
+
         // Enforce a strict 2.5 second timeout on Supabase session lookup to prevent hanging on mobile
         const sessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise<{ data: { session: null }; error: null }>((resolve) =>
@@ -245,19 +214,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (data?.session && isMounted) {
           await handleSessionEstablished(data.session);
-        } else {
-          // Check for active local demo account session
-          const isDemoActive = await expoSecureStoreAdapter.getItem(DEMO_SESSION_KEY).catch(() => null);
-          if (isDemoActive === 'true' && isMounted) {
-            const { demoUser, demoSession, demoProfile } = await getLocalDemoSession();
-            setSession(demoSession);
-            setUser(demoUser);
-            setProfile(demoProfile);
-            setError(null);
-            setAuthState('authenticated');
-          } else if (isMounted) {
-            setAuthState('logged_out');
-          }
+        } else if (isMounted) {
+          setAuthState('logged_out');
         }
       } catch (err: any) {
         if (isMounted) {
@@ -402,21 +360,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   /**
-   * One-tap Instant Demo Access (Preloaded with Alex Sharma's health profile, stored 100% locally)
-   */
-  const signInAsDemoUser = () => {
-    getLocalDemoSession().then(async ({ demoUser, demoSession, demoProfile }) => {
-      await expoSecureStoreAdapter.setItem(DEMO_SESSION_KEY, 'true').catch(() => {});
-      await expoSecureStoreAdapter.setItem(DEMO_PROFILE_KEY, JSON.stringify(demoProfile)).catch(() => {});
-      setSession(demoSession);
-      setUser(demoUser);
-      setProfile(demoProfile);
-      setError(null);
-      setAuthState('authenticated');
-    });
-  };
-
-  /**
    * Account Sign Out
    */
   const signOut = async (): Promise<void> => {
@@ -430,8 +373,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('[AuthContext] Voice disconnect error:', voiceErr.message);
       }
 
-      // 1b. Clear local demo session flag if active
-      await expoSecureStoreAdapter.removeItem(DEMO_SESSION_KEY).catch(() => {});
+      // 1b. Clean up any leftover guest session keys
+      await purgeLegacyGuestStorage();
 
       // 2. Clear remote Supabase session
       await signOutFromSupabase();
@@ -458,11 +401,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateProfileState = (updates: Partial<UserProfile>) => {
     setProfile((prev) => {
       if (!prev) return null;
-      const next = { ...prev, ...updates };
-      if (next.authProvider === 'demo') {
-        expoSecureStoreAdapter.setItem(DEMO_PROFILE_KEY, JSON.stringify(next)).catch(() => {});
-      }
-      return next;
+      return { ...prev, ...updates };
     });
   };
 
@@ -475,7 +414,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile,
         error,
         signInWithGoogle,
-        signInAsDemoUser,
         signOut,
         clearError,
         updateProfileState,

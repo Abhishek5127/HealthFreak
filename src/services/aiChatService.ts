@@ -30,12 +30,12 @@ export function getBackendBaseUrl(): string {
 
 /**
  * Direct client-side Gemini fallback.
- * Guarantees Coach Alex answers dynamically and intelligently in warm Hinglish
+ * Guarantees Coach Mack answers dynamically and intelligently in warm Hinglish
  * even when the local backend server is not running or unreachable from the phone.
  */
 export async function askGeminiDirect(
   message: string,
-  userName = 'Abhishek'
+  userName = 'Friend'
 ): Promise<{ text: string; suggestions: string[] }> {
   const apiKey = (process.env.EXPO_PUBLIC_GEMINI_API_KEY || '').trim();
   const lower = message.toLowerCase();
@@ -43,7 +43,7 @@ export async function askGeminiDirect(
   if (apiKey) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
-      const systemPrompt = `You are Coach Alex, an elite AI Health and Wellness Coach at HealthFreak speaking directly with ${userName}.
+      const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak speaking directly with ${userName}.
 Rules:
 1. Respond in natural, warm, motivating Hinglish (Hindi + English blended in Latin alphabet, e.g. 'Arre ${userName}!').
 2. Keep your answer concise: exactly 2 to 3 short sentences. Be clinically sound, encouraging, and actionable.
@@ -95,14 +95,14 @@ Rules:
 
   // If direct Gemini fails or is unconfigured, return error — no canned fallback strings
   return {
-    text: 'Error: Coach Alex could not connect to AI. Please check your internet connection.',
+    text: 'Error: Coach Mack could not connect to AI. Please check your internet connection.',
     suggestions: ['Try asking again', 'Check connection'],
   };
 }
 
 export async function askHealthCoachAI(
   message: string,
-  userName = 'Abhishek',
+  userName = 'Friend',
   conditions: string[] = [],
   activityContext?: {
     todaySteps?: number;
@@ -111,7 +111,7 @@ export async function askHealthCoachAI(
     caloriesBurned?: number;
     activeMinutes?: number;
   },
-  userId: string = 'user_local'
+  userId: string = ''
 ): Promise<{ text: string; suggestions: string[]; audioBase64?: string; audioMime?: string; audioUrl?: string }> {
   const backendUrl = getBackendBaseUrl();
 
@@ -124,7 +124,7 @@ export async function askHealthCoachAI(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message,
-        userId: userId || 'user_local',
+        userId: userId || '',
         userName,
         activityContext,
       }),
@@ -158,7 +158,7 @@ export async function askHealthCoachAI(
 }
 
 /**
- * Genuine SSE streaming client for Coach Alex.
+ * Genuine SSE streaming client for Coach Mack.
  * Streams token deltas to UI and emits chunked audio events for instant playback.
  */
 export async function streamHealthCoachAI(params: {
@@ -172,7 +172,7 @@ export async function streamHealthCoachAI(params: {
   signal?: AbortSignal;
 }): Promise<{ text: string; suggestions: string[] }> {
   const backendUrl = getBackendBaseUrl();
-  const { message, userId = 'user_local', userName, activityContext, onTextDelta, onAudioChunk, onComplete, signal } = params;
+  const { message, userId = '', userName, activityContext, onTextDelta, onAudioChunk, onComplete, signal } = params;
 
   try {
     const res = await fetch(`${backendUrl}/api/voice/chat/stream`, {
@@ -314,11 +314,11 @@ export function isSelfEcho(userText: string, coachText: string): boolean {
   }
 
   const coachIdentityPhrases = [
-    'main alex bol raha hoon',
-    'main alex bol raha',
-    'main alex hoon',
-    'alex bol raha hoon',
-    'coach alex here',
+    'main mack bol raha hoon',
+    'main mack bol raha',
+    'main mack hoon',
+    'mack bol raha hoon',
+    'coach mack here',
     'aapki ai health coach',
     'aapki health coach',
     'healthfreak voice coach',
@@ -363,10 +363,10 @@ export function cleanCoachReplyOnly(text: string): string {
 export async function transcribeAndReplyAudio(
   base64Audio: string,
   mimeType = 'audio/webm',
-  userName = 'Alex',
+  userName = 'Friend',
   conditions: string[] = [],
   lastCoachReply = '',
-  userId = 'user_local'
+  userId = ''
 ): Promise<{ userTranscript: string; coachReply: string; audioBase64?: string; audioMime?: string; audioUrl?: string; isEcho?: boolean }> {
   const backendUrl = getBackendBaseUrl();
 

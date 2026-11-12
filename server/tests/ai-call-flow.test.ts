@@ -82,7 +82,7 @@ export async function runAICallTests() {
 
   // 5. Append Conversation Transcript
   console.log('\n--- Test 5: Bi-directional Transcript ---');
-  db.appendTranscript(callId, 'coach', 'Hello Alex, Coach Alex here! How is your knee feeling today?');
+  db.appendTranscript(callId, 'coach', 'Hello Alex, Coach Mack here! How is your knee feeling today?');
   db.appendTranscript(callId, 'user', 'Feeling much better, I did 20 minutes of walking.');
 
   const transcript = db.getCallSession(callId)?.transcript || [];

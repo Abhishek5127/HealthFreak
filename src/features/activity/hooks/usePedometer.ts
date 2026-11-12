@@ -34,7 +34,6 @@ export interface UsePedometerResult {
 export function usePedometer(): UsePedometerResult {
   const { user, profile } = useAuth();
   const userId = user?.id || profile?.id || null;
-  const isGuest = !user;
 
   const [todaySteps, setTodaySteps] = useState<number>(0);
   const [stepGoal, setStepGoal] = useState<number>(10000);
@@ -193,11 +192,11 @@ export function usePedometer(): UsePedometerResult {
   }, []);
 
   const syncNow = useCallback(async (): Promise<void> => {
-    const res = await ActivitySyncService.syncActivities(userId, isGuest);
+    const res = await ActivitySyncService.syncActivities(userId);
     if (res.success) {
       setLastSyncedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     }
-  }, [userId, isGuest]);
+  }, [userId]);
 
   return {
     todaySteps,

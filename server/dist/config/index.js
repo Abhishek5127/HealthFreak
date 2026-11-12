@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.config = void 0;
+exports.COACH_NAME = exports.config = void 0;
 const dotenv_1 = __importDefault(require("dotenv"));
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
@@ -86,3 +86,5 @@ exports.config = {
         databaseUrl: process.env.DATABASE_URL || '',
     },
 };
+var constants_js_1 = require("./constants.js");
+Object.defineProperty(exports, "COACH_NAME", { enumerable: true, get: function () { return constants_js_1.COACH_NAME; } });

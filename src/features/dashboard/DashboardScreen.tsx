@@ -180,14 +180,16 @@ export const DashboardScreen: React.FC = () => {
   useEffect(() => {
     const triggerAutoNightSync = async () => {
       try {
-        await Promise.all([
-          ActivitySyncService.syncDailyWater(
-            userProfile.id || 'usr_synthetic_alex',
-            waterLoggedMl,
-            effectiveTargetMl
-          ),
-          ActivitySyncService.syncActivities(userProfile.id || 'usr_synthetic_alex', false),
-        ]);
+        if (userProfile.id) {
+          await Promise.all([
+            ActivitySyncService.syncDailyWater(
+              userProfile.id,
+              waterLoggedMl,
+              effectiveTargetMl
+            ),
+            ActivitySyncService.syncActivities(userProfile.id),
+          ]);
+        }
       } catch {
         // Silent background fallback
       }

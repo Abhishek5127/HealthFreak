@@ -50,12 +50,12 @@ class HealthFreakVoiceAgentWorker {
         };
         this.activeSessions.set(sessionId, workerSession);
         // Initial greeting (Speaks first)
-        let greeting = `Hello ${user.name.split(' ')[0]}, Coach Alex here. How is your energy and health today?`;
+        let greeting = `Hello ${user.name.split(' ')[0]}, Coach Mack here. How is your energy and health today?`;
         if (user.languagePreference === 'hinglish') {
-            greeting = `Namaste ${user.name.split(' ')[0]}! Coach Alex here. Aaj aap kaisa feel kar rahe hain?`;
+            greeting = `Namaste ${user.name.split(' ')[0]}! Coach Mack here. Aaj aap kaisa feel kar rahe hain?`;
         }
         else if (user.languagePreference === 'hi') {
-            greeting = `नमस्ते ${user.name.split(' ')[0]}! कोच एलेक्स यहाँ है। आज आप कैसा महसूस कर रहे हैं?`;
+            greeting = `नमस्ते ${user.name.split(' ')[0]}! मैं Coach Mack हूँ। आज आप कैसा महसूस कर रहे हैं?`;
         }
         // Record greeting in call session transcript
         index_js_2.db.appendTranscript(params.callId, 'coach', greeting);

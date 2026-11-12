@@ -80,7 +80,7 @@ export const CoachChatScreen: React.FC = () => {
           </View>
           <View>
             <View style={styles.coachNameRow}>
-              <Text style={styles.coachName}>Coach Alex</Text>
+              <Text style={styles.coachName}>Coach Mack</Text>
               <View style={styles.activeDot} />
             </View>
             <Text style={styles.coachStatus}>HealthFreak AI Partner</Text>
@@ -102,7 +102,7 @@ export const CoachChatScreen: React.FC = () => {
             onPress={() => startCall()}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel="Call Coach Alex"
+            accessibilityLabel="Call Coach Mack"
           >
             <Phone size={18} color="#4AB87A" />
           </Pressable>
@@ -125,7 +125,7 @@ export const CoachChatScreen: React.FC = () => {
             <View style={styles.emptyAvatar}>
               <HealthFreakLogo size={52} animated={false} />
             </View>
-            <Text style={styles.emptyTitle}>Chat with Coach Alex</Text>
+            <Text style={styles.emptyTitle}>Chat with Coach Mack</Text>
             <Text style={styles.emptySubtitle}>
               Ask anything about your nutrition, workouts, macro targets, and recovery tips.
             </Text>
@@ -257,7 +257,7 @@ export const CoachChatScreen: React.FC = () => {
 
         <TextInput
           style={styles.textInput}
-          placeholder="Ask Coach Alex about nutrition, labs, routines..."
+          placeholder="Ask Coach Mack about nutrition, labs, routines..."
           placeholderTextColor={Colors.textMuted}
           value={inputText}
           onChangeText={setInputText}

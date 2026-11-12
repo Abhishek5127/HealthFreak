@@ -79,8 +79,8 @@ export class SarvamService {
     if (!raw) return '';
 
     return raw
-      // Remove prefixes like "Coach Alex: " or "Assistant: "
-      .replace(/^(Coach\s*Alex|Alex|Coach|Assistant):\s*/gi, '')
+      // Remove prefixes like "Coach Mack: " or "Assistant: "
+      .replace(/^(Coach\s*Mack|Coach\s*Alex|Mack|Alex|Coach|Assistant):\s*/gi, '')
       // Remove markdown asterisks, hashes, backticks, tildes, brackets
       .replace(/[*_#`~[\]]/g, '')
       // Convert number ranges (e.g. "10-12" or "10 - 12") to "10 to 12"
@@ -121,7 +121,7 @@ export class SarvamService {
       synthesizeVoice = true,
     } = params;
 
-    const systemPrompt = `You are Coach Alex, an elite AI Health and Wellness Coach at HealthFreak.
+    const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak.
 You are speaking directly with ${userName}.
 User Profile:
 - Known conditions/injuries: ${conditions.join(', ') || 'None'}

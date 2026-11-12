@@ -422,7 +422,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED_DATE', today).catch(() => {});
       syncWidgetStateToHomeScreen(next, waterTargetMl, amountMl).catch(() => {});
       // Persist to database (Express / Supabase)
-      ActivitySyncService.syncDailyWater(userProfileState.id || 'user_local', next, waterTargetMl, today).catch(() => {});
+      if (userProfileState.id) {
+        ActivitySyncService.syncDailyWater(userProfileState.id, next, waterTargetMl, today).catch(() => {});
+      }
       return next;
     });
   };
@@ -433,7 +435,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setWaterTargetMl(ml);
     await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_TARGET_ML', ml.toString());
     syncWidgetStateToHomeScreen(waterLoggedMl, ml).catch(() => {});
-    ActivitySyncService.syncDailyWater(userProfileState.id || 'user_local', waterLoggedMl, ml, today).catch(() => {});
+    if (userProfileState.id) {
+      ActivitySyncService.syncDailyWater(userProfileState.id, waterLoggedMl, ml, today).catch(() => {});
+    }
   };
 
   const resetWaterLogged = async () => {
@@ -443,7 +447,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED', '0');
     await expoSecureStoreAdapter.setItem('HEALTHFREAK_WATER_LOGGED_DATE', today);
     syncWidgetStateToHomeScreen(0, waterTargetMl).catch(() => {});
-    ActivitySyncService.syncDailyWater(userProfileState.id || 'user_local', 0, waterTargetMl, today).catch(() => {});
+    if (userProfileState.id) {
+      ActivitySyncService.syncDailyWater(userProfileState.id, 0, waterTargetMl, today).catch(() => {});
+    }
   };
 
   const applySurveyAssessment = async (assessment: UserSurveyAssessment) => {
@@ -654,7 +660,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         // Daily health snapshot sync to server on app open
-        HealthSyncService.syncDailySnapshot(userProfile?.id || 'user_local').catch(() => {});
+        if (userProfile?.id) {
+          HealthSyncService.syncDailySnapshot(userProfile.id).catch(() => {});
+        }
       }
     };
 
@@ -731,7 +739,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       const activeName = userProfile.name?.trim() ? userProfile.name.split(' ')[0] : 'friend';
-      const effectiveUserId = userProfile.id || 'usr_guest';
+      const effectiveUserId = userProfile.id || '';
 
       await streamHealthCoachAI({
         message: trimmed,
@@ -911,13 +919,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const startCall = async (customGreeting?: string) => {
     voiceClient.unlockAudio();
-    const effectiveUserId = userProfile.id || 'usr_guest';
+    const effectiveUserId = userProfile.id || '';
     const callId = `call_direct_${Date.now()}`;
     const directCall: ScheduledAICall = {
       id: callId,
       roomName: `room_${effectiveUserId}_${Date.now()}`,
       userId: effectiveUserId,
-      topic: 'Direct Coaching Call with Coach Alex',
+      topic: 'Direct Coaching Call with Coach Mack',
       type: 'in_app',
       status: 'connected',
       scheduledTime: new Date().toISOString(),
@@ -967,7 +975,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Initialize push notification listener & periodic incoming call check
   useEffect(() => {
-    const effectiveUserId = userProfile.id || 'usr_guest';
+    const effectiveUserId = userProfile.id || '';
     NotificationService.init(effectiveUserId);
 
     const unsubscribe = NotificationService.listenForIncomingCalls(async ({ callId, roomName }) => {
