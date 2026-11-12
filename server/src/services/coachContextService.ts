@@ -243,6 +243,27 @@ export class CoachContextService {
       }
     }
 
+    // 4b. Resolved Recently (last 14 days)
+    let resolvedRecently: CoachContextPack['resolved_recently'] = [];
+    if (pool && !isSyntheticAlex) {
+      try {
+        const resolvedRes = await pool.query(
+          `SELECT title, resolved_at FROM user_issues
+           WHERE user_id = $1 AND status = 'resolved' AND resolved_at >= NOW() - INTERVAL '14 days'
+           ORDER BY resolved_at DESC LIMIT 3;`,
+          [userId]
+        );
+        if (resolvedRes.rows.length > 0) {
+          resolvedRecently = resolvedRes.rows.map((r) => ({
+            title: r.title,
+            resolved_at: r.resolved_at ? new Date(r.resolved_at).toLocaleDateString() : 'recently',
+          }));
+        }
+      } catch (err: any) {
+        console.warn('[CoachContextService] Resolved issues query warning:', err.message);
+      }
+    }
+
     // 5. Last Call Summary & Commitments (Must come from extraction; otherwise null)
     let lastCall: CoachContextPack['last_call'] = null;
 
@@ -324,6 +345,7 @@ export class CoachContextService {
       metrics,
       active_plan: activePlan,
       open_issues: openIssues,
+      resolved_recently: resolvedRecently,
       last_call: lastCall,
       next_call: nextCall,
     };
@@ -365,7 +387,7 @@ export class CoachContextService {
       lines.push('Open Issues (Priority Order):');
       pack.open_issues.forEach((issue, idx) => {
         const followUp = issue.follow_up_question ? ` -> Follow-up opener: "${issue.follow_up_question}"` : '';
-        lines.push(`${idx + 1}. [${issue.category.toUpperCase()}] ${issue.title} (${issue.severity || 'mild'}, reported ${issue.last_mentioned})${followUp}`);
+        lines.push(`${idx + 1}. [id:${issue.id.slice(0, 8)}] [${issue.category.toUpperCase()}] ${issue.title} (${issue.severity || 'mild'}, reported ${issue.last_mentioned})${followUp}`);
       });
     }
 

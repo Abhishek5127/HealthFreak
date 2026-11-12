@@ -30,11 +30,18 @@ export interface ExtractedFact {
   value: string;
 }
 
+export interface IssueUpdate {
+  issue_ref: string;
+  status: 'open' | 'improving' | 'resolved';
+  evidence: string;
+}
+
 export interface ExtractionResult {
   topics: string[];
   commitments: string[];
   facts: ExtractedFact[];
   issues: Array<{ category: string; title: string; severity?: string }>;
+  issue_updates?: IssueUpdate[];
 }
 
 // In-memory caches for low-latency retrieval & fallback
@@ -313,8 +320,42 @@ export async function processCallExtraction(
     }
     healthMemoryStore.profileFacts.set(userId, existingFacts);
 
-    // 5. Extract issues mentioned using HealthMemoryEngine
-    // HealthMemoryEngine handles deduplication against active/past issues
+    // 5. Extract issue updates and symptoms mentioned
+    const issueUpdates: IssueUpdate[] = [];
+    const isResolution = /(theek ho gaya|theek hai|thik ho gaya|thik hai|theek ho gayi|thik ho gayi|ठीक हो गया|ठीक है|ठीक हो गई|ab dard nahi|dard nahi|no more pain|pain is gone|pain gone|completely solved|solved|all good|fully recovered|healed|no pain)/i;
+    const isImproving = /(thoda better|thoda theek|thoda thik|better now|getting better|improving|much better|pain kam|kam ho gaya|कम हो गया|थोड़ा बेहतर|थोड़ा ठीक)/i;
+
+    for (const turn of turns) {
+      if (turn.role !== 'user') continue;
+      const t = turn.text;
+      const lowerT = t.toLowerCase();
+      let matchedStatus: 'resolved' | 'improving' | null = null;
+      if (isResolution.test(lowerT)) {
+        matchedStatus = 'resolved';
+      } else if (isImproving.test(lowerT)) {
+        matchedStatus = 'improving';
+      }
+
+      if (matchedStatus) {
+        let targetRef = '';
+        if (lowerT.includes('shoulder') || lowerT.includes('neck')) targetRef = 'shoulder';
+        else if (lowerT.includes('knee') || lowerT.includes('joint')) targetRef = 'knee';
+        else if (lowerT.includes('back')) targetRef = 'back';
+        else if (lowerT.includes('energy') || lowerT.includes('fatigue') || lowerT.includes('thak')) targetRef = 'energy';
+
+        if (targetRef) {
+          const updated = await HealthMemoryEngine.updateIssueStatus(userId, targetRef, matchedStatus, t);
+          if (updated) {
+            issueUpdates.push({
+              issue_ref: updated.id,
+              status: matchedStatus,
+              evidence: t,
+            });
+          }
+        }
+      }
+    }
+
     if (userText.trim().length > 0) {
       await HealthMemoryEngine.processSymptomIngestion(userId, userText);
     }
@@ -342,7 +383,7 @@ export async function processCallExtraction(
             callId,
             userId,
             `Post-call extraction: ${topics.join(', ')}`,
-            JSON.stringify({ topics, commitments, facts, issues }),
+            JSON.stringify({ topics, commitments, facts, issues, issue_updates: issueUpdates }),
           ]
         );
       }
@@ -355,6 +396,7 @@ export async function processCallExtraction(
       commitments,
       facts,
       issues,
+      issue_updates: issueUpdates,
     };
 
     // 7. Mark job completed

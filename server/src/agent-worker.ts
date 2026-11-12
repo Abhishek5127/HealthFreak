@@ -111,8 +111,10 @@ export class HealthFreakVoiceAgentWorker {
 
     const provider = VoiceProviderFactory.getProvider();
 
-    // Check for knee / joint pain disclosures
-    if (lower.includes('knee') || lower.includes('joint') || lower.includes('dard')) {
+    const isResolution = /(theek ho gaya|theek hai|thik ho gaya|thik hai|theek ho gayi|thik ho gayi|ठीक हो गया|ठीक है|ठीक हो गई|ab dard nahi|dard nahi|no more pain|pain is gone|pain gone|completely solved|solved|all good|fully recovered|healed|no pain)/i.test(lower);
+
+    // Check for knee / joint pain disclosures (only when not a resolution and specific to pain/joint)
+    if (!isResolution && (lower.includes('knee') || lower.includes('joint')) && (lower.includes('dard') || lower.includes('pain') || lower.includes('hurt') || lower.includes('swelling'))) {
       toolsCalled.push('update_user_memory');
       await provider.executeTool(
         'update_user_memory',
@@ -132,7 +134,7 @@ export class HealthFreakVoiceAgentWorker {
       } else {
         reply = 'I noted your knee discomfort and drafted a low-impact isometric replacement to protect your joints. Would you like to confirm this plan?';
       }
-    } else if (lower.includes('tired') || lower.includes('energy') || lower.includes('thak')) {
+    } else if (!isResolution && (lower.includes('tired') || lower.includes('exhaust') || lower.includes('fatigue') || lower.includes('thak') || ((lower.includes('energy') || lower.includes('thakan')) && (lower.includes('low') || lower.includes('kam') || lower.includes('nahi') || lower.includes('down') || lower.includes('poor'))))) {
       toolsCalled.push('record_daily_checkin');
       await provider.executeTool(
         'record_daily_checkin',

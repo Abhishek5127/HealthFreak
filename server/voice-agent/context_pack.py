@@ -116,7 +116,7 @@ class ContextPack(BaseModel):
             for idx, issue in enumerate(self.open_issues[:3], 1):
                 opener = f' -> Opener Question: "{issue.follow_up_question}"' if issue.follow_up_question else ""
                 lines.append(
-                    f"{idx}. [{issue.category.upper()}] {issue.title} "
+                    f"{idx}. [id:{issue.id[:8]}] [{issue.category.upper()}] {issue.title} "
                     f"({issue.severity or 'mild'}, reported {issue.last_mentioned}){opener}"
                 )
 

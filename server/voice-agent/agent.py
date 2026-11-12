@@ -107,6 +107,7 @@ def _build_instructions(context_pack: Optional[ContextPack] = None, is_anonymous
         "Wrap-up: Before ending the call, recap commitments made, confirm the next call time (if any), then end the call with the end_call tool.\n"
         "Transcripts may contain mishearings or spelling variants. Before saving any meal, workout or health detail "
         "with a tool, read back food names and quantities and get a yes. If unsure, ask instead of guessing.\n"
+        "Before calling update_issue_status to resolve or update an issue, read back a confirmation like 'Shoulder ab theek hai, main ise close kar doon?' and get a yes from the user.\n"
         f"{gender_rule}"
     )
 
@@ -356,6 +357,48 @@ class HealthFreakCoachAgent(Agent):
         except Exception as err:
             logger.error(f"Exception logging workout: {err}")
             return "माफ़ कीजिए, server से connect नहीं हो पाया workout save करने के लिए।"
+
+    @function_tool
+    async def update_issue_status(
+        self,
+        context: RunContext,
+        issue_ref: Annotated[str, Field(description="Issue ID prefix (like [id:xxxxxxxx]) or title of the open issue")],
+        status: Annotated[str, Field(description="New status: 'resolved' or 'improving'")],
+    ) -> str:
+        """Updates the status of an open issue after confirming with the user."""
+        call_id = self.coach_state.call_id
+        if not call_id:
+            logger.error("Cannot update issue: call_id missing in coach_state")
+            return "Error: Call session ID missing, cannot update issue."
+
+        port = os.getenv("PORT", "3001")
+        backend_url = os.getenv("BACKEND_URL", f"http://127.0.0.1:{port}").rstrip("/")
+        path = "/api/coach/update-issue"
+        body_dict = {
+            "issue_ref": issue_ref,
+            "status": status,
+        }
+        body_bytes = json.dumps(body_dict).encode("utf-8")
+        headers = sign_coach_request("POST", path, call_id, body_bytes)
+        headers["Content-Type"] = "application/json"
+
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=4.0)) as http_session:
+                async with http_session.post(f"{backend_url}{path}", headers=headers, data=body_bytes) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        if data.get("success"):
+                            logger.info(f"Successfully updated issue status: {issue_ref} -> {status}")
+                            if status == "resolved":
+                                return "मैंने इस issue को resolved mark कर दिया है।"
+                            else:
+                                return "मैंने note कर लिया है कि इसमें सुधार हो रहा है।"
+                    error_text = await resp.text()
+                    logger.error(f"Failed to update issue (status {resp.status}): {error_text}")
+                    return f"Issue status update नहीं हो पाया (status {resp.status})।"
+        except Exception as err:
+            logger.error(f"Exception updating issue: {err}")
+            return "Server से connect नहीं हो पाया issue update करने के लिए।"
 
 async def _fetch_context_pack(call_id: str, user_id: Optional[str] = None) -> ContextPack:
     port = os.getenv("PORT", "3001")

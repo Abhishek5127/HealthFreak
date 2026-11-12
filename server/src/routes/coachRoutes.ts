@@ -8,6 +8,7 @@ import { SupabaseDb } from '../db/supabaseClient.js';
 import { HealthSnapshotService } from '../services/healthSnapshotService.js';
 import { DailyActivityEntity } from '../types/healthMemory.js';
 import { db } from '../db/index.js';
+import { HealthMemoryEngine } from '../services/healthMemoryEngine.js';
 import {
   saveTranscriptTurn,
   getCallTranscriptTurns,
@@ -205,6 +206,38 @@ coachRouter.post('/log-workout', async (req: Request, res: Response): Promise<vo
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Failed to log workout' });
+  }
+});
+
+/**
+ * POST /api/coach/update-issue
+ * Updates issue status (open, improving, resolved)
+ */
+coachRouter.post('/update-issue', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const coachReq = req as AuthenticatedCoachRequest;
+    const userId = coachReq.coachUserId!;
+    const { issue_ref, status, note } = req.body;
+
+    if (!issue_ref || !status) {
+      res.status(400).json({ success: false, error: 'issue_ref and status are required' });
+      return;
+    }
+
+    if (!['open', 'improving', 'resolved'].includes(status)) {
+      res.status(400).json({ success: false, error: 'status must be open, improving, or resolved' });
+      return;
+    }
+
+    const updated = await HealthMemoryEngine.updateIssueStatus(userId, issue_ref, status, note);
+    if (!updated) {
+      res.status(404).json({ success: false, error: `Issue "${issue_ref}" not found for user` });
+      return;
+    }
+
+    res.json({ success: true, issue: updated });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to update issue' });
   }
 });
 
