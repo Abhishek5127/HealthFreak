@@ -143,7 +143,8 @@ def _setup_eval_logging(session: AgentSession, stt_language: str, call_id: str |
         if not call_id:
             return
         try:
-            backend_url = os.getenv("BACKEND_URL", "http://localhost:3000").rstrip("/")
+            port = os.getenv("PORT", "3001")
+            backend_url = os.getenv("BACKEND_URL", f"http://127.0.0.1:{port}").rstrip("/")
             path = "/api/coach/transcript-turn"
             payload = json.dumps({"turn_index": turn_idx, "role": role, "text": text}).encode("utf-8")
             headers = sign_coach_request("POST", path, call_id, payload)
@@ -215,7 +216,8 @@ async def _notify_call_ended(call_id: str) -> None:
     if not call_id:
         return
     try:
-        backend_url = os.getenv("BACKEND_URL", "http://localhost:3000").rstrip("/")
+        port = os.getenv("PORT", "3001")
+        backend_url = os.getenv("BACKEND_URL", f"http://127.0.0.1:{port}").rstrip("/")
         path = "/api/coach/call-ended"
         payload = json.dumps({"reason": "completed"}).encode("utf-8")
         headers = sign_coach_request("POST", path, call_id, payload)
@@ -355,7 +357,7 @@ class HealthFreakCoachAgent(Agent):
             logger.error(f"Exception logging workout: {err}")
             return "माफ़ कीजिए, server से connect नहीं हो पाया workout save करने के लिए।"
 
-async def _fetch_context_pack(call_id: str) -> ContextPack:
+async def _fetch_context_pack(call_id: str, user_id: Optional[str] = None) -> ContextPack:
     port = os.getenv("PORT", "3001")
     backend_url = os.getenv("BACKEND_URL", f"http://127.0.0.1:{port}").rstrip("/")
     path = "/api/health/context-pack"
@@ -368,40 +370,58 @@ async def _fetch_context_pack(call_id: str) -> ContextPack:
                     if data.get("success") and data.get("contextPack"):
                         return ContextPack.model_validate(data["contextPack"])
     except Exception as err:
-        logger.warning(f"Could not fetch context pack from backend ({err}); using calibrated default pack.")
+        logger.warning(f"Could not fetch context pack from backend ({err}); using clean pack.")
+
+    if user_id == "usr_synthetic_alex":
+        return ContextPack(
+            profile=ProfileEssential(
+                first_name="Alex",
+                language="hinglish",
+                goal="Weight management & functional knee stability",
+                tz="Asia/Kolkata",
+                preferred_call_time="10:00",
+            ),
+            today=DayMetrics(steps=8240, step_goal=10000, calories_in=1950, calorie_target=2100, protein_g=112, water_ml=2600),
+            yesterday=DayMetrics(steps=9500, step_goal=10000, calories_in=2050, protein_g=120),
+            seven_day_summary=SevenDaySummary(avg_steps=8750, steps_goal_hit_count=5, avg_calories=2010, avg_protein_g=115, adherence_rate_pct=82),
+            active_plan=ActivePlan(
+                title="4-Week Metabolic Reboot",
+                today_workout="Lower body mobility and 25-min brisk interval walking",
+                seven_day_completion_count=4,
+            ),
+            open_issues=[
+                OpenIssue(
+                    id="issue_knee_01",
+                    title="Right knee soreness after plyometrics",
+                    category="pain",
+                    severity="mild-to-moderate",
+                    last_mentioned="2 days ago",
+                    follow_up_question="Aapke right knee ka pain jumping ke baad ab kaisa hai?",
+                ),
+            ],
+            last_call=LastCall(
+                summary="Discussed knee tenderness during jumps and hydration target.",
+                commitments=["Swapped plyometrics for flat walking", "Drink minimum 2.5L water daily"],
+                date="2 days ago",
+            ),
+            next_call=NextCall(scheduled_for="Tomorrow 10:00 AM", channel="app", reason="Mid-week check-in"),
+        )
 
     return ContextPack(
         profile=ProfileEssential(
-            first_name="Alex",
+            first_name="Friend",
             language="hinglish",
-            goal="Weight management & functional knee stability",
+            goal="Healthy lifestyle & wellness",
             tz="Asia/Kolkata",
             preferred_call_time="10:00",
         ),
-        today=DayMetrics(steps=8240, step_goal=10000, calories_in=1950, calorie_target=2100, protein_g=112, water_ml=2600),
-        yesterday=DayMetrics(steps=9500, step_goal=10000, calories_in=2050, protein_g=120),
-        seven_day_summary=SevenDaySummary(avg_steps=8750, steps_goal_hit_count=5, avg_calories=2010, avg_protein_g=115, adherence_rate_pct=82),
-        active_plan=ActivePlan(
-            title="4-Week Metabolic Reboot",
-            today_workout="Lower body mobility and 25-min brisk interval walking",
-            seven_day_completion_count=4,
-        ),
-        open_issues=[
-            OpenIssue(
-                id="issue_knee_01",
-                title="Right knee soreness after plyometrics",
-                category="pain",
-                severity="mild-to-moderate",
-                last_mentioned="2 days ago",
-                follow_up_question="Aapke right knee ka pain jumping ke baad ab kaisa hai?",
-            ),
-        ],
-        last_call=LastCall(
-            summary="Discussed knee tenderness during jumps and hydration target.",
-            commitments=["Swapped plyometrics for flat walking", "Drink minimum 2.5L water daily"],
-            date="2 days ago",
-        ),
-        next_call=NextCall(scheduled_for="Tomorrow 10:00 AM", channel="app", reason="Mid-week check-in"),
+        today=DayMetrics(steps=0, step_goal=10000, calories_in=0, calorie_target=2000, protein_g=0, water_ml=0),
+        yesterday=None,
+        seven_day_summary=None,
+        active_plan=None,
+        open_issues=[],
+        last_call=None,
+        next_call=None,
     )
 
 server = AgentServer()
@@ -463,7 +483,7 @@ async def entrypoint(ctx: JobContext) -> None:
     # 3. Context Pack
     context_pack = None
     if not is_anonymous and call_id:
-        context_pack = await _fetch_context_pack(call_id)
+        context_pack = await _fetch_context_pack(call_id, user_id=validated_user_id)
 
     # 4. Typed Session Userdata
     coach_state = CoachState(

@@ -1,3 +1,4 @@
+process.env.SYNTHETIC_DATA_MODE = 'true';
 import { db, User } from '../src/db/index.js';
 import { LiveKitTokenService } from '../src/livekit/tokenService.js';
 import { ExotelSipService } from '../src/sip/exotelSipService.js';

@@ -5,7 +5,7 @@ Maintains an ultra-compact context pack (<1,000 tokens) rendered into agent inst
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 class ProfileEssential(BaseModel):
     first_name: str = "Friend"
@@ -42,6 +42,10 @@ class OpenIssue(BaseModel):
     last_mentioned: str = "recently"
     follow_up_question: Optional[str] = None
 
+class ResolvedIssue(BaseModel):
+    title: str
+    resolved_at: str
+
 class LastCall(BaseModel):
     summary: str
     commitments: List[str] = Field(default_factory=list)
@@ -55,12 +59,27 @@ class NextCall(BaseModel):
 class ContextPack(BaseModel):
     profile: ProfileEssential = Field(default_factory=ProfileEssential)
     today: DayMetrics = Field(default_factory=DayMetrics)
-    yesterday: DayMetrics = Field(default_factory=DayMetrics)
-    seven_day_summary: SevenDaySummary = Field(default_factory=SevenDaySummary)
+    yesterday: Optional[DayMetrics] = None
+    seven_day_summary: Optional[SevenDaySummary] = None
     active_plan: Optional[ActivePlan] = None
     open_issues: List[OpenIssue] = Field(default_factory=list)
+    resolved_recently: List[ResolvedIssue] = Field(default_factory=list)
     last_call: Optional[LastCall] = None
     next_call: Optional[NextCall] = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def _flatten_metrics(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "metrics" in data and isinstance(data["metrics"], dict):
+                m = data["metrics"]
+                if "today" in m and "today" not in data:
+                    data["today"] = m["today"]
+                if "yesterday" in m and "yesterday" not in data:
+                    data["yesterday"] = m["yesterday"]
+                if "seven_day_summary" in m and "seven_day_summary" not in data:
+                    data["seven_day_summary"] = m["seven_day_summary"]
+        return data
 
     def render_prompt_text(self) -> str:
         lines = ["[USER CONTEXT PACK]"]
@@ -74,15 +93,17 @@ class ContextPack(BaseModel):
             f"{self.today.calories_in} kcal (target {self.today.calorie_target}) | "
             f"{self.today.protein_g}g protein | {self.today.water_ml} ml water."
         )
-        lines.append(
-            f"- Yesterday: {self.yesterday.steps:,} steps | "
-            f"{self.yesterday.calories_in} kcal | {self.yesterday.protein_g}g protein."
-        )
-        lines.append(
-            f"- 7-Day Trend: Avg {self.seven_day_summary.avg_steps:,} steps/day "
-            f"({self.seven_day_summary.steps_goal_hit_count}/7 hit goal) | "
-            f"Nutrition adherence {self.seven_day_summary.adherence_rate_pct}%."
-        )
+        if self.yesterday:
+            lines.append(
+                f"- Yesterday: {self.yesterday.steps:,} steps | "
+                f"{self.yesterday.calories_in} kcal | {self.yesterday.protein_g}g protein."
+            )
+        if self.seven_day_summary and self.seven_day_summary.avg_steps > 0:
+            lines.append(
+                f"- 7-Day Trend: Avg {self.seven_day_summary.avg_steps:,} steps/day "
+                f"({self.seven_day_summary.steps_goal_hit_count}/7 hit goal) | "
+                f"Nutrition adherence {self.seven_day_summary.adherence_rate_pct}%."
+            )
 
         if self.active_plan:
             lines.append(
@@ -98,6 +119,11 @@ class ContextPack(BaseModel):
                     f"{idx}. [{issue.category.upper()}] {issue.title} "
                     f"({issue.severity or 'mild'}, reported {issue.last_mentioned}){opener}"
                 )
+
+        if self.resolved_recently:
+            lines.append("Resolved recently (do NOT bring up unless the user does; if the same pain returns, ask whether it feels like before):")
+            for idx, issue in enumerate(self.resolved_recently[:3], 1):
+                lines.append(f"{idx}. {issue.title} (Resolved: {issue.resolved_at})")
 
         if self.last_call:
             lines.append(f"Last Call: {self.last_call.summary}")
@@ -127,4 +153,3 @@ class CoachState:
     commitments: List[str] = field(default_factory=list)
     language: str = "hi-IN"
     is_anonymous: bool = False
-
