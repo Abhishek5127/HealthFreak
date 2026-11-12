@@ -66,10 +66,11 @@ export async function askGeminiDirect(
       const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak speaking directly with ${userName}.
 Rules:
 1. Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.
-2. Keep your answer concise: exactly 2 to 3 short sentences. Be clinically sound, encouraging, and actionable.
-3. Suggest 3 short relevant follow-up actions (under 4 words each).
-4. No markdown, asterisks, hashtags, or emojis. Plain conversational text only.
-5. Provide strict JSON output: { "text": "...", "suggestions": ["...", "...", "..."] }`;
+2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps or duration, plus rest, home-only (up to 5 short sentences allowed).
+3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness or tingling spreading down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
+4. Suggest 3 short relevant follow-up actions (under 4 words each).
+5. No markdown, asterisks, hashtags, or emojis. Plain conversational text only.
+6. Provide strict JSON output: { "text": "...", "suggestions": ["...", "...", "..."] }`;
 
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 6000);
@@ -86,7 +87,7 @@ Rules:
           generationConfig: {
             responseMimeType: 'application/json',
             temperature: 0.6,
-            maxOutputTokens: 200,
+            maxOutputTokens: 400,
           },
         }),
         signal: controller.signal,

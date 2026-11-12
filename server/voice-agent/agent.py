@@ -91,20 +91,25 @@ def _build_instructions(context_pack: Optional[ContextPack] = None, is_anonymous
     )
 
     base = (
-        f'You are {COACH_NAME}, the HealthFreak voice coach: a warm, practical Indian fitness and nutrition coach. Spoken opening: "{COACH_SPOKEN_GREETING_HI}". '
-        "You are not a doctor and never diagnose. For chest pain, trouble breathing, fainting, "
-        "severe or sudden symptoms, tell the user to seek urgent medical care.\n"
+        f'You are {COACH_NAME}, the HealthFreak voice coach: a warm, practical Indian fitness and nutrition coach. Spoken opening: "{COACH_SPOKEN_GREETING_HI}".\n'
+        "Safety rule: Urgent-care advice ONLY for red flags: chest pain, breathlessness, fainting, numbness or tingling spreading down an arm or leg, sudden severe pain, or injury from trauma. "
+        "For mild muscle strain or soreness, give safe mobility and strengthening guidance. If a transcript word looks like a mishearing, ask one short clarifying question instead of escalating. Never diagnose medical conditions.\n"
         "Language: mirror the user. Hindi gets Hindi, English gets English, mixed speech gets natural Hinglish. "
         "If a preferred language is provided in metadata, use it by default.\n"
         "Script rule (critical for the voice): write Hindi words in Devanagari and English words in Latin script, "
         'in the same sentence. Example: "नमस्ते! आज का workout कैसा रहा?" Never write Hindi in Roman letters.\n'
-        "Style: spoken, not written. Short sentences, one or two per turn, one question at a time. "
+        "Length & style rules: Keep short replies (one or two short sentences) for ordinary conversation. "
+        "When the user asks for an exercise, a routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises, each with sets and reps or duration, plus rest, home-only. "
+        "Up to 5 short sentences are allowed for this. Deliver two exercises per turn, then ask 'aage bataun?'. Ask a clarifying question first only for safety. "
         'Say "आप" and "जी". No markdown, lists, emoji, symbols or abbreviations. '
         'Spell out units ("किलो", "ग्राम", "कैलोरी"). End sentences with "।" or ".". '
         'Use fillers sparingly ("हाँ जी", "अच्छा", "ठीक है").\n'
         "Call opening: Follow up ONLY on issues under Open Issues. Never mention anything under Resolved recently unless the user brings it up. "
         'Never recite all data. Mention numbers naturally ("kal aapne 8 हज़ार steps किए").\n'
         "Opener style: Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.\n"
+        "Tools available: log_meal, log_workout, update_issue_status, suggest_workout, and create_plan_draft. "
+        "Use suggest_workout to retrieve safe exercises matched to the requested body part and filtered against open issues. "
+        "Use create_plan_draft when the user has no active plan and agrees to create a draft.\n"
         "Wrap-up: Before ending the call, recap commitments made, confirm the next call time (if any), then end the call with the end_call tool.\n"
         "Transcripts may contain mishearings or spelling variants. Before saving any meal, workout or health detail "
         "with a tool, read back food names and quantities and get a yes. If unsure, ask instead of guessing.\n"
@@ -417,6 +422,88 @@ class HealthFreakCoachAgent(Agent):
         except Exception as err:
             logger.error(f"Exception updating issue: {err}")
             return "Server से connect नहीं हो पाया issue update करने के लिए।"
+
+    @function_tool
+    async def suggest_workout(
+        self,
+        context: RunContext,
+        body_part: Annotated[str, Field(description="Body part or focus: 'shoulders', 'chest', 'back', 'legs', 'core', or 'yoga'")] = "full_body",
+        duration_minutes: Annotated[int, Field(description="Session duration in minutes")] = 20,
+        level: Annotated[str, Field(description="beginner, intermediate, or advanced")] = "beginner",
+    ) -> str:
+        """Suggests safe home exercises filtered by the user's open health issues."""
+        call_id = self.coach_state.call_id
+        if not call_id:
+            return "Error: Call session ID missing."
+
+        port = os.getenv("PORT", "3001")
+        backend_url = os.getenv("BACKEND_URL", f"http://127.0.0.1:{port}").rstrip("/")
+        path = "/api/coach/suggest-workout"
+        body_dict = {
+            "body_part": body_part,
+            "duration_minutes": duration_minutes,
+            "level": level,
+        }
+        body_bytes = json.dumps(body_dict).encode("utf-8")
+        headers = sign_coach_request("POST", path, call_id, body_bytes)
+        headers["Content-Type"] = "application/json"
+
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=4.0)) as http_session:
+                async with http_session.post(f"{backend_url}{path}", headers=headers, data=body_bytes) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        exercises = data.get("exercises", [])
+                        if exercises:
+                            # Deliver two exercises per turn, then ask 'aage bataun?'
+                            top2 = exercises[:2]
+                            details = []
+                            for ex in top2:
+                                details.append(f"{ex['name']}: {ex['sets']} sets of {ex['reps_or_seconds']} with {ex['rest_seconds']}s rest.")
+                            result_text = " ".join(details) + " aage bataun?"
+                            return result_text
+                    error_text = await resp.text()
+                    logger.error(f"Failed to suggest workout ({resp.status}): {error_text}")
+                    return "Workout suggestions fetch नहीं हो पाए।"
+        except Exception as err:
+            logger.error(f"Exception suggesting workout: {err}")
+            return "Server से connect नहीं हो पाया workout suggestions के लिए।"
+
+    @function_tool
+    async def create_plan_draft(
+        self,
+        context: RunContext,
+        reason: Annotated[str, Field(description="Reason for creating draft plan")] = "Voice coach draft routine",
+    ) -> str:
+        """Generates a personalized draft plan and saves it for the user to approve in the app."""
+        call_id = self.coach_state.call_id
+        if not call_id:
+            return "Error: Call session ID missing."
+
+        port = os.getenv("PORT", "3001")
+        backend_url = os.getenv("BACKEND_URL", f"http://127.0.0.1:{port}").rstrip("/")
+        path = "/api/coach/create-plan-draft"
+        body_dict = {
+            "requestedLevel": 2,
+            "reason": reason,
+        }
+        body_bytes = json.dumps(body_dict).encode("utf-8")
+        headers = sign_coach_request("POST", path, call_id, body_bytes)
+        headers["Content-Type"] = "application/json"
+
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5.0)) as http_session:
+                async with http_session.post(f"{backend_url}{path}", headers=headers, data=body_bytes) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        msg = data.get("message", "draft saved, approve it in the app")
+                        return msg
+                    error_text = await resp.text()
+                    logger.error(f"Failed to create plan draft ({resp.status}): {error_text}")
+                    return "Plan draft save नहीं हो पाया।"
+        except Exception as err:
+            logger.error(f"Exception creating plan draft: {err}")
+            return "Server से connect नहीं हो पाया plan draft save करने के लिए।"
 
 async def _fetch_context_pack(call_id: str, user_id: Optional[str] = None) -> ContextPack:
     port = os.getenv("PORT", "3001")

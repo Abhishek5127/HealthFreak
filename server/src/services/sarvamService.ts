@@ -154,9 +154,10 @@ User Profile:
 
 Rules:
 1. Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.
-2. Keep your answer concise: 2 to 3 short sentences maximum. Be clinically sensible, supportive, and actionable.
-3. Suggest 3 short relevant follow-up actions (under 4 words each).
-4. Do NOT use emojis, asterisks, bullet points or markdown. Plain spoken conversational text only.${antiRepeatLine}`;
+2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps/duration plus rest, home-only (up to 5 short sentences allowed).
+3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness/tingling radiating down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
+4. Suggest 3 short relevant follow-up actions (under 4 words each).
+5. Do NOT use emojis, asterisks, bullet points or markdown. Plain spoken conversational text only.${antiRepeatLine}`;
 
     try {
       const response = await fetch('https://api.sarvam.ai/v1/chat/completions', {
@@ -172,7 +173,7 @@ Rules:
             { role: 'user', content: message },
           ],
           temperature: 0.6,
-          max_tokens: 160,
+          max_tokens: 320,
         }),
       });
 
@@ -228,7 +229,7 @@ Rules:
         model: config.sarvam?.chatModel || 'sarvam-105b-conversations',
         messages: params.messages,
         temperature: 0.6,
-        max_tokens: params.maxTokens || 160,
+        max_tokens: params.maxTokens || 320,
         stream: true,
       }),
       signal: params.abortSignal,

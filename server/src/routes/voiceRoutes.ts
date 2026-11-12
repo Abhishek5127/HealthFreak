@@ -554,9 +554,10 @@ ${healthContext.promptSnippet}
 
 Core Coaching Instructions:
 1. Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.
-2. Show continuity naturally: If user mentions pain (like knee discomfort), reference their earlier reports without reciting bullet lists.
-3. Keep response concise: exactly 2 to 3 short sentences. Be clinically sound, encouraging, and actionable.
-4. Do NOT use emojis, asterisks, hashtags, or markdown. Output plain spoken conversational text only.${antiRepeatInstruction}`;
+2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, a routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps or duration, plus rest, home-only (up to 5 short sentences allowed).
+3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness or tingling spreading down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
+4. Show continuity naturally: If user mentions pain, reference their earlier reports without reciting bullet lists.
+5. Do NOT use emojis, asterisks, hashtags, or markdown. Output plain spoken conversational text only.${antiRepeatInstruction}`;
 
   let totalAudioChunks = 0;
   const ttsBuffer = new SentenceTTSBuffer((chunk) => {
@@ -747,9 +748,10 @@ ${healthContext.promptSnippet}
 
 Rules:
 1. Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.
-2. Keep your answer concise: 2 to 3 short sentences maximum. Be clinically sound, motivating, and actionable.
-3. Provide 3 short relevant follow-up suggestions (under 4 words each).
-4. Return strict JSON: { "text": "...", "suggestions": ["...", "...", "..."] }${antiRepeatInstruction}`;
+2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, a routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps or duration, plus rest, home-only (up to 5 short sentences allowed).
+3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness or tingling spreading down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
+4. Provide 3 short relevant follow-up suggestions (under 4 words each).
+5. Return strict JSON: { "text": "...", "suggestions": ["...", "...", "..."] }${antiRepeatInstruction}`;
 
       const modelsToTry = [
         config.gemini.model || 'gemini-3.5-flash-lite',
@@ -771,6 +773,7 @@ Rules:
             ],
             config: {
               responseMimeType: 'application/json',
+              maxOutputTokens: 400,
             },
           });
 
@@ -1008,8 +1011,9 @@ voiceRouter.post('/audio-turn', authenticateSupabaseToken as any, async (req: Re
 ${healthContext.promptSnippet}
 Rules:
 1. Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.
-2. Keep your answer concise: exactly 2 to 3 short sentences. Motivating, clinically sound, and actionable.
-3. Plain spoken conversational text only. No markdown, asterisks, or emoji.${antiRepeatInstruction}`;
+2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, a routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps or duration, plus rest, home-only (up to 5 short sentences allowed).
+3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness or tingling spreading down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
+4. Plain spoken conversational text only. No markdown, asterisks, or emoji.${antiRepeatInstruction}`;
 
         const resp = await ai.models.generateContent({
           model: config.gemini.model || 'gemini-3.5-flash-lite',
@@ -1019,6 +1023,9 @@ Rules:
               parts: [{ text: `${systemPrompt}\n\nUser says: ${userTranscript}` }],
             },
           ],
+          config: {
+            maxOutputTokens: 400,
+          },
         });
         const geminiText = resp.text?.trim();
         if (geminiText) {

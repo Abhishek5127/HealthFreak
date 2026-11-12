@@ -381,6 +381,8 @@ export class CoachContextService {
       lines.push(
         `Active Plan: "${pack.active_plan.title}" | Today: ${pack.active_plan.today_workout} | Completed: ${pack.active_plan.seven_day_completion_count} sessions this week.`
       );
+    } else {
+      lines.push('Active Plan: none. Offer to build one when relevant.');
     }
 
     if (pack.open_issues && pack.open_issues.length > 0) {

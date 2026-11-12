@@ -15,6 +15,8 @@ import {
   processCallExtraction,
   getCallExtractionJob,
 } from '../coach/postCallExtraction.js';
+import { getSuggestedExercises } from '../coach/exerciseCatalog.js';
+import { PlanGenerationService } from '../plans/planGenerationService.js';
 
 export const coachRouter = Router();
 
@@ -238,6 +240,86 @@ coachRouter.post('/update-issue', async (req: Request, res: Response): Promise<v
     res.json({ success: true, issue: updated });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Failed to update issue' });
+  }
+});
+
+/**
+ * POST /api/coach/suggest-workout
+ * Returns filtered exercises from the catalog safe for user's open issues & conditions
+ */
+coachRouter.post('/suggest-workout', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const coachReq = req as AuthenticatedCoachRequest;
+    const userId = coachReq.coachUserId!;
+    const { body_part = 'full_body', duration_minutes = 20, level = 'beginner' } = req.body;
+
+    const pool = SupabaseDb.getPool();
+    let openIssues: Array<{ title: string; category?: string }> = [];
+    let conditions: string[] = [];
+
+    if (pool) {
+      try {
+        const issuesRes = await pool.query(
+          `SELECT title, category FROM user_issues WHERE user_id = $1 AND status IN ('open', 'improving');`,
+          [userId]
+        );
+        openIssues = issuesRes.rows;
+
+        const profRes = await pool.query(
+          `SELECT known_conditions FROM profiles WHERE id = $1 LIMIT 1;`,
+          [userId]
+        );
+        if (profRes.rows[0]?.known_conditions && Array.isArray(profRes.rows[0].known_conditions)) {
+          conditions = profRes.rows[0].known_conditions;
+        }
+      } catch (err: any) {
+        console.warn('[CoachRoutes/suggest-workout] DB query warning:', err.message);
+      }
+    }
+
+    const exercises = getSuggestedExercises({
+      body_part: String(body_part),
+      userIssues: openIssues,
+      conditions,
+      limit: 4,
+    });
+
+    res.json({
+      success: true,
+      body_part,
+      duration_minutes,
+      level,
+      exercises,
+      filtered_against_issues: openIssues.map(i => i.title),
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to suggest workout' });
+  }
+});
+
+/**
+ * POST /api/coach/create-plan-draft
+ * Calls existing plan draft service behind /api/plans/generate-draft
+ */
+coachRouter.post('/create-plan-draft', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const coachReq = req as AuthenticatedCoachRequest;
+    const userId = coachReq.coachUserId!;
+    const { requestedLevel = 2, reason = 'Voice coach generated draft routine' } = req.body;
+
+    const result = await PlanGenerationService.generatePersonalizedPlanDraft({
+      userId,
+      requestedLevel,
+      triggerReason: reason,
+    });
+
+    res.json({
+      success: true,
+      message: 'draft saved, approve it in the app',
+      draft: result,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to generate plan draft' });
   }
 });
 

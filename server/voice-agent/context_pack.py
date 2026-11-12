@@ -110,6 +110,8 @@ class ContextPack(BaseModel):
                 f'Active Plan: "{self.active_plan.title}" | Today: {self.active_plan.today_workout} | '
                 f"Completed {self.active_plan.seven_day_completion_count} sessions this week."
             )
+        else:
+            lines.append("Active Plan: none. Offer to build one when relevant.")
 
         if self.open_issues:
             lines.append("Open Issues (Priority Order):")
