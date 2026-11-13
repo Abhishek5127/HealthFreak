@@ -57,17 +57,19 @@ mealRouter.post(
       }
 
       const userName = (req.body?.userName as string) || 'Alex';
+      const userNote = (req.body?.userNote as string) || undefined;
       const healthGoals = req.body?.healthGoals
         ? Array.isArray(req.body.healthGoals)
           ? req.body.healthGoals
           : [req.body.healthGoals]
         : ['Weight management', 'Cardiovascular endurance'];
 
-      console.log(`[Meal API] Starting meal analysis for ${userName} (${imageBuffer.length} bytes)...`);
+      console.log(`[Meal API] Starting meal analysis for ${userName} (${imageBuffer.length} bytes)${userNote ? ` with note: "${userNote}"` : ''}...`);
 
       const mealResult = await GeminiMealVisionProvider.analyzeMealImage(imageBuffer, mimeType, {
         name: userName,
         healthGoals,
+        userNote,
       });
 
       // STRICT ZERO-IMAGE RETENTION: Purge ephemeral imageUri / base64

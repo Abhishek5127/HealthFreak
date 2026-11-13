@@ -109,7 +109,8 @@ export class MealScannerService {
     imageUri: string,
     userName: string = 'Alex',
     healthGoals: string[] = ['Weight management', 'Cardiovascular endurance'],
-    userId: string = 'user_local'
+    userId: string = 'user_local',
+    userNote?: string
   ): Promise<MealAnalysisResult> {
     const preprocessed = await this.preprocessImage(imageUri);
     const base64Data = preprocessed.base64;
@@ -133,6 +134,7 @@ export class MealScannerService {
           userName,
           healthGoals,
           userId: userId || 'user_local',
+          userNote: userNote?.trim() || undefined,
         }),
         signal: controller.signal,
       });
@@ -155,6 +157,10 @@ export class MealScannerService {
     if (base64Data) {
       try {
         console.log(`[MealScannerService] Invoking direct Google Gemini Vision API (${DIRECT_GEMINI_MODEL})...`);
+        const visionPrompt = userNote?.trim()
+          ? `${VISION_SYSTEM_PROMPT}\n\nIMPORTANT USER NOTE / HIDDEN INGREDIENTS: "${userNote.trim()}". The user noted these ingredients or preparation details (e.g. blended protein powder, peanut butter, oil/ghee, sugar). Include them in the recognized foods list with accurate estimated weights.`
+          : VISION_SYSTEM_PROMPT;
+
         const visionRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${DIRECT_GEMINI_MODEL}:generateContent?key=${DIRECT_GEMINI_KEY}`,
           {
@@ -173,7 +179,7 @@ export class MealScannerService {
                       },
                     },
                     {
-                      text: VISION_SYSTEM_PROMPT,
+                      text: visionPrompt,
                     },
                   ],
                 },
@@ -276,6 +282,254 @@ export class MealScannerService {
       coachInsight,
       uncertainties: visionData.uncertainties || [],
       status: 'draft',
+    };
+  }
+
+  /**
+   * Refine an existing meal analysis with user-provided corrections or hidden ingredients.
+   * Handles natural language (e.g. "added 1 scoop whey protein and 1 tbsp peanut butter")
+   * and updates portions/food items, then recalculates full macros and micronutrients.
+   */
+  public static async refineMealWithCorrection(
+    currentMeal: MealAnalysisResult,
+    correctionText: string
+  ): Promise<MealAnalysisResult> {
+    if (!correctionText || !correctionText.trim()) {
+      return currentMeal;
+    }
+
+    const trimmed = correctionText.trim();
+    let newItems: FoodItem[] = [];
+
+    // Attempt Gemini to parse complex natural language into structured items if available
+    if (DIRECT_GEMINI_KEY) {
+      try {
+        const refinePrompt = `You are a nutrition expert parsing user additions/corrections for a meal.
+Existing Meal Name: "${currentMeal.mealName}".
+Existing Foods: ${currentMeal.foods.map((f) => f.name).join(', ')}.
+User's note/correction: "${trimmed}".
+
+Identify any ingredients, add-ons, or foods described by the user that were mixed in or missing (e.g. whey protein powder, peanut butter, oil/ghee, milk, seeds, honey).
+Return STRICT JSON array:
+[
+  {
+    "name": "Food Item Name",
+    "localizedName": "Short description",
+    "estimatedWeightGrams": 30,
+    "servingDescription": "1 scoop (~30g)",
+    "cookingMethod": "Blended or added",
+    "visibleIngredients": ["ingredient"],
+    "inferredIngredients": []
+  }
+]`;
+
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${DIRECT_GEMINI_MODEL}:generateContent?key=${DIRECT_GEMINI_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: refinePrompt }] }],
+              generationConfig: { responseMimeType: 'application/json' },
+            }),
+          }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            const parsed = JSON.parse(text);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              newItems = parsed.map((p: any, idx: number) => ({
+                id: `corrected_${Date.now()}_${idx}`,
+                name: p.name || 'Added Ingredient',
+                localizedName: p.localizedName || undefined,
+                estimatedWeightGrams: Math.max(5, Math.round(p.estimatedWeightGrams || 30)),
+                servingDescription: p.servingDescription || `${p.estimatedWeightGrams || 30}g`,
+                confidence: 0.98,
+                visibleIngredients: Array.isArray(p.visibleIngredients) ? p.visibleIngredients : [],
+                inferredIngredients: Array.isArray(p.inferredIngredients) ? p.inferredIngredients : [],
+                cookingMethod: p.cookingMethod || 'Added by user',
+                nutrition: {
+                  calories: 100,
+                  protein: 5,
+                  carbs: 10,
+                  fat: 3,
+                  fiber: 1,
+                  sugar: 1,
+                  sodium: 50,
+                  potassium: 100,
+                },
+              }));
+            }
+          }
+        }
+      } catch (geminiErr) {
+        console.warn('[MealScannerService] Gemini refine failed, using smart local parser:', geminiErr);
+      }
+    }
+
+    // Fast local rule-based parsing engine (always works, instant response)
+    if (newItems.length === 0) {
+      const lower = trimmed.toLowerCase();
+
+      // Check Whey Protein
+      if (lower.includes('whey') || lower.includes('protein powder') || lower.includes('scoop')) {
+        const scoopMatch = lower.match(/(\d+)\s*scoop/);
+        const scoops = scoopMatch ? parseInt(scoopMatch[1], 10) : 1;
+        const grams = scoops * 30;
+        newItems.push({
+          id: `item_whey_${Date.now()}`,
+          name: 'Whey Protein Powder',
+          localizedName: `${scoops} scoop${scoops > 1 ? 's' : ''}`,
+          estimatedWeightGrams: grams,
+          servingDescription: `${scoops} scoop (${grams}g)`,
+          confidence: 0.99,
+          visibleIngredients: ['Whey protein concentrate/isolate'],
+          inferredIngredients: [],
+          cookingMethod: 'Blended',
+          nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0, potassium: 0 },
+        });
+      }
+
+      // Check Peanut Butter
+      if (lower.includes('peanut butter') || lower.includes('nut butter')) {
+        const tbspMatch = lower.match(/(\d+)\s*(?:tbsp|tablespoon|spoon)/);
+        const spoons = tbspMatch ? parseInt(tbspMatch[1], 10) : 1;
+        const grams = spoons * 16;
+        newItems.push({
+          id: `item_pb_${Date.now()}`,
+          name: 'Peanut Butter',
+          localizedName: `${spoons} tbsp`,
+          estimatedWeightGrams: grams,
+          servingDescription: `${spoons} tbsp (${grams}g)`,
+          confidence: 0.99,
+          visibleIngredients: ['Roasted peanuts'],
+          inferredIngredients: [],
+          cookingMethod: 'Blended / mixed',
+          nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0, potassium: 0 },
+        });
+      }
+
+      // Check Ghee / Butter / Oil
+      if (lower.includes('ghee') || (lower.includes('butter') && !lower.includes('peanut')) || lower.includes('oil')) {
+        const tspMatch = lower.match(/(\d+)\s*(?:tsp|teaspoon|tbsp|spoon)/);
+        const spoons = tspMatch ? parseInt(tspMatch[1], 10) : 1;
+        const grams = spoons * 5;
+        const isGhee = lower.includes('ghee');
+        newItems.push({
+          id: `item_fat_${Date.now()}`,
+          name: isGhee ? 'Desi Ghee' : lower.includes('butter') ? 'Butter' : 'Cooking Oil',
+          localizedName: `${spoons} tsp`,
+          estimatedWeightGrams: grams,
+          servingDescription: `${spoons} tsp (${grams}g)`,
+          confidence: 0.98,
+          visibleIngredients: [isGhee ? 'Clarified butterfat' : 'Oil/Fat'],
+          inferredIngredients: [],
+          cookingMethod: 'Cooked/Added',
+          nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0, potassium: 0 },
+        });
+      }
+
+      // Check Milk
+      if (lower.includes('milk') || lower.includes('doodh')) {
+        newItems.push({
+          id: `item_milk_${Date.now()}`,
+          name: 'Whole Milk',
+          localizedName: 'Milk (1 Glass)',
+          estimatedWeightGrams: 200,
+          servingDescription: '1 glass (~200ml)',
+          confidence: 0.98,
+          visibleIngredients: ['Milk'],
+          inferredIngredients: [],
+          cookingMethod: 'Poured/Blended',
+          nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0, potassium: 0 },
+        });
+      }
+
+      // Check Honey / Sugar / Jaggery
+      if (lower.includes('honey') || lower.includes('sugar') || lower.includes('jaggery') || lower.includes('gur') || lower.includes('cheeni')) {
+        const isHoney = lower.includes('honey');
+        newItems.push({
+          id: `item_sweet_${Date.now()}`,
+          name: isHoney ? 'Honey' : 'Sugar / Jaggery',
+          localizedName: '1 tbsp',
+          estimatedWeightGrams: 15,
+          servingDescription: '1 tbsp (~15g)',
+          confidence: 0.98,
+          visibleIngredients: [isHoney ? 'Pure Honey' : 'Sugar'],
+          inferredIngredients: [],
+          cookingMethod: 'Sweetener added',
+          nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0, potassium: 0 },
+        });
+      }
+
+      // Check Extra Roti / Chapati
+      if (lower.includes('roti') || lower.includes('chapati')) {
+        const rotiMatch = lower.match(/(\d+)\s*(?:roti|chapati)/);
+        const count = rotiMatch ? parseInt(rotiMatch[1], 10) : 1;
+        newItems.push({
+          id: `item_roti_${Date.now()}`,
+          name: 'Roti / Chapati',
+          localizedName: `${count} Roti`,
+          estimatedWeightGrams: count * 40,
+          servingDescription: `${count} roti (~${count * 40}g)`,
+          confidence: 0.98,
+          visibleIngredients: ['Whole wheat flour'],
+          inferredIngredients: [],
+          cookingMethod: 'Tawa roasted',
+          nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0, potassium: 0 },
+        });
+      }
+
+      // Check Egg / Boiled Egg
+      if (lower.includes('egg') || lower.includes('anda')) {
+        const eggMatch = lower.match(/(\d+)\s*(?:egg|anda)/);
+        const count = eggMatch ? parseInt(eggMatch[1], 10) : 1;
+        newItems.push({
+          id: `item_egg_${Date.now()}`,
+          name: 'Boiled Egg',
+          localizedName: `${count} Egg${count > 1 ? 's' : ''}`,
+          estimatedWeightGrams: count * 50,
+          servingDescription: `${count} egg (~${count * 50}g)`,
+          confidence: 0.98,
+          visibleIngredients: ['Egg'],
+          inferredIngredients: [],
+          cookingMethod: 'Boiled',
+          nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0, potassium: 0 },
+        });
+      }
+
+      // Fallback: If nothing specific matched, create custom item from prompt
+      if (newItems.length === 0) {
+        newItems.push({
+          id: `item_custom_${Date.now()}`,
+          name: trimmed.slice(0, 30),
+          localizedName: 'User Added Item',
+          estimatedWeightGrams: 50,
+          servingDescription: '1 serving (~50g)',
+          confidence: 0.95,
+          visibleIngredients: [trimmed],
+          inferredIngredients: [],
+          cookingMethod: 'Custom addition',
+          nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0, potassium: 0 },
+        });
+      }
+    }
+
+    const combinedFoods = [...currentMeal.foods, ...newItems];
+    const recalculation = this.recalculateClientNutrition(combinedFoods);
+
+    const addedNames = newItems.map((item) => item.name).join(', ');
+    const updatedCoachInsight = `Updated! Added ${addedNames}. Your meal is now ${recalculation.totalNutrition.calories} kcal with ${recalculation.totalNutrition.proteinGrams}g protein.`;
+
+    return {
+      ...currentMeal,
+      foods: recalculation.foods,
+      totalNutrition: recalculation.totalNutrition,
+      micronutrients: recalculation.micronutrients,
+      coachInsight: updatedCoachInsight,
     };
   }
 
@@ -507,6 +761,85 @@ export class MealScannerService {
         potPer100 = 310;
         iron += 4.1 * factor;
         calcium += 38 * factor;
+      }
+      // Whey Protein Powder / Supplements
+      else if (n.includes('whey') || n.includes('protein powder') || n.includes('scoop')) {
+        calPer100 = 385;
+        protPer100 = 78.0;
+        carbPer100 = 7.0;
+        fatPer100 = 4.5;
+        fibPer100 = 1.0;
+        sodPer100 = 160;
+        potPer100 = 350;
+        calcium += 250 * factor;
+        zinc += 1.5 * factor;
+      }
+      // Peanut Butter & Nut Butters
+      else if (n.includes('peanut butter') || n.includes('nut butter') || n.includes('almond butter')) {
+        calPer100 = 590;
+        protPer100 = 25.0;
+        carbPer100 = 20.0;
+        fatPer100 = 50.0;
+        fibPer100 = 6.0;
+        sodPer100 = 220;
+        potPer100 = 650;
+        iron += 1.9 * factor;
+      }
+      // Pure Fats: Ghee, Butter, Cooking Oil
+      else if (n.includes('ghee') || (n.includes('butter') && !n.includes('peanut')) || n.includes('oil')) {
+        calPer100 = 890;
+        protPer100 = 0.3;
+        carbPer100 = 0.0;
+        fatPer100 = 99.0;
+        fibPer100 = 0.0;
+        sodPer100 = 15;
+        potPer100 = 10;
+        vitA += 120 * factor;
+      }
+      // Honey, Sugar, Jaggery / Gur
+      else if (n.includes('honey') || n.includes('sugar') || n.includes('jaggery') || n.includes('gur') || n.includes('cheeni')) {
+        calPer100 = 380;
+        protPer100 = 0.3;
+        carbPer100 = 95.0;
+        fatPer100 = 0.0;
+        fibPer100 = 0.0;
+        sodPer100 = 8;
+        potPer100 = 45;
+        iron += 2.0 * factor;
+      }
+      // Nuts & Dry Fruits: Almonds, Walnuts, Badam, Kaju
+      else if (n.includes('almond') || n.includes('badam') || n.includes('walnut') || n.includes('cashew') || n.includes('kaju') || n.includes('nuts')) {
+        calPer100 = 580;
+        protPer100 = 21.0;
+        carbPer100 = 21.0;
+        fatPer100 = 50.0;
+        fibPer100 = 10.0;
+        sodPer100 = 5;
+        potPer100 = 680;
+        calcium += 250 * factor;
+        iron += 3.7 * factor;
+      }
+      // Oats & Oatmeal
+      else if (n.includes('oat') || n.includes('oatmeal') || n.includes('muesli')) {
+        calPer100 = 389;
+        protPer100 = 16.9;
+        carbPer100 = 66.3;
+        fatPer100 = 6.9;
+        fibPer100 = 10.6;
+        sodPer100 = 2;
+        potPer100 = 429;
+        iron += 4.7 * factor;
+      }
+      // Fluid Milk & Shakes
+      else if ((n.includes('milk') || n.includes('doodh') || n.includes('shake')) && !n.includes('paneer') && !n.includes('cheese')) {
+        calPer100 = 65;
+        protPer100 = 3.3;
+        carbPer100 = 4.8;
+        fatPer100 = 3.6;
+        fibPer100 = 0.0;
+        sodPer100 = 50;
+        potPer100 = 140;
+        calcium += 120 * factor;
       }
       // Rice & Grains
       else if (n.includes('rice') || n.includes('chawal') || n.includes('pulao') || n.includes('biryani') || n.includes('khichdi')) {

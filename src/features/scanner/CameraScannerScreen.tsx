@@ -9,7 +9,7 @@ import {
   Animated,
   ActivityIndicator,
   Platform,
-  ScrollView,
+  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -27,7 +27,6 @@ import {
   Image as ImageIcon,
   RotateCcw,
   Sparkles,
-  CheckCircle2,
   Utensils,
   ChevronLeft,
   AlertCircle,
@@ -55,13 +54,16 @@ export const CameraScannerScreen: React.FC = () => {
   const [flash, setFlash] = useState<FlashMode>('off');
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
 
-  // Scanning stages: idle -> uploading -> identifying -> estimating -> calculating -> done
+  // Scanning & notes state
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
-  const [analysisStage, setAnalysisStage] = useState<number>(0);
+  const [userNote, setUserNote] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Laser scanner animation
   const [laserAnim] = useState(() => new Animated.Value(0));
+
+  // Modern progress bar animation for analysis
+  const [progressAnim] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     // Oscillating laser scan line
@@ -84,22 +86,29 @@ export const CameraScannerScreen: React.FC = () => {
     return () => loop.stop();
   }, [laserAnim]);
 
-  // Stage advancement effect during analysis
+  // Smooth indeterminate progress bar during analysis
   useEffect(() => {
-    let t0: any, t1: any, t2: any, t3: any;
     if (isAnalyzing) {
-      t0 = setTimeout(() => setAnalysisStage(1), 0); // Uploading
-      t1 = setTimeout(() => setAnalysisStage(2), 1200); // Identifying
-      t2 = setTimeout(() => setAnalysisStage(3), 2400); // Estimating
-      t3 = setTimeout(() => setAnalysisStage(4), 3600); // Calculating
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(progressAnim, {
+            toValue: 1,
+            duration: 1100,
+            useNativeDriver: true,
+          }),
+          Animated.timing(progressAnim, {
+            toValue: 0,
+            duration: 1100,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    } else {
+      progressAnim.setValue(0);
     }
-    return () => {
-      clearTimeout(t0);
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, [isAnalyzing]);
+  }, [isAnalyzing, progressAnim]);
 
   // Handle Photo Capture
   const handleCapture = async () => {
@@ -154,7 +163,8 @@ export const CameraScannerScreen: React.FC = () => {
         capturedPhotoUri,
         userProfile.name,
         userProfile.healthConditions || ['Metabolic fitness', 'Weight management'],
-        userProfile.id || 'usr_synthetic_alex'
+        userProfile.id || 'usr_synthetic_alex',
+        userNote.trim() || undefined
       );
 
       triggerHaptic('success');
@@ -174,6 +184,7 @@ export const CameraScannerScreen: React.FC = () => {
   const handleRetake = () => {
     triggerHaptic('selection');
     setCapturedPhotoUri(null);
+    setUserNote('');
     setErrorMessage(null);
     setIsAnalyzing(false);
   };
@@ -371,8 +382,21 @@ export const CameraScannerScreen: React.FC = () => {
                 <>
                   <Text style={styles.previewHeading}>Ready to analyze your meal?</Text>
                   <Text style={styles.previewSubheading}>
-                    Gemini Multimodal Vision will identify every visible item and calculate exact nutrients.
+                    Review your photo and add any hidden ingredients if needed.
                   </Text>
+
+                  {/* Pre-scan notes input for blended/hidden items */}
+                  <View style={styles.preScanNoteContainer}>
+                    <TextInput
+                      style={styles.preScanNoteInput}
+                      placeholder="Add note (e.g. 1 scoop whey, peanut butter)..."
+                      placeholderTextColor={Colors.textMuted}
+                      value={userNote}
+                      onChangeText={setUserNote}
+                      maxLength={140}
+                      returnKeyType="done"
+                    />
+                  </View>
 
                   {errorMessage ? (
                     <View style={styles.errorAlertCard}>
@@ -406,57 +430,38 @@ export const CameraScannerScreen: React.FC = () => {
                   </View>
                 </>
               ) : (
-                /* Scanning Stages Progress Card */
-                <View style={styles.scanningProgressContainer}>
-                  <View style={styles.pulseHeaderRow}>
-                    <HealthFreakLogo size={28} animated style={{ marginRight: 10 }} />
-                    <Text style={styles.scanningHeaderTitle}>Analyzing Meal Composition...</Text>
+                /* Sleek Modern Scanning Progress Card (no robotic checklist ticks) */
+                <View style={styles.modernScanningCard}>
+                  <View style={styles.modernScanningPulseRow}>
+                    <HealthFreakLogo size={34} animated />
+                    <ActivityIndicator
+                      size="small"
+                      color={Colors.forestGreenLight}
+                      style={{ marginLeft: 12 }}
+                    />
                   </View>
 
-                  <View style={styles.stagesList}>
-                    <View style={styles.stageItem}>
-                      <CheckCircle2
-                        color={analysisStage >= 1 ? Colors.success : Colors.textMuted}
-                        size={16}
-                        style={{ marginRight: 10 }}
-                      />
-                      <Text style={[styles.stageText, analysisStage >= 1 && styles.stageTextActive]}>
-                        Preprocessing & uploading photo
-                      </Text>
-                    </View>
+                  <Text style={styles.modernScanningTitle}>Analyzing Meal...</Text>
+                  <Text style={styles.modernScanningSubtitle}>
+                    Identifying dishes, calculating calories & macros
+                  </Text>
 
-                    <View style={styles.stageItem}>
-                      <CheckCircle2
-                        color={analysisStage >= 2 ? Colors.success : Colors.textMuted}
-                        size={16}
-                        style={{ marginRight: 10 }}
-                      />
-                      <Text style={[styles.stageText, analysisStage >= 2 && styles.stageTextActive]}>
-                        Recognizing foods & dishes with Gemini Vision
-                      </Text>
-                    </View>
-
-                    <View style={styles.stageItem}>
-                      <CheckCircle2
-                        color={analysisStage >= 3 ? Colors.success : Colors.textMuted}
-                        size={16}
-                        style={{ marginRight: 10 }}
-                      />
-                      <Text style={[styles.stageText, analysisStage >= 3 && styles.stageTextActive]}>
-                        Estimating portion weights & ingredients
-                      </Text>
-                    </View>
-
-                    <View style={styles.stageItem}>
-                      <CheckCircle2
-                        color={analysisStage >= 4 ? Colors.success : Colors.textMuted}
-                        size={16}
-                        style={{ marginRight: 10 }}
-                      />
-                      <Text style={[styles.stageText, analysisStage >= 4 && styles.stageTextActive]}>
-                        Calculating IFCT macros & micronutrients
-                      </Text>
-                    </View>
+                  <View style={styles.modernProgressBarTrack}>
+                    <Animated.View
+                      style={[
+                        styles.modernProgressBarFill,
+                        {
+                          transform: [
+                            {
+                              translateX: progressAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [-100, 100],
+                              }),
+                            },
+                          ],
+                        },
+                      ]}
+                    />
                   </View>
                 </View>
               )}
@@ -789,34 +794,60 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
-  scanningProgressContainer: {
-    paddingVertical: Spacing.md,
+  preScanNoteContainer: {
+    marginBottom: Spacing.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
   },
-  pulseHeaderRow: {
+  preScanNoteInput: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    minHeight: 40,
+  },
+  modernScanningCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+  },
+  modernScanningPulseRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.md,
   },
-  scanningHeaderTitle: {
-    fontSize: 16,
+  modernScanningTitle: {
+    fontSize: 17,
     fontWeight: '700',
     color: Colors.textPrimary,
+    letterSpacing: -0.3,
   },
-  stagesList: {
-    gap: 10,
-    paddingHorizontal: Spacing.sm,
-  },
-  stageItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  stageText: {
+  modernScanningSubtitle: {
     fontSize: 13,
-    color: Colors.textMuted,
+    color: Colors.textSecondary,
+    marginTop: 4,
+    marginBottom: Spacing.lg,
+    textAlign: 'center',
   },
-  stageTextActive: {
-    color: Colors.lightSage,
-    fontWeight: '600',
+  modernProgressBarTrack: {
+    width: '100%',
+    maxWidth: 240,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  modernProgressBarFill: {
+    position: 'absolute',
+    left: '30%',
+    width: '40%',
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: Colors.forestGreenLight,
   },
 });
