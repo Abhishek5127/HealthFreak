@@ -20,6 +20,7 @@ import { SectionHeader } from '../../components/common/SectionHeader';
 import { ProgressRing } from '../../components/illustrations/ProgressRing';
 import { MetricLineChart } from '../../components/illustrations/MetricLineChart';
 import { GlassButton } from '../../components/common/GlassButton';
+import { SleepHistorySection } from './components/SleepHistorySection';
 
 export const ProgressScreen: React.FC = () => {
   const {
@@ -33,6 +34,7 @@ export const ProgressScreen: React.FC = () => {
     pedometerState,
     weeklySteps,
     sleepSession,
+    sleepHistory,
     startSleep,
     wakeUp,
     setActiveModal,
@@ -219,6 +221,12 @@ export const ProgressScreen: React.FC = () => {
           </Text>
         </View>
       </View>
+
+      {/* 7-Day Sleep & Recovery Trajectory Section */}
+      <SleepHistorySection
+        history={sleepHistory}
+        currentSession={sleepSession}
+      />
 
       {/* Key Biomarkers & Wellness Metrics Grid */}
       <SectionHeader title="Circadian & Metabolic Biomarkers" />
