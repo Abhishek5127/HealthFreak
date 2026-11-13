@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.HealthMemoryEngine = void 0;
 const supabaseClient_js_1 = require("../db/supabaseClient.js");
-const index_js_1 = require("../db/index.js");
+const purgeService_js_1 = require("../coach/memory/purgeService.js");
 class HealthMemoryEngine {
     /**
      * Intelligently retrieves and ranks memories based on user message semantic context.
@@ -94,12 +94,6 @@ class HealthMemoryEngine {
                 promptLines.push(`- [${issue.category.toUpperCase()}] ${issue.title} (Severity: ${issue.severity || 'mild'}, first reported ${issue.firstReported}, mentioned ${issue.mentionCount} times). Notes: ${issue.notes?.join('; ') || 'None'}.`);
             });
         }
-        if (historicalIssues.length > 0 && isWorkoutOrMovement) {
-            promptLines.push('HISTORICAL RESOLVED ISSUES (Check if recurring):');
-            historicalIssues.forEach((issue) => {
-                promptLines.push(`- Previous ${issue.title} (Resolved on ${issue.resolvedAt}). If user reports pain here again, ask if it feels like the earlier issue.`);
-            });
-        }
         if (commitments.length > 0) {
             promptLines.push(`PREVIOUS COMMITMENTS AGREED TOGETHER: ${commitments.join('; ')}`);
         }
@@ -133,9 +127,11 @@ class HealthMemoryEngine {
      */
     static async processSymptomIngestion(userId, message) {
         const lower = message.toLowerCase();
+        const isResolution = /(theek ho gaya|theek hai|thik ho gaya|thik hai|theek ho gayi|thik ho gayi|ठीक हो गया|ठीक है|ठीक हो गई|ab dard nahi|dard nahi|no more pain|pain is gone|pain gone|completely solved|solved|all good|fully recovered|healed|no pain)/i.test(lower);
+        const isImproving = /(thoda better|thoda theek|thoda thik|better now|getting better|improving|much better|pain kam|kam ho gaya|कम हो गया|थोड़ा बेहतर|थोड़ा ठीक)/i.test(lower);
         const symptoms = [];
         // Orthopedic / pain detection
-        if (lower.includes('knee') && (lower.includes('pain') || lower.includes('dard') || lower.includes('swelling') || lower.includes('hurt'))) {
+        if ((lower.includes('knee') || lower.includes('joint')) && (lower.includes('pain') || lower.includes('dard') || lower.includes('swelling') || lower.includes('hurt') || isResolution || isImproving)) {
             symptoms.push({
                 category: 'pain',
                 title: 'Right knee discomfort and swelling',
@@ -145,7 +141,7 @@ class HealthMemoryEngine {
                 rawMention: message,
             });
         }
-        else if (lower.includes('back') && (lower.includes('pain') || lower.includes('dard') || lower.includes('stiff') || lower.includes('hurt'))) {
+        else if (lower.includes('back') && (lower.includes('pain') || lower.includes('dard') || lower.includes('stiff') || lower.includes('hurt') || isResolution || isImproving)) {
             symptoms.push({
                 category: 'pain',
                 title: 'Lower back stiffness and discomfort',
@@ -155,7 +151,7 @@ class HealthMemoryEngine {
                 rawMention: message,
             });
         }
-        else if (lower.includes('shoulder') || lower.includes('neck')) {
+        else if ((lower.includes('shoulder') || lower.includes('neck')) && (lower.includes('pain') || lower.includes('dard') || lower.includes('strain') || isResolution || isImproving)) {
             symptoms.push({
                 category: 'pain',
                 title: 'Shoulder/neck strain',
@@ -173,7 +169,7 @@ class HealthMemoryEngine {
                 rawMention: message,
             });
         }
-        else if (lower.includes('tired') || lower.includes('exhaust') || lower.includes('fatigue') || lower.includes('thak')) {
+        else if (lower.includes('tired') || lower.includes('exhaust') || lower.includes('fatigue') || lower.includes('thak') || ((lower.includes('energy') || lower.includes('thakan')) && (lower.includes('low') || lower.includes('kam') || lower.includes('nahi') || lower.includes('down') || lower.includes('poor')))) {
             symptoms.push({
                 category: 'energy',
                 title: 'Low energy & physical fatigue',
@@ -185,35 +181,54 @@ class HealthMemoryEngine {
             return;
         const pool = supabaseClient_js_1.SupabaseDb.getPool();
         for (const symptom of symptoms) {
-            // 1. Update in-memory facts
-            index_js_1.db.updateMemoryFact(userId, `symptom_${symptom.bodyPart || symptom.category}`, symptom.title, 0.95);
             if (!pool)
                 continue;
             try {
                 // Check for existing issue with same category and body part
-                const existingRes = await pool.query(`SELECT id, mention_count, notes FROM user_issues
+                const existingRes = await pool.query(`SELECT id, mention_count, notes, status FROM user_issues
            WHERE user_id = $1 AND category = $2 AND title ILIKE $3 AND status IN ('open', 'improving')
            LIMIT 1;`, [userId, symptom.category, `%${symptom.bodyPart || symptom.category}%`]);
                 if (existingRes.rows.length > 0) {
-                    // UPDATE existing issue (no duplicate row!)
                     const existing = existingRes.rows[0];
-                    const newCount = (existing.mention_count || 1) + 1;
                     const currentNotes = Array.isArray(existing.notes) ? existing.notes : [];
                     currentNotes.push({
                         date: new Date().toISOString(),
                         mention: symptom.rawMention,
                         trigger: symptom.trigger,
                     });
-                    await pool.query(`UPDATE user_issues
-             SET last_mentioned_at = NOW(),
-                 mention_count = $1,
-                 notes = $2::jsonb,
-                 updated_at = NOW()
-             WHERE id = $3;`, [newCount, JSON.stringify(currentNotes), existing.id]);
-                    console.log(`[HealthMemoryEngine] Updated existing issue ${existing.id} (mention count: ${newCount})`);
+                    if (isResolution) {
+                        // Resolution: set status = resolved, set resolved_at = NOW(), DO NOT increment mention_count or update last_mentioned_at
+                        await pool.query(`UPDATE user_issues
+               SET status = 'resolved',
+                   resolved_at = NOW(),
+                   notes = $1::jsonb,
+                   updated_at = NOW()
+               WHERE id = $2;`, [JSON.stringify(currentNotes), existing.id]);
+                        console.log(`[HealthMemoryEngine] Resolved issue ${existing.id} from user message`);
+                    }
+                    else if (isImproving) {
+                        // Improvement: set status = improving, DO NOT increment mention_count or update last_mentioned_at
+                        await pool.query(`UPDATE user_issues
+               SET status = 'improving',
+                   notes = $1::jsonb,
+                   updated_at = NOW()
+               WHERE id = $2;`, [JSON.stringify(currentNotes), existing.id]);
+                        console.log(`[HealthMemoryEngine] Marked issue ${existing.id} as improving`);
+                    }
+                    else {
+                        // Active complaint: increment mention count and update last_mentioned_at
+                        const newCount = (existing.mention_count || 1) + 1;
+                        await pool.query(`UPDATE user_issues
+               SET last_mentioned_at = NOW(),
+                   mention_count = $1,
+                   notes = $2::jsonb,
+                   updated_at = NOW()
+               WHERE id = $3;`, [newCount, JSON.stringify(currentNotes), existing.id]);
+                        console.log(`[HealthMemoryEngine] Updated existing issue ${existing.id} (mention count: ${newCount})`);
+                    }
                 }
-                else {
-                    // INSERT new issue
+                else if (!isResolution && !isImproving) {
+                    // INSERT new issue only if it is NOT a resolution/improvement message
                     const notes = [{ date: new Date().toISOString(), mention: symptom.rawMention, trigger: symptom.trigger }];
                     await pool.query(`INSERT INTO user_issues (user_id, title, category, severity, status, first_reported_at, last_mentioned_at, mention_count, notes)
              VALUES ($1, $2, $3, $4, 'open', NOW(), NOW(), 1, $5::jsonb);`, [userId, symptom.title, symptom.category, symptom.severity || 'mild', JSON.stringify(notes)]);
@@ -224,6 +239,47 @@ class HealthMemoryEngine {
                 console.warn('[HealthMemoryEngine] Database update error:', err.message);
             }
         }
+    }
+    /**
+     * Updates an issue's status (open, improving, resolved), scoped by userId.
+     * Resolving sets resolved_at = NOW().
+     */
+    static async updateIssueStatus(userId, issueRef, status, note) {
+        const pool = supabaseClient_js_1.SupabaseDb.getPool();
+        if (!pool)
+            return null;
+        if (!['open', 'improving', 'resolved'].includes(status)) {
+            throw new Error(`Invalid status "${status}". Allowed: open, improving, resolved`);
+        }
+        // Clean prefix like "[id:xxxxxxxx]" or bare id/prefix/title
+        const cleanRef = issueRef.replace(/^\[id:/i, '').replace(/\]$/, '').trim();
+        const findRes = await pool.query(`SELECT id, notes FROM user_issues
+       WHERE user_id = $1 AND status IN ('open', 'improving') AND (id = $2 OR id ILIKE $3 OR title ILIKE $4)
+       LIMIT 1;`, [userId, cleanRef, `${cleanRef}%`, `%${cleanRef}%`]);
+        if (findRes.rows.length === 0) {
+            return null;
+        }
+        const issue = findRes.rows[0];
+        const notes = Array.isArray(issue.notes) ? issue.notes : [];
+        if (note) {
+            notes.push({
+                date: new Date().toISOString(),
+                mention: note,
+                statusChange: status,
+            });
+        }
+        if (status === 'resolved') {
+            const purgeRes = await purgeService_js_1.MemoryPurgeService.purgeResolvedIssue(userId, issue.id);
+            return { id: issue.id, status: 'resolved', purged: true, details: purgeRes };
+        }
+        const updateRes = await pool.query(`UPDATE user_issues
+       SET status = $1,
+           resolved_at = NULL,
+           notes = $2::jsonb,
+           updated_at = NOW()
+       WHERE id = $3 AND user_id = $4
+       RETURNING *;`, [status, JSON.stringify(notes), issue.id, userId]);
+        return updateRes.rows[0];
     }
 }
 exports.HealthMemoryEngine = HealthMemoryEngine;

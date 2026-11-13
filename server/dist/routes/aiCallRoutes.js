@@ -126,10 +126,23 @@ exports.aiCallRouter.post('/token', async (req, res) => {
 exports.aiCallRouter.post('/:id/accept', async (req, res) => {
     try {
         const callId = req.params.id;
-        const session = index_js_1.db.getCallSession(callId);
+        let session = index_js_1.db.getCallSession(callId);
         if (!session) {
-            res.status(404).json({ error: 'Call session not found' });
-            return;
+            // Auto-create in-app direct call session for immediate connection
+            const userId = req.body?.userId || req.query?.userId || 'usr_synthetic_alex';
+            const roomName = `room_${userId}_${Date.now()}`;
+            session = {
+                id: callId,
+                roomName,
+                userId,
+                type: 'in_app',
+                status: 'connected',
+                provider: index_js_2.config.voiceProvider,
+                transcript: [],
+                attemptNumber: 0,
+                summary: 'Direct Coaching Call',
+            };
+            index_js_1.db.createCallSession(session);
         }
         aiCallScheduler_js_1.AICallScheduler.clearRinging(callId);
         const startedAt = new Date().toISOString();

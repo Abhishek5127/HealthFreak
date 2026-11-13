@@ -1223,8 +1223,8 @@ export class VoiceClientService {
     // Dynamic greeting based on time of day, or custom scheduled call greeting
     let greeting = defaultGreeting;
 
-    // Only fetch default neural greeting if no custom greeting was provided and backend is reachable
-    if (!customGreeting && !isLocalhostOnNative) {
+    // Fetch dynamic greeting and synthesized neural audio from backend if reachable
+    if (!isLocalhostOnNative) {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 12000);
@@ -1238,32 +1238,30 @@ export class VoiceClientService {
 
         if (greetRes.ok) {
           const greetData = await greetRes.json();
-          if (greetData.greeting) {
+          if (!customGreeting && greetData.greeting) {
             greeting = greetData.greeting;
-            this.coachTranscript = greeting;
-            if (greetData.audioUrl || greetData.audioBase64) {
-              await this.playGeneratedAudio(
-                greetData.audioBase64,
-                greetData.audioMime || 'audio/wav',
-                greeting,
-                greetData.audioUrl,
-                true // auto-listen on finish
-              );
-              return;
-            }
+          }
+          this.coachTranscript = greeting;
+          if (greetData.audioUrl || greetData.audioBase64) {
+            await this.playGeneratedAudio(
+              greetData.audioBase64,
+              greetData.audioMime || 'audio/wav',
+              greeting,
+              greetData.audioUrl,
+              true // auto-listen on finish
+            );
+            return;
           }
         }
-      } catch {
-        // Fallback: speak initial greeting aloud so Coach Mack is never silent
-        this.speakAloud(greeting);
-        return;
+      } catch (greetErr) {
+        console.warn('[VoiceClient] Backend greeting fetch notice:', greetErr);
       }
     }
 
+    // High-reliability speech fallback: always speak the greeting aloud!
+    // Ensures Coach Mack speaks immediately upon answering, never leaving the user in dead silence.
     this.coachTranscript = greeting;
-    this.status = 'listening';
-    this.notify();
-    this.startListening();
+    this.speakAloud(greeting);
   }
 
   public toggleMute(): void {

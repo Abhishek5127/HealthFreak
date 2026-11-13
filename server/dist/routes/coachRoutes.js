@@ -10,7 +10,12 @@ const mealFollowupService_js_1 = require("../nutrition/mealFollowupService.js");
 const supabaseClient_js_1 = require("../db/supabaseClient.js");
 const healthSnapshotService_js_1 = require("../services/healthSnapshotService.js");
 const index_js_1 = require("../db/index.js");
+const healthMemoryEngine_js_1 = require("../services/healthMemoryEngine.js");
 const postCallExtraction_js_1 = require("../coach/postCallExtraction.js");
+const exerciseCatalog_js_1 = require("../coach/exerciseCatalog.js");
+const planGenerationService_js_1 = require("../plans/planGenerationService.js");
+const purgeService_js_1 = require("../coach/memory/purgeService.js");
+const pendingOpsManager_js_1 = require("../coach/memory/pendingOpsManager.js");
 exports.coachRouter = (0, express_1.Router)();
 exports.coachRouter.use(coachAuthMiddleware_js_1.verifyCoachSignature);
 /**
@@ -188,6 +193,236 @@ exports.coachRouter.post('/log-workout', async (req, res) => {
     }
     catch (err) {
         res.status(500).json({ success: false, error: err?.message || 'Failed to log workout' });
+    }
+});
+/**
+ * POST /api/coach/resolve-issue
+ * Permanently purges a resolved issue only after explicit user confirmation.
+ */
+exports.coachRouter.post('/resolve-issue', async (req, res) => {
+    try {
+        const coachReq = req;
+        const userId = coachReq.coachUserId;
+        const { issue_id, confirmed_by_user, user_response } = req.body;
+        if (!issue_id) {
+            res.status(400).json({ success: false, error: 'issue_id is required' });
+            return;
+        }
+        if (confirmed_by_user !== true) {
+            res.status(400).json({
+                success: false,
+                error: 'Explicit user confirmation required (confirmed_by_user must be true)',
+            });
+            return;
+        }
+        // Code verification (Rule E2): Check actual user response
+        if (user_response) {
+            const classification = pendingOpsManager_js_1.PendingOpsManager.classifyConfirmation(String(user_response), 'resolve_issue');
+            if (classification !== 'yes') {
+                res.status(400).json({
+                    success: false,
+                    error: `User confirmation verification failed: supplied user response classified as '${classification}'`,
+                });
+                return;
+            }
+        }
+        else if (coachReq.coachCallId) {
+            const pool = supabaseClient_js_1.SupabaseDb.getPool();
+            if (pool) {
+                try {
+                    const turnsRes = await pool.query(`SELECT role, text FROM call_transcript_turns WHERE call_id = $1 ORDER BY turn_index DESC LIMIT 5`, [coachReq.coachCallId]);
+                    const userTurn = turnsRes.rows.find((r) => r.role === 'user');
+                    if (userTurn) {
+                        const classification = pendingOpsManager_js_1.PendingOpsManager.classifyConfirmation(userTurn.text, 'resolve_issue');
+                        if (classification !== 'yes') {
+                            res.status(400).json({
+                                success: false,
+                                error: `User confirmation verification failed: session history user turn classified as '${classification}'`,
+                            });
+                            return;
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+        const cleanId = String(issue_id).replace(/^\[id:/i, '').replace(/\]$/, '').trim();
+        const purgeResult = await purgeService_js_1.MemoryPurgeService.purgeResolvedIssue(userId, cleanId);
+        res.json({ success: true, purged: purgeResult });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: err?.message || 'Failed to resolve issue' });
+    }
+});
+/**
+ * POST /api/coach/record-issue
+ * Records a new temporary issue after explicit 1-sentence confirmation.
+ */
+exports.coachRouter.post('/record-issue', async (req, res) => {
+    try {
+        const coachReq = req;
+        const userId = coachReq.coachUserId;
+        const { title, category = 'pain', severity = 'mild', confirmed_by_user, user_response } = req.body;
+        if (!title) {
+            res.status(400).json({ success: false, error: 'title is required' });
+            return;
+        }
+        if (confirmed_by_user !== true) {
+            res.status(400).json({
+                success: false,
+                error: 'Explicit user confirmation required (confirmed_by_user must be true)',
+            });
+            return;
+        }
+        // Code verification (Rule E2): Check actual user response
+        if (user_response) {
+            const classification = pendingOpsManager_js_1.PendingOpsManager.classifyConfirmation(String(user_response), 'add_issue');
+            if (classification !== 'yes') {
+                res.status(400).json({
+                    success: false,
+                    error: `User confirmation verification failed: supplied user response classified as '${classification}'`,
+                });
+                return;
+            }
+        }
+        else if (coachReq.coachCallId) {
+            const pool = supabaseClient_js_1.SupabaseDb.getPool();
+            if (pool) {
+                try {
+                    const turnsRes = await pool.query(`SELECT role, text FROM call_transcript_turns WHERE call_id = $1 ORDER BY turn_index DESC LIMIT 5`, [coachReq.coachCallId]);
+                    const userTurn = turnsRes.rows.find((r) => r.role === 'user');
+                    if (userTurn) {
+                        const classification = pendingOpsManager_js_1.PendingOpsManager.classifyConfirmation(userTurn.text, 'add_issue');
+                        if (classification !== 'yes') {
+                            res.status(400).json({
+                                success: false,
+                                error: `User confirmation verification failed: session history user turn classified as '${classification}'`,
+                            });
+                            return;
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+        const pool = supabaseClient_js_1.SupabaseDb.getPool();
+        if (pool) {
+            // Dedupe against open issues
+            const existing = await pool.query(`SELECT id, mention_count FROM user_issues
+         WHERE user_id = $1 AND title ILIKE $2 AND status IN ('open', 'improving')`, [userId, title]);
+            if (existing.rows.length > 0) {
+                await pool.query(`UPDATE user_issues
+           SET mention_count = mention_count + 1, last_mentioned_at = NOW()
+           WHERE id = $1`, [existing.rows[0].id]);
+                res.json({ success: true, action: 'incremented_existing', issueId: existing.rows[0].id });
+                return;
+            }
+            const insertRes = await pool.query(`INSERT INTO user_issues (user_id, title, category, severity, status, first_reported_at, last_mentioned_at, mention_count)
+         VALUES ($1, $2, $3, $4, 'open', NOW(), NOW(), 1)
+         RETURNING *;`, [userId, title, category, severity]);
+            res.json({ success: true, action: 'inserted_new', issue: insertRes.rows[0] });
+            return;
+        }
+        res.json({ success: true, action: 'mock_saved' });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: err?.message || 'Failed to record issue' });
+    }
+});
+/**
+ * POST /api/coach/update-issue
+ * Updates issue status (open, improving, resolved)
+ */
+exports.coachRouter.post('/update-issue', async (req, res) => {
+    try {
+        const coachReq = req;
+        const userId = coachReq.coachUserId;
+        const { issue_ref, status, note } = req.body;
+        if (!issue_ref || !status) {
+            res.status(400).json({ success: false, error: 'issue_ref and status are required' });
+            return;
+        }
+        if (!['open', 'improving', 'resolved'].includes(status)) {
+            res.status(400).json({ success: false, error: 'status must be open, improving, or resolved' });
+            return;
+        }
+        const updated = await healthMemoryEngine_js_1.HealthMemoryEngine.updateIssueStatus(userId, issue_ref, status, note);
+        if (!updated) {
+            res.status(404).json({ success: false, error: `Issue "${issue_ref}" not found for user` });
+            return;
+        }
+        res.json({ success: true, issue: updated });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: err?.message || 'Failed to update issue' });
+    }
+});
+/**
+ * POST /api/coach/suggest-workout
+ * Returns filtered exercises from the catalog safe for user's open issues & conditions
+ */
+exports.coachRouter.post('/suggest-workout', async (req, res) => {
+    try {
+        const coachReq = req;
+        const userId = coachReq.coachUserId;
+        const { body_part = 'full_body', duration_minutes = 20, level = 'beginner' } = req.body;
+        const pool = supabaseClient_js_1.SupabaseDb.getPool();
+        let openIssues = [];
+        let conditions = [];
+        if (pool) {
+            try {
+                const issuesRes = await pool.query(`SELECT title, category FROM user_issues WHERE user_id = $1 AND status IN ('open', 'improving');`, [userId]);
+                openIssues = issuesRes.rows;
+                const profRes = await pool.query(`SELECT known_conditions FROM profiles WHERE id = $1 LIMIT 1;`, [userId]);
+                if (profRes.rows[0]?.known_conditions && Array.isArray(profRes.rows[0].known_conditions)) {
+                    conditions = profRes.rows[0].known_conditions;
+                }
+            }
+            catch (err) {
+                console.warn('[CoachRoutes/suggest-workout] DB query warning:', err.message);
+            }
+        }
+        const exercises = (0, exerciseCatalog_js_1.getSuggestedExercises)({
+            body_part: String(body_part),
+            userIssues: openIssues,
+            conditions,
+            limit: 4,
+        });
+        res.json({
+            success: true,
+            body_part,
+            duration_minutes,
+            level,
+            exercises,
+            filtered_against_issues: openIssues.map(i => i.title),
+        });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: err?.message || 'Failed to suggest workout' });
+    }
+});
+/**
+ * POST /api/coach/create-plan-draft
+ * Calls existing plan draft service behind /api/plans/generate-draft
+ */
+exports.coachRouter.post('/create-plan-draft', async (req, res) => {
+    try {
+        const coachReq = req;
+        const userId = coachReq.coachUserId;
+        const { requestedLevel = 2, reason = 'Voice coach generated draft routine' } = req.body;
+        const result = await planGenerationService_js_1.PlanGenerationService.generatePersonalizedPlanDraft({
+            userId,
+            requestedLevel,
+            triggerReason: reason,
+        });
+        res.json({
+            success: true,
+            message: 'draft saved, approve it in the app',
+            draft: result,
+        });
+    }
+    catch (err) {
+        res.status(500).json({ success: false, error: err?.message || 'Failed to generate plan draft' });
     }
 });
 /**

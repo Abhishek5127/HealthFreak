@@ -23,6 +23,8 @@ const aiCallRoutes_js_1 = require("./routes/aiCallRoutes.js");
 const aiCallScheduler_js_1 = require("./queue/aiCallScheduler.js");
 const voiceAgentProcess_js_1 = require("./services/voiceAgentProcess.js");
 const coachRoutes_js_1 = require("./routes/coachRoutes.js");
+const version_js_1 = require("./config/version.js");
+const supabaseClient_js_1 = require("./db/supabaseClient.js");
 process.on('uncaughtException', (err) => {
     console.error('[HealthFreak Server] Uncaught exception:', err.message);
 });
@@ -42,14 +44,18 @@ app.use(express_1.default.urlencoded({ extended: true, limit: '25mb' }));
 // Serve static assets (images, graphics, media)
 app.use('/assets', express_1.default.static(path_1.default.resolve(__dirname, '../../../assets')));
 // Health Check
-app.get('/health', (_req, res) => {
+app.get('/health', async (_req, res) => {
+    const migStatus = await supabaseClient_js_1.SupabaseDb.checkMigrations().catch(() => ({ migrations_ok: false, missing: ['check_failed'] }));
     res.json({
         status: 'healthy',
         service: 'healthfreak-voice-ai-coach',
         version: '1.0.0',
+        prompt_version: version_js_1.PROMPT_VERSION,
         provider: index_js_1.config.voiceProvider,
         syntheticMode: index_js_1.config.privacy.syntheticDataMode,
         voiceAgent: voiceAgentProcess_js_1.VoiceAgentProcess.getStatus(),
+        migrations_ok: migStatus.migrations_ok,
+        missing: migStatus.missing,
         timestamp: new Date().toISOString(),
     });
 });
@@ -337,6 +343,11 @@ async function startServer() {
         console.log(`[HealthFreak Voice Server] Selected Voice Provider: ${index_js_1.config.voiceProvider}`);
         console.log(`[HealthFreak Voice Server] Concurrency limit: ${index_js_1.config.callingLimits.maxConcurrentCalls}`);
         console.log(`[HealthFreak Voice Server] Synthetic Data Mode: ${index_js_1.config.privacy.syntheticDataMode}`);
+    });
+    supabaseClient_js_1.SupabaseDb.checkMigrations().then((status) => {
+        console.log(`[Migrations] Status: migrations_ok=${status.migrations_ok}, missing=[${status.missing.join(', ')}]`);
+    }).catch((err) => {
+        console.warn('[Migrations] Check error:', err?.message || err);
     });
     scheduledCallQueue_js_1.ScheduledCallQueue.initialize().catch((err) => {
         console.warn('[ScheduledCallQueue] Background Redis init note:', err?.message || err);

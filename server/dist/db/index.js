@@ -7,13 +7,97 @@ class InMemoryDatabase {
     plans = new Map(); // userId -> plans
     callSessions = new Map();
     constructor() {
-        // Database starts clean - real users only
+        if (process.env.SYNTHETIC_DATA_MODE === 'true') {
+            this.seedSyntheticUsers();
+        }
     }
     seedSyntheticUsers() {
-        // Clean initial state
+        // 1. Alex - Hinglish speaker, mild knee soreness (synthetic test persona)
+        const alex = {
+            id: 'usr_synthetic_alex',
+            name: 'Alex Sharma',
+            phone: '+919876543210',
+            languagePreference: 'hinglish',
+            callingConsent: true,
+            consentTimestamp: new Date().toISOString(),
+            optedOut: false,
+            preferredCallHourIST: 10,
+            healthGoals: ['Weight management', 'Cardiovascular endurance'],
+            knownConditions: ['patellofemoral_knee_pain', 'sedentary_desk_job'],
+            currentEnergyLevel: 'moderate',
+        };
+        this.users.set(alex.id, alex);
+        const alexMem = new Map();
+        alexMem.set('preferred_workout_time', {
+            key: 'preferred_workout_time',
+            value: 'morning 7 AM',
+            confidence: 0.95,
+            lastUpdated: new Date().toISOString(),
+        });
+        alexMem.set('joint_pain', {
+            key: 'joint_pain',
+            value: 'right knee soreness after high impact jumping',
+            confidence: 0.9,
+            lastUpdated: new Date().toISOString(),
+        });
+        this.userMemory.set(alex.id, alexMem);
+        const alexPlan = {
+            id: 'plan_alex_v1',
+            userId: alex.id,
+            version: 1,
+            status: 'active',
+            title: 'Low-Impact Metabolic Foundation',
+            overview: 'Joint-friendly functional mobility and steady cardio without high-impact squats.',
+            dailyCalories: 2100,
+            waterIntakeMl: 3000,
+            safetyConstraints: ['No jumping squats', 'No high-impact burpees', 'Low-impact plyometrics only'],
+            generatedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+            confirmedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+            clinicalReviewStatus: 'approved',
+            items: [
+                { id: 'item_1', name: 'Oatmeal & Almond Milk Bowl', category: 'nutrition', timing: '8:30 AM', details: 'With chia seeds and unsweetened protein' },
+                { id: 'item_2', name: 'Glute & Quadriceps Isometric Activation', category: 'movement', timing: '9:30 AM', details: '15 mins bodyweight wall sits and glute bridges' },
+                { id: 'item_3', name: 'Grilled Paneer Salad', category: 'nutrition', timing: '1:30 PM', details: 'Mixed greens, olive oil, lemon dressing' },
+                { id: 'item_4', name: 'Evening Brisk Walk', category: 'movement', timing: '6:30 PM', details: '30 mins low-intensity outdoor walking' },
+            ],
+        };
+        this.plans.set(alex.id, [alexPlan]);
+        // 2. Priya - Hindi speaker with hormonal wellness focus
+        const priya = {
+            id: 'usr_synthetic_priya',
+            name: 'Priya Patel',
+            phone: '+919812345678',
+            languagePreference: 'hi',
+            callingConsent: true,
+            consentTimestamp: new Date().toISOString(),
+            optedOut: false,
+            preferredCallHourIST: 17,
+            healthGoals: ['Hormonal balance', 'Deep sleep restoration'],
+            knownConditions: ['pcos_tendency', 'cortisol_evening_spikes'],
+            currentEnergyLevel: 'low',
+        };
+        this.users.set(priya.id, priya);
+        // 3. Rahul - English speaker, NO calling consent
+        const rahul = {
+            id: 'usr_synthetic_rahul',
+            name: 'Rahul Verma',
+            phone: '+919900112233',
+            languagePreference: 'en',
+            callingConsent: false,
+            consentTimestamp: new Date().toISOString(),
+            optedOut: false,
+            preferredCallHourIST: 11,
+            healthGoals: ['Muscle hypertrophy'],
+            knownConditions: [],
+            currentEnergyLevel: 'energized',
+        };
+        this.users.set(rahul.id, rahul);
     }
     // User queries
     getUser(id) {
+        if (!this.users.has(id) && process.env.SYNTHETIC_DATA_MODE === 'true') {
+            this.seedSyntheticUsers();
+        }
         return this.users.get(id);
     }
     getUserByPhone(phone) {
@@ -150,6 +234,16 @@ class InMemoryDatabase {
         const updated = { ...s, ...updates };
         this.callSessions.set(id, updated);
         return updated;
+    }
+    deleteCallSession(id) {
+        return this.callSessions.delete(id);
+    }
+    deleteUserCallSessions(userId) {
+        for (const [id, s] of this.callSessions.entries()) {
+            if (s.userId === userId) {
+                this.callSessions.delete(id);
+            }
+        }
     }
     appendTranscript(id, speaker, text) {
         const s = this.callSessions.get(id);

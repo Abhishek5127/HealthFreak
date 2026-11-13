@@ -58,14 +58,11 @@ export const LiveKitVoiceCallScreen: React.FC<LiveKitVoiceCallScreenProps> = ({
     isMountedRef.current = true;
     voiceClient.unlockAudio();
 
-    const initialGreeting =
-      greeting ||
-      'Hello! I am Coach Mack, your AI health coach from HealthFreak. How is your energy and body feeling today?';
-
     const userName = userProfile?.name?.trim() ? userProfile.name.split(' ')[0] : 'friend';
     const effectiveUserId = call.userId || userProfile?.id || '';
 
-    voiceClient.startSession(effectiveUserId, initialGreeting, userName);
+    // Allow dynamic time-aware Hinglish greeting when greeting prop is not explicitly passed
+    voiceClient.startSession(effectiveUserId, greeting || undefined, userName);
 
     const unsubscribe = voiceClient.subscribe((state) => {
       if (isMountedRef.current) {

@@ -8,6 +8,7 @@ const supabaseClient_js_1 = require("../db/supabaseClient.js");
 const index_js_1 = require("../db/index.js");
 const healthMemoryStore_js_1 = require("../db/healthMemoryStore.js");
 const healthMemoryEngine_js_1 = require("../services/healthMemoryEngine.js");
+const retentionJob_js_1 = require("./memory/retentionJob.js");
 // In-memory caches for low-latency retrieval & fallback
 const inMemoryTurns = new Map();
 const inMemoryJobs = new Map();
@@ -247,8 +248,44 @@ async function processCallExtraction(callId, userId) {
             }
         }
         healthMemoryStore_js_1.healthMemoryStore.profileFacts.set(userId, existingFacts);
-        // 5. Extract issues mentioned using HealthMemoryEngine
-        // HealthMemoryEngine handles deduplication against active/past issues
+        // 5. Extract issue updates and symptoms mentioned
+        const issueUpdates = [];
+        const isResolution = /(theek ho gaya|theek hai|thik ho gaya|thik hai|theek ho gayi|thik ho gayi|ठीक हो गया|ठीक है|ठीक हो गई|ab dard nahi|dard nahi|no more pain|pain is gone|pain gone|completely solved|solved|all good|fully recovered|healed|no pain)/i;
+        const isImproving = /(thoda better|thoda theek|thoda thik|better now|getting better|improving|much better|pain kam|kam ho gaya|कम हो गया|थोड़ा बेहतर|थोड़ा ठीक)/i;
+        for (const turn of turns) {
+            if (turn.role !== 'user')
+                continue;
+            const t = turn.text;
+            const lowerT = t.toLowerCase();
+            let matchedStatus = null;
+            if (isResolution.test(lowerT)) {
+                matchedStatus = 'resolved';
+            }
+            else if (isImproving.test(lowerT)) {
+                matchedStatus = 'improving';
+            }
+            if (matchedStatus) {
+                let targetRef = '';
+                if (lowerT.includes('shoulder') || lowerT.includes('neck'))
+                    targetRef = 'shoulder';
+                else if (lowerT.includes('knee') || lowerT.includes('joint'))
+                    targetRef = 'knee';
+                else if (lowerT.includes('back'))
+                    targetRef = 'back';
+                else if (lowerT.includes('energy') || lowerT.includes('fatigue') || lowerT.includes('thak'))
+                    targetRef = 'energy';
+                if (targetRef) {
+                    const updated = await healthMemoryEngine_js_1.HealthMemoryEngine.updateIssueStatus(userId, targetRef, matchedStatus, t);
+                    if (updated) {
+                        issueUpdates.push({
+                            issue_ref: updated.id,
+                            status: matchedStatus,
+                            evidence: t,
+                        });
+                    }
+                }
+            }
+        }
         if (userText.trim().length > 0) {
             await healthMemoryEngine_js_1.HealthMemoryEngine.processSymptomIngestion(userId, userText);
         }
@@ -269,7 +306,7 @@ async function processCallExtraction(callId, userId) {
                     callId,
                     userId,
                     `Post-call extraction: ${topics.join(', ')}`,
-                    JSON.stringify({ topics, commitments, facts, issues }),
+                    JSON.stringify({ topics, commitments, facts, issues, issue_updates: issueUpdates }),
                 ]);
             }
         }
@@ -281,6 +318,7 @@ async function processCallExtraction(callId, userId) {
             commitments,
             facts,
             issues,
+            issue_updates: issueUpdates,
         };
         // 7. Mark job completed
         job.status = 'completed';
@@ -296,6 +334,15 @@ async function processCallExtraction(callId, userId) {
         }
         catch (err) {
             console.warn(`[postCallExtraction] Postgres job complete warning:`, err?.message || err);
+        }
+        // R6 Trigger: event-driven retention check right after extraction completes
+        if (retentionJob_js_1.TranscriptRetentionJob.isEnabled()) {
+            try {
+                await retentionJob_js_1.TranscriptRetentionJob.pruneUserCalls(userId, false);
+            }
+            catch (retErr) {
+                console.warn(`[postCallExtraction] Event-driven retention notice:`, retErr?.message || retErr);
+            }
         }
         return { job, result };
     }

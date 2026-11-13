@@ -12,9 +12,12 @@ const healthMemoryStore_js_1 = require("../db/healthMemoryStore.js");
 const planService_js_1 = require("../services/planService.js");
 const costTracker_js_1 = require("../services/costTracker.js");
 const index_js_2 = require("../config/index.js");
+const version_js_1 = require("../config/version.js");
+const openerBudget_js_1 = require("../coach/style/openerBudget.js");
 const voiceAgentProcess_js_1 = require("../services/voiceAgentProcess.js");
 const sarvamService_js_1 = require("../services/sarvamService.js");
 const healthMemoryEngine_js_1 = require("../services/healthMemoryEngine.js");
+const pendingOpsManager_js_1 = require("../coach/memory/pendingOpsManager.js");
 const authMiddleware_js_1 = require("../middleware/authMiddleware.js");
 const supabaseClient_js_1 = require("../db/supabaseClient.js");
 let geminiClient = null;
@@ -337,16 +340,39 @@ const greetingAudioCache = new Map();
 exports.voiceRouter.post('/greeting', async (req, res) => {
     try {
         const { userId = 'usr_synthetic_alex', userName: incomingUserName } = req.body;
-        const user = index_js_1.db.getUser(userId) || index_js_1.db.getUser('usr_synthetic_alex');
-        const firstName = incomingUserName?.trim() || (user?.name ? user.name.split(' ')[0] : 'Abhishek');
-        const hour = new Date().getHours();
+        let pool = supabaseClient_js_1.SupabaseDb.getPool();
+        let userTz = 'Asia/Kolkata';
+        let dbName = '';
+        if (pool && userId && userId !== 'usr_synthetic_alex') {
+            try {
+                const pRes = await pool.query('SELECT name, timezone FROM profiles WHERE id = $1 LIMIT 1;', [userId]);
+                if (pRes.rows[0]) {
+                    if (pRes.rows[0].timezone)
+                        userTz = pRes.rows[0].timezone;
+                    if (pRes.rows[0].name)
+                        dbName = pRes.rows[0].name.split(' ')[0];
+                }
+            }
+            catch { }
+        }
+        const user = index_js_1.db.getUser(userId) || (userId === 'usr_synthetic_alex' ? index_js_1.db.getUser('usr_synthetic_alex') : null);
+        const resolvedName = incomingUserName?.trim() || dbName || (user?.name ? user.name.split(' ')[0] : '');
+        const firstName = resolvedName && resolvedName !== 'Friend' ? resolvedName : '';
+        const hourStr = new Intl.DateTimeFormat('en-US', {
+            timeZone: userTz,
+            hour: 'numeric',
+            hour12: false,
+        }).format(new Date());
+        const hour = parseInt(hourStr, 10);
         let timeGreeting = 'Namaste';
         if (hour >= 5 && hour < 12)
             timeGreeting = 'Suprabhat';
         else if (hour >= 18 && hour < 22)
             timeGreeting = 'Shubh Sandhya';
-        const greeting = `${timeGreeting} ${firstName}! Main Coach Mack hoon. Aaj aapki fitness aur diet mein kya help karoon?`;
-        const cacheKey = `${timeGreeting}_${firstName}`;
+        const greeting = firstName
+            ? `${timeGreeting} ${firstName}! Main Coach Mack hoon. Aaj aapki fitness aur diet mein kya help karoon?`
+            : `${timeGreeting}! Main Coach Mack hoon. Aaj aapki fitness aur diet mein kya help karoon?`;
+        const cacheKey = `${timeGreeting}_${firstName || 'noname'}`;
         let audioBase64 = greetingAudioCache.get(cacheKey);
         if (!audioBase64 && sarvamService_js_1.SarvamService.isConfigured()) {
             audioBase64 = await sarvamService_js_1.SarvamService.synthesizeSpeech(greeting);
@@ -390,7 +416,7 @@ exports.voiceRouter.post('/tts', async (req, res) => {
 // 13. Health Coach Streaming Turn (SSE: Sarvam AI 105B + Bulbul Neural Voice)
 exports.voiceRouter.post('/chat/stream', async (req, res) => {
     const startTime = Date.now();
-    const { message, userId = 'usr_synthetic_alex', userName: incomingUserName, activityContext } = req.body;
+    const { message, userId = 'usr_synthetic_alex', userName: incomingUserName, activityContext, lastCoachReply = '', sessionId, history } = req.body;
     if (!message || typeof message !== 'string') {
         res.status(400).json({ error: 'message is required' });
         return;
@@ -400,6 +426,7 @@ exports.voiceRouter.post('/chat/stream', async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
+    res.setHeader('X-Prompt-Version', version_js_1.PROMPT_VERSION);
     res.flushHeaders?.();
     const abortController = new AbortController();
     // CRITICAL FIX: In Node.js / Express, req emits 'close' as soon as the POST request body is read!
@@ -416,8 +443,19 @@ exports.voiceRouter.post('/chat/stream', async (req, res) => {
             return;
         res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     };
-    const user = index_js_1.db.getUser(userId) || index_js_1.db.getUser('usr_synthetic_alex');
-    const userName = incomingUserName?.trim() || (user?.name ? user.name.split(' ')[0] : 'Abhishek');
+    let dbName = '';
+    const pool = supabaseClient_js_1.SupabaseDb.getPool();
+    if (pool && userId && userId !== 'usr_synthetic_alex') {
+        try {
+            const pRes = await pool.query('SELECT name FROM profiles WHERE id = $1 LIMIT 1;', [userId]);
+            if (pRes.rows[0]?.name)
+                dbName = pRes.rows[0].name.split(' ')[0];
+        }
+        catch { }
+    }
+    const user = index_js_1.db.getUser(userId) || (userId === 'usr_synthetic_alex' ? index_js_1.db.getUser('usr_synthetic_alex') : null);
+    const resolvedUserName = incomingUserName?.trim() || dbName || (user?.name ? user.name.split(' ')[0] : '');
+    const userName = resolvedUserName && resolvedUserName !== 'Friend' ? resolvedUserName : '';
     const lowerMsg = message.toLowerCase();
     // 1. Critical Health Safety & Red Flag Escalation
     const isRedFlag = lowerMsg.includes('chest pain') ||
@@ -429,7 +467,9 @@ exports.voiceRouter.post('/chat/stream', async (req, res) => {
         lowerMsg.includes('behoshi') ||
         lowerMsg.includes('palpitation');
     if (isRedFlag) {
-        const safetyReply = `Dhyan se sunein ${userName}: Chest discomfort ya saans lene mein takleef serious medical condition ke lakshan ho sakte hain. Kripya turant kisi physician ya emergency room se consult karein aur saare workouts immediately rok dein.`;
+        const safetyReply = userName
+            ? `Dhyan se sunein ${userName}: Chest discomfort ya saans lene mein takleef serious medical condition ke lakshan ho sakte hain. Kripya turant kisi physician ya emergency room se consult karein aur saare workouts immediately rok dein.`
+            : `Dhyan se sunein: Chest discomfort ya saans lene mein takleef serious medical condition ke lakshan ho sakte hain. Kripya turant kisi physician ya emergency room se consult karein aur saare workouts immediately rok dein.`;
         sendEvent('response_start', { timestamp: Date.now(), isSafetyAlert: true });
         sendEvent('text_delta', { delta: safetyReply });
         sendEvent('text_complete', {
@@ -455,37 +495,64 @@ exports.voiceRouter.post('/chat/stream', async (req, res) => {
     // 3. Asynchronously ingest symptoms without blocking the response path
     healthMemoryEngine_js_1.HealthMemoryEngine.scheduleSymptomIngestion(userId, message);
     sendEvent('response_start', { timestamp: Date.now(), model: 'sarvam-105b-conversations' });
+    const sessionKey = sessionId || userId || 'default';
+    const state = openerBudget_js_1.OpenerBudget.getState(sessionKey);
+    const openerAllowed = openerBudget_js_1.OpenerBudget.isOpenerAllowed(sessionKey);
+    const recentOpeners = state.lastOpenerUsed ? `"${state.lastOpenerUsed}"` : 'none';
+    const nameHint = openerAllowed && userName
+        ? `\nThis turn you may open with the user's first name (${userName}) or a very short interjection if natural.`
+        : '';
     // 4. Construct System Prompt with contextual memory snippet
     const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak.
-You are speaking directly with ${userName}.
 ${healthContext.promptSnippet}
 
 Core Coaching Instructions:
-1. Respond in warm, authentic, motivating Hinglish (Hindi + English blended in Latin script, e.g. "Arre ${userName}!").
-2. Show continuity naturally: If user mentions pain (like knee discomfort), reference their earlier reports without reciting bullet lists.
-3. Keep response concise: exactly 2 to 3 short sentences. Be clinically sound, encouraging, and actionable.
-4. Do NOT use emojis, asterisks, hashtags, or markdown. Output plain spoken conversational text only.`;
+1. Start directly with the answer. A very short natural interjection or the user's first name may open a reply only rarely, and never in two replies in a row. Recently used openers (vary, reuse rarely): ${recentOpeners}.${nameHint}
+2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, a routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps or duration, plus rest, home-only (up to 5 short sentences allowed).
+3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness or tingling spreading down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
+4. Show continuity naturally: If user mentions pain, reference their earlier reports without reciting bullet lists.
+5. Do NOT use emojis, asterisks, hashtags, or markdown. Output plain spoken conversational text only.`;
+    const cleanHistory = history && Array.isArray(history) && history.length > 0
+        ? openerBudget_js_1.OpenerBudget.sanitizeHistory(history.slice(-10), userName)
+            .map((h) => ({
+            role: h.role === 'coach' ? 'assistant' : h.role,
+            content: (h.content || h.text || '').trim(),
+        }))
+            .filter((h) => h.content.length > 0)
+        : [];
     let totalAudioChunks = 0;
     const ttsBuffer = new sarvamService_js_1.SentenceTTSBuffer((chunk) => {
         totalAudioChunks++;
         sendEvent('audio_chunk', chunk);
     }, 'shubh');
     let fullGeneratedText = '';
+    const streamFilter = new openerBudget_js_1.StreamingOpenerFilter({
+        sessionId: sessionKey,
+        userName,
+        path: '/chat/stream',
+        lang: 'hi',
+        onToken: (filteredToken) => {
+            fullGeneratedText += filteredToken;
+            sendEvent('text_delta', { delta: filteredToken });
+            ttsBuffer.addToken(filteredToken);
+        },
+    });
     // 5. PRIMARY: Stream LLM via Sarvam 105B
     let sarvamSuccess = false;
     if (sarvamService_js_1.SarvamService.isConfigured()) {
         try {
-            fullGeneratedText = await sarvamService_js_1.SarvamService.streamChatCompletion({
+            await sarvamService_js_1.SarvamService.streamChatCompletion({
                 messages: [
                     { role: 'system', content: systemPrompt },
+                    ...cleanHistory,
                     { role: 'user', content: message },
                 ],
                 abortSignal: abortController.signal,
                 onToken: (token) => {
-                    sendEvent('text_delta', { delta: token });
-                    ttsBuffer.addToken(token);
+                    streamFilter.push(token);
                 },
             });
+            await streamFilter.flush();
             sarvamSuccess = true;
         }
         catch (err) {
@@ -506,6 +573,10 @@ Core Coaching Instructions:
                 const geminiStream = await ai.models.generateContentStream({
                     model: index_js_2.config.gemini.model || 'gemini-3.5-flash-lite',
                     contents: [
+                        ...cleanHistory.map((h) => ({
+                            role: h.role === 'assistant' ? 'model' : 'user',
+                            parts: [{ text: h.content }],
+                        })),
                         {
                             role: 'user',
                             parts: [{ text: `${systemPrompt}\n\nUser says: ${message}` }],
@@ -517,11 +588,10 @@ Core Coaching Instructions:
                         break;
                     const textChunk = chunk.text || '';
                     if (textChunk) {
-                        fullGeneratedText += textChunk;
-                        sendEvent('text_delta', { delta: textChunk });
-                        await ttsBuffer.addToken(textChunk);
+                        await streamFilter.push(textChunk);
                     }
                 }
+                await streamFilter.flush();
                 sarvamSuccess = true;
             }
             catch (geminiErr) {
@@ -563,31 +633,115 @@ Core Coaching Instructions:
 // 14. Health Coach Chat Turn (Synchronous JSON Fallback)
 exports.voiceRouter.post('/chat', async (req, res) => {
     try {
-        const { message, userId = 'usr_synthetic_alex', userName: incomingUserName, activityContext } = req.body;
+        res.setHeader('X-Prompt-Version', version_js_1.PROMPT_VERSION);
+        const { message, userId = 'usr_synthetic_alex', userName: incomingUserName, activityContext, lastCoachReply = '', sessionId, history } = req.body;
         if (!message || typeof message !== 'string') {
             res.status(400).json({ error: 'message is required' });
             return;
         }
-        const user = index_js_1.db.getUser(userId) || index_js_1.db.getUser('usr_synthetic_alex');
-        const userName = incomingUserName?.trim() || (user?.name ? user.name.split(' ')[0] : 'Abhishek');
+        let dbName = '';
+        const pool = supabaseClient_js_1.SupabaseDb.getPool();
+        if (pool && userId && userId !== 'usr_synthetic_alex') {
+            try {
+                const pRes = await pool.query('SELECT name FROM profiles WHERE id = $1 LIMIT 1;', [userId]);
+                if (pRes.rows[0]?.name)
+                    dbName = pRes.rows[0].name.split(' ')[0];
+            }
+            catch { }
+        }
+        const user = index_js_1.db.getUser(userId) || (userId === 'usr_synthetic_alex' ? index_js_1.db.getUser('usr_synthetic_alex') : null);
+        const resolvedUserName = incomingUserName?.trim() || dbName || (user?.name ? user.name.split(' ')[0] : '');
+        const userName = resolvedUserName && resolvedUserName !== 'Friend' ? resolvedUserName : '';
         const lower = message.toLowerCase();
         // Critical Red Flag check
         if (lower.includes('chest pain') || lower.includes('chhati') || lower.includes('shortness of breath')) {
+            const safetyReply = userName
+                ? `Dhyan se sunein ${userName}: Chest discomfort ya saans lene mein takleef serious signs hain. Turant kisi emergency medical center se contact karein aur sabhi exercises band kar dein.`
+                : `Dhyan se sunein: Chest discomfort ya saans lene mein takleef serious signs hain. Turant kisi emergency medical center se contact karein aur sabhi exercises band kar dein.`;
             res.json({
-                text: `Dhyan se sunein ${userName}: Chest discomfort ya saans lene mein takleef serious signs hain. Turant kisi emergency medical center se contact karein aur sabhi exercises band kar dein.`,
+                text: safetyReply,
                 suggestions: ['Contact emergency care', 'Consult a doctor', 'Rest immediately'],
                 provider: 'safety_guard',
             });
             return;
         }
-        // Context retrieval and background ingestion
-        const healthContext = await healthMemoryEngine_js_1.HealthMemoryEngine.getRelevantContext(userId, message, activityContext);
-        healthMemoryEngine_js_1.HealthMemoryEngine.scheduleSymptomIngestion(userId, message);
+        // Context retrieval and confirmation-gated memory operations (Part 3)
+        let activeUserId = req.userId || userId || sessionId || 'default';
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1];
+            if (supabaseClient_js_1.SupabaseDb.isConfigured()) {
+                try {
+                    const { data } = await supabaseClient_js_1.SupabaseDb.getClient().auth.getUser(token);
+                    if (data?.user?.id) {
+                        activeUserId = data.user.id;
+                    }
+                }
+                catch { }
+            }
+        }
+        const sessionKey = sessionId || activeUserId || 'default';
+        const healthContext = await healthMemoryEngine_js_1.HealthMemoryEngine.getRelevantContext(activeUserId, message, activityContext);
+        await pendingOpsManager_js_1.PendingOpsManager.incrementTurn(activeUserId, sessionKey);
+        const existingOp = await pendingOpsManager_js_1.PendingOpsManager.getPendingOp(activeUserId, sessionKey);
+        let memoryDirective = '';
+        if (existingOp) {
+            const conf = pendingOpsManager_js_1.PendingOpsManager.classifyConfirmation(message, existingOp.type);
+            if (conf === 'yes') {
+                await pendingOpsManager_js_1.PendingOpsManager.applyOp(existingOp);
+                await pendingOpsManager_js_1.PendingOpsManager.discardPendingOp(activeUserId, sessionKey);
+                if (existingOp.type === 'resolve_issue') {
+                    memoryDirective = `\n[ACTION COMPLETED]: User confirmed ${existingOp.payload.title} is completely resolved. It has been permanently purged from records. Celebrate recovery warmly in 1 short sentence, and DO NOT mention this pain or issue ever again.`;
+                }
+                else if (existingOp.type === 'add_issue') {
+                    memoryDirective = `\n[ACTION COMPLETED]: User confirmed tracking for ${existingOp.payload.title}. It has been saved. Acknowledge supportively.`;
+                }
+            }
+            else if (conf === 'ambiguous') {
+                const attempts = (existingOp.ambiguousAttempts || 0) + 1;
+                if (attempts <= 1) {
+                    existingOp.ambiguousAttempts = attempts;
+                    await pendingOpsManager_js_1.PendingOpsManager.setPendingOp(existingOp, sessionKey);
+                    memoryDirective = `\n[AMBIGUOUS CONFIRMATION]: User answer was ambiguous. Re-ask ONCE in plain words: "हटा दूँ? हाँ या ना" (or "Should I remove it? Yes or No"). Do not modify records yet.`;
+                }
+                else {
+                    await pendingOpsManager_js_1.PendingOpsManager.discardPendingOp(activeUserId, sessionKey);
+                    memoryDirective = `\n[CONFIRMATION EXPIRED]: Ambiguous limit reached. Do not modify records.`;
+                }
+            }
+            else if (conf === 'no') {
+                await pendingOpsManager_js_1.PendingOpsManager.discardPendingOp(activeUserId, sessionKey);
+                memoryDirective = `\n[ACTION CANCELLED]: User stated the issue is not yet resolved. Continue caring for it gently without purging.`;
+            }
+        }
+        else {
+            const openIssuesList = healthContext.activeIssues.map((i) => ({ id: i.id, title: i.title, category: i.category }));
+            const turnNum = pendingOpsManager_js_1.PendingOpsManager.getTurn(activeUserId);
+            const candidateOp = pendingOpsManager_js_1.PendingOpsManager.detectCandidate(message, openIssuesList, turnNum, activeUserId, sessionKey);
+            if (candidateOp) {
+                await pendingOpsManager_js_1.PendingOpsManager.setPendingOp(candidateOp, sessionKey);
+                memoryDirective = `\n[CONFIRMATION REQUIRED]: ${candidateOp.confirmationQuestion} Ask this exact confirmation in your reply in 1 short sentence before modifying any records.`;
+            }
+        }
         const activeFacts = user ? healthMemoryStore_js_1.healthMemoryStore.getActiveProfileFacts(user.id) : [];
-        const memorySnippet = healthContext.promptSnippet || activeFacts.map((f) => `${f.key}: ${f.value}`).join('; ');
+        const memorySnippet = (healthContext.promptSnippet || activeFacts.map((f) => `${f.key}: ${f.value}`).join('; ')) + memoryDirective;
         const activitySnippet = activityContext
             ? `Today steps: ${activityContext.todaySteps || 0} / ${activityContext.stepGoal || 10000}, active calories: ${activityContext.caloriesBurned || 0} kcal`
             : '';
+        const state = openerBudget_js_1.OpenerBudget.getState(sessionKey);
+        const openerAllowed = openerBudget_js_1.OpenerBudget.isOpenerAllowed(sessionKey);
+        const recentOpeners = state.lastOpenerUsed ? `"${state.lastOpenerUsed}"` : 'none';
+        const nameHint = openerAllowed && userName
+            ? `\nThis turn you may open with the user's first name (${userName}) or a very short interjection if natural.`
+            : '';
+        const cleanHistory = history && Array.isArray(history) && history.length > 0
+            ? openerBudget_js_1.OpenerBudget.sanitizeHistory(history.slice(-10), userName)
+                .map((h) => ({
+                role: h.role === 'coach' ? 'assistant' : h.role,
+                content: (h.content || h.text || '').trim(),
+            }))
+                .filter((h) => h.content.length > 0)
+            : [];
         // PRIMARY: Generate conversational reply and neural voice directly via Sarvam AI
         if (sarvamService_js_1.SarvamService.isConfigured()) {
             const sarvamResult = await sarvamService_js_1.SarvamService.generateChatReply({
@@ -597,6 +751,8 @@ exports.voiceRouter.post('/chat', async (req, res) => {
                 memorySnippet,
                 activitySnippet,
                 synthesizeVoice: true,
+                sessionId: sessionKey,
+                history: cleanHistory,
             });
             if (sarvamResult) {
                 res.json({
@@ -614,14 +770,14 @@ exports.voiceRouter.post('/chat', async (req, res) => {
         let suggestions = [];
         if (index_js_2.config.gemini.apiKey) {
             const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak.
-You are speaking directly with ${userName}.
 ${healthContext.promptSnippet}
 
 Rules:
-1. Respond in natural, warm, empathetic Hinglish using Latin alphabet (e.g. 'Arre ${userName}!').
-2. Keep your answer concise: 2 to 3 short sentences maximum. Be clinically sound, motivating, and actionable.
-3. Provide 3 short relevant follow-up suggestions (under 4 words each).
-4. Return strict JSON: { "text": "...", "suggestions": ["...", "...", "..."] }`;
+1. Start directly with the answer. A very short natural interjection or the user's first name may open a reply only rarely, and never in two replies in a row. Recently used openers (vary, reuse rarely): ${recentOpeners}.${nameHint}
+2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, a routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps or duration, plus rest, home-only (up to 5 short sentences allowed).
+3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness or tingling spreading down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
+4. Provide 3 short relevant follow-up suggestions (under 4 words each).
+5. Return strict JSON: { "text": "...", "suggestions": ["...", "...", "..."] }`;
             const modelsToTry = [
                 index_js_2.config.gemini.model || 'gemini-3.5-flash-lite',
                 'gemini-3.8-flash',
@@ -634,6 +790,10 @@ Rules:
                     const response = await ai.models.generateContent({
                         model: m,
                         contents: [
+                            ...cleanHistory.map((h) => ({
+                                role: h.role === 'assistant' ? 'model' : 'user',
+                                parts: [{ text: h.content }],
+                            })),
                             {
                                 role: 'user',
                                 parts: [{ text: `${systemPrompt}\n\nUser says: ${message}` }],
@@ -641,13 +801,21 @@ Rules:
                         ],
                         config: {
                             responseMimeType: 'application/json',
+                            maxOutputTokens: 400,
                         },
                     });
                     const rawText = response.text?.trim();
                     if (rawText) {
                         const parsed = JSON.parse(rawText);
                         if (parsed.text) {
-                            replyText = parsed.text;
+                            const processed = openerBudget_js_1.OpenerBudget.processReply({
+                                sessionId: sessionKey,
+                                text: parsed.text,
+                                userName,
+                                path: '/chat',
+                                lang: 'hi',
+                            });
+                            replyText = processed.cleanedText;
                             suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
                             break;
                         }
@@ -741,10 +909,22 @@ function isSelfEcho(userText, coachText) {
 exports.voiceRouter.post('/audio-turn', authMiddleware_js_1.authenticateSupabaseToken, async (req, res) => {
     const turnStart = Date.now();
     try {
+        res.setHeader('X-Prompt-Version', version_js_1.PROMPT_VERSION);
         const userId = req.userId;
-        const { audioBase64, mimeType = 'audio/m4a', lastCoachReply = '', userName: incomingUserName, } = req.body;
-        const user = index_js_1.db.getUser(userId) || index_js_1.db.getUser('usr_synthetic_alex');
-        const userName = incomingUserName?.trim() || (user?.name ? user.name.split(' ')[0] : 'Abhishek');
+        const { audioBase64, mimeType = 'audio/m4a', lastCoachReply = '', userName: incomingUserName, callId, history, } = req.body;
+        let dbName = '';
+        const pool = supabaseClient_js_1.SupabaseDb.getPool();
+        if (pool && userId && userId !== 'usr_synthetic_alex') {
+            try {
+                const pRes = await pool.query('SELECT name FROM profiles WHERE id = $1 LIMIT 1;', [userId]);
+                if (pRes.rows[0]?.name)
+                    dbName = pRes.rows[0].name.split(' ')[0];
+            }
+            catch { }
+        }
+        const user = index_js_1.db.getUser(userId) || (userId === 'usr_synthetic_alex' ? index_js_1.db.getUser('usr_synthetic_alex') : null);
+        const resolvedUserName = incomingUserName?.trim() || dbName || (user?.name ? user.name.split(' ')[0] : '');
+        const userName = resolvedUserName && resolvedUserName !== 'Friend' ? resolvedUserName : '';
         if (!audioBase64) {
             res.status(400).json({ error: 'audioBase64 is required' });
             return;
@@ -790,7 +970,9 @@ exports.voiceRouter.post('/audio-turn', authMiddleware_js_1.authenticateSupabase
             lower.includes('behoshi') ||
             lower.includes('palpitation');
         if (isRedFlag) {
-            const safetyReply = `Dhyan se sunein ${userName}: Chest discomfort ya saans lene mein takleef serious medical conditions ke lakshan ho sakte hain. Kripya turant kisi emergency room ya physician se consult karein aur sabhi exercises band kar dein.`;
+            const safetyReply = userName
+                ? `Dhyan se sunein ${userName}: Chest discomfort ya saans lene mein takleef serious medical conditions ke lakshan ho sakte hain. Kripya turant kisi emergency room ya physician se consult karein aur sabhi exercises band kar dein.`
+                : `Dhyan se sunein: Chest discomfort ya saans lene mein takleef serious medical conditions ke lakshan ho sakte hain. Kripya turant kisi emergency room ya physician se consult karein aur sabhi exercises band kar dein.`;
             let audioBase64Reply;
             if (sarvamService_js_1.SarvamService.isConfigured()) {
                 audioBase64Reply = await sarvamService_js_1.SarvamService.synthesizeSpeech(safetyReply);
@@ -808,6 +990,21 @@ exports.voiceRouter.post('/audio-turn', authMiddleware_js_1.authenticateSupabase
         // 5. Context Retrieval and Background Symptom Ingestion
         const healthContext = await healthMemoryEngine_js_1.HealthMemoryEngine.getRelevantContext(userId, userTranscript);
         healthMemoryEngine_js_1.HealthMemoryEngine.scheduleSymptomIngestion(userId, userTranscript);
+        const sessionKey = callId || userId || 'default';
+        const state = openerBudget_js_1.OpenerBudget.getState(sessionKey);
+        const openerAllowed = openerBudget_js_1.OpenerBudget.isOpenerAllowed(sessionKey);
+        const recentOpeners = state.lastOpenerUsed ? `"${state.lastOpenerUsed}"` : 'none';
+        const nameHint = openerAllowed && userName
+            ? `\nThis turn you may open with the user's first name (${userName}) or a very short interjection if natural.`
+            : '';
+        const cleanHistory = history && Array.isArray(history) && history.length > 0
+            ? openerBudget_js_1.OpenerBudget.sanitizeHistory(history.slice(-10), userName)
+                .map((h) => ({
+                role: h.role === 'coach' ? 'assistant' : h.role,
+                content: (h.content || h.text || '').trim(),
+            }))
+                .filter((h) => h.content.length > 0)
+            : [];
         // 6. Primary LLM Generation: Sarvam 105B Conversations
         let coachReply = '';
         if (sarvamService_js_1.SarvamService.isConfigured()) {
@@ -817,6 +1014,8 @@ exports.voiceRouter.post('/audio-turn', authMiddleware_js_1.authenticateSupabase
                 conditions: user?.knownConditions || [],
                 memorySnippet: healthContext.promptSnippet,
                 synthesizeVoice: false,
+                sessionId: sessionKey,
+                history: cleanHistory,
             });
             if (sarvamResult?.text) {
                 coachReply = sarvamResult.text;
@@ -826,24 +1025,39 @@ exports.voiceRouter.post('/audio-turn', authMiddleware_js_1.authenticateSupabase
         if (!coachReply && index_js_2.config.gemini.apiKey) {
             try {
                 const ai = getGeminiClient();
-                const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak speaking directly with ${userName}.
+                const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak.
 ${healthContext.promptSnippet}
 Rules:
-1. Respond in natural, warm, empathetic Hinglish (e.g. 'Arre ${userName}!').
-2. Keep your answer concise: exactly 2 to 3 short sentences. Motivating, clinically sound, and actionable.
-3. Plain spoken conversational text only. No markdown, asterisks, or emoji.`;
+1. Start directly with the answer. A very short natural interjection or the user's first name may open a reply only rarely, and never in two replies in a row. Recently used openers (vary, reuse rarely): ${recentOpeners}.${nameHint}
+2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, a routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps or duration, plus rest, home-only (up to 5 short sentences allowed).
+3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness or tingling spreading down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
+4. Plain spoken conversational text only. No markdown, asterisks, or emoji.`;
                 const resp = await ai.models.generateContent({
                     model: index_js_2.config.gemini.model || 'gemini-3.5-flash-lite',
                     contents: [
+                        ...cleanHistory.map((h) => ({
+                            role: h.role === 'assistant' ? 'model' : 'user',
+                            parts: [{ text: h.content }],
+                        })),
                         {
                             role: 'user',
                             parts: [{ text: `${systemPrompt}\n\nUser says: ${userTranscript}` }],
                         },
                     ],
+                    config: {
+                        maxOutputTokens: 400,
+                    },
                 });
                 const geminiText = resp.text?.trim();
                 if (geminiText) {
-                    coachReply = sarvamService_js_1.SarvamService.normalizeForSpokenTTS(geminiText);
+                    const processed = openerBudget_js_1.OpenerBudget.processReply({
+                        sessionId: sessionKey,
+                        text: sarvamService_js_1.SarvamService.normalizeForSpokenTTS(geminiText),
+                        userName,
+                        path: '/audio-turn',
+                        lang: 'hi',
+                    });
+                    coachReply = processed.cleanedText;
                 }
             }
             catch (geminiErr) {

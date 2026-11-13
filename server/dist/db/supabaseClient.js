@@ -54,6 +54,67 @@ class SupabaseDb {
         }
     }
     /**
+     * Health and startup migration audit (Rule E7).
+     * Verifies that schema tables and columns from migrations 001-006 exist.
+     */
+    static async checkMigrations() {
+        const p = this.getPool();
+        if (!p) {
+            // In-memory dev mode or no Postgres configured
+            return { migrations_ok: true, missing: [] };
+        }
+        const missing = [];
+        try {
+            // Check tables
+            const requiredTables = [
+                'profiles',
+                'user_issues',
+                'health_conditions',
+                'exercise_plans',
+                'scheduled_followups',
+                'call_transcript_turns', // 005
+                'call_extraction_jobs', // 005
+                'issue_history', // 006
+            ];
+            const tableRes = await p.query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ANY($1)`, [requiredTables]);
+            const existingTables = new Set(tableRes.rows.map((r) => r.table_name));
+            for (const t of requiredTables) {
+                if (!existingTables.has(t)) {
+                    missing.push(`table:${t}`);
+                }
+            }
+            // Check migration 006 specific columns
+            const requiredColumns = [
+                { table: 'scheduled_followups', column: 'issue_id' },
+                { table: 'health_conditions', column: 'source_issue_id' },
+                { table: 'exercise_plans', column: 'constraint_issue_ids' },
+                { table: 'exercise_plans', column: 'is_stale' },
+            ];
+            const colRes = await p.query(`SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public' AND (table_name, column_name) IN (
+          ('scheduled_followups', 'issue_id'),
+          ('health_conditions', 'source_issue_id'),
+          ('exercise_plans', 'constraint_issue_ids'),
+          ('exercise_plans', 'is_stale')
+        )`);
+            const existingCols = new Set(colRes.rows.map((r) => `${r.table_name}.${r.column_name}`));
+            for (const req of requiredColumns) {
+                if (!existingCols.has(`${req.table}.${req.column}`)) {
+                    missing.push(`column:${req.table}.${req.column}`);
+                }
+            }
+            return {
+                migrations_ok: missing.length === 0,
+                missing,
+            };
+        }
+        catch (err) {
+            return {
+                migrations_ok: false,
+                missing: [`error:${err?.message || 'Failed to inspect schema'}`],
+            };
+        }
+    }
+    /**
      * Synchronizes a meal record and its items to Supabase PostgreSQL in background
      */
     static async syncMeal(meal) {

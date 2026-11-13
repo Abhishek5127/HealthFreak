@@ -1,7 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SentenceTTSBuffer = exports.SarvamService = void 0;
+exports.stripFormulaicOpener = stripFormulaicOpener;
 const index_js_1 = require("../config/index.js");
+const openerBudget_js_1 = require("../coach/style/openerBudget.js");
+function stripFormulaicOpener(text, userName) {
+    if (!text)
+        return '';
+    const det = (0, openerBudget_js_1.detectLeadingOpener)(text, userName);
+    return det.hasOpener ? det.remainingText : text.trim();
+}
 class SarvamService {
     static getApiKey() {
         return (process.env.SARVAM_API_KEY || index_js_1.config.sarvam?.apiKey || '').trim();
@@ -90,19 +98,34 @@ class SarvamService {
         const apiKey = this.getApiKey();
         if (!apiKey)
             return null;
-        const { message, userName = 'friend', conditions = [], memorySnippet = '', activitySnippet = '', synthesizeVoice = true, } = params;
+        const { message, userName = 'friend', conditions = [], memorySnippet = '', activitySnippet = '', synthesizeVoice = true, sessionId, history, } = params;
+        const sessionKey = sessionId || 'default';
+        const state = openerBudget_js_1.OpenerBudget.getState(sessionKey);
+        const openerAllowed = openerBudget_js_1.OpenerBudget.isOpenerAllowed(sessionKey);
+        const recentOpeners = state.lastOpenerUsed ? `"${state.lastOpenerUsed}"` : 'none';
+        const nameHint = openerAllowed && userName && userName.toLowerCase() !== 'friend'
+            ? `\nThis turn you may open with the user's first name (${userName}) or a very short interjection if natural.`
+            : '';
         const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak.
-You are speaking directly with ${userName}.
 User Profile:
 - Known conditions/injuries: ${conditions.join(', ') || 'None'}
 - Memory facts: ${memorySnippet || 'None'}
 - Physical activity today: ${activitySnippet || 'Not synced'}
 
 Rules:
-1. Respond in natural, warm, motivating Hinglish (Hindi + English blend, written in Latin script, e.g., "Arre ${userName}!").
-2. Keep your answer concise: 2 to 3 short sentences maximum. Be clinically sensible, supportive, and actionable.
-3. Suggest 3 short relevant follow-up actions (under 4 words each).
-4. Do NOT use emojis, asterisks, bullet points or markdown. Plain spoken conversational text only.`;
+1. Start directly with the answer. A very short natural interjection or the user's first name may open a reply only rarely, and never in two replies in a row. Recently used openers (vary, reuse rarely): ${recentOpeners}.${nameHint}
+2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps/duration plus rest, home-only (up to 5 short sentences allowed).
+3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness/tingling radiating down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
+4. Suggest 3 short relevant follow-up actions (under 4 words each).
+5. Do NOT use emojis, asterisks, bullet points or markdown. Plain spoken conversational text only.`;
+        const cleanHistory = history && history.length > 0
+            ? openerBudget_js_1.OpenerBudget.sanitizeHistory(history.slice(-10), userName)
+                .map((h) => ({
+                role: h.role === 'coach' ? 'assistant' : h.role,
+                content: (h.content || h.text || '').trim(),
+            }))
+                .filter((h) => h.content.length > 0)
+            : [];
         try {
             const response = await fetch('https://api.sarvam.ai/v1/chat/completions', {
                 method: 'POST',
@@ -114,10 +137,11 @@ Rules:
                     model: index_js_1.config.sarvam?.chatModel || 'sarvam-105b-conversations',
                     messages: [
                         { role: 'system', content: systemPrompt },
+                        ...cleanHistory,
                         { role: 'user', content: message },
                     ],
                     temperature: 0.6,
-                    max_tokens: 160,
+                    max_tokens: 320,
                 }),
             });
             if (!response.ok) {
@@ -129,7 +153,15 @@ Rules:
             const rawReply = data?.choices?.[0]?.message?.content?.trim();
             if (!rawReply)
                 return null;
-            const cleanReply = this.normalizeForSpokenTTS(rawReply);
+            const normalizedReply = this.normalizeForSpokenTTS(rawReply);
+            const processed = openerBudget_js_1.OpenerBudget.processReply({
+                sessionId: sessionKey,
+                text: normalizedReply,
+                userName,
+                path: '/chat',
+                lang: 'hi',
+            });
+            const cleanReply = processed.cleanedText;
             const suggestions = this.generateSuggestions(message);
             let audioBase64;
             if (synthesizeVoice) {
@@ -163,7 +195,7 @@ Rules:
                 model: index_js_1.config.sarvam?.chatModel || 'sarvam-105b-conversations',
                 messages: params.messages,
                 temperature: 0.6,
-                max_tokens: params.maxTokens || 160,
+                max_tokens: params.maxTokens || 320,
                 stream: true,
             }),
             signal: params.abortSignal,
