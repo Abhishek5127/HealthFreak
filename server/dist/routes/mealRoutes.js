@@ -55,15 +55,17 @@ exports.mealRouter.post('/analyze', upload.single('image'), async (req, res) => 
             return;
         }
         const userName = req.body?.userName || 'Alex';
+        const userNote = req.body?.userNote || undefined;
         const healthGoals = req.body?.healthGoals
             ? Array.isArray(req.body.healthGoals)
                 ? req.body.healthGoals
                 : [req.body.healthGoals]
             : ['Weight management', 'Cardiovascular endurance'];
-        console.log(`[Meal API] Starting meal analysis for ${userName} (${imageBuffer.length} bytes)...`);
+        console.log(`[Meal API] Starting meal analysis for ${userName} (${imageBuffer.length} bytes)${userNote ? ` with note: "${userNote}"` : ''}...`);
         const mealResult = await geminiVisionService_js_1.GeminiMealVisionProvider.analyzeMealImage(imageBuffer, mimeType, {
             name: userName,
             healthGoals,
+            userNote,
         });
         // STRICT ZERO-IMAGE RETENTION: Purge ephemeral imageUri / base64
         delete mealResult.imageUri;

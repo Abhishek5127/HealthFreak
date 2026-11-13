@@ -36,6 +36,7 @@ import { CheckInCharacterView } from '../../components/illustrations/CheckInChar
 import { StepCounterCard } from '../activity/components/StepCounterCard';
 import { usePedometer } from '../activity/hooks/usePedometer';
 import { WaterBottleWidget } from './components/WaterBottleWidget';
+import { SleepWidget } from './components/SleepWidget';
 import { WaterTargetModal } from './components/WaterTargetModal';
 import { NutritionDetailModal } from './components/NutritionDetailModal';
 import { AppAvatar } from '../../components/common/AppAvatar';
@@ -59,6 +60,12 @@ export const DashboardScreen: React.FC = () => {
     setCustomWaterTarget,
     resetWaterLogged,
     pedometerState,
+    sleepSession,
+    autoSleepPrompt,
+    startSleep,
+    wakeUp,
+    confirmAutoSleep,
+    dismissAutoSleep,
   } = useApp();
 
   const [showWaterTargetModal, setShowWaterTargetModal] = useState<boolean>(false);
@@ -583,6 +590,17 @@ export const DashboardScreen: React.FC = () => {
         onLogWater={(amount) => logWater(amount)}
         onOpenTargetModal={() => setShowWaterTargetModal(true)}
         onResetWater={resetWaterLogged}
+      />
+
+      {/* 8b. SLEEP TRACKING & RECOVERY WIDGET */}
+      <SleepWidget
+        session={sleepSession}
+        autoPrompt={autoSleepPrompt}
+        onStartSleep={startSleep}
+        onWakeUp={wakeUp}
+        onConfirmAutoSleep={confirmAutoSleep}
+        onDismissAutoSleep={dismissAutoSleep}
+        onNavigateToHistory={() => setActiveTab('progress')}
       />
 
       {/* 8b. DAILY ACTIVITY SUMMARY */}

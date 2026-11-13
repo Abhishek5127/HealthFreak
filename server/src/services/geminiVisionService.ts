@@ -104,7 +104,7 @@ Return STRICT JSON matching this schema:
   public static async analyzeMealImage(
     imageBuffer: Buffer,
     mimeType: string = 'image/jpeg',
-    userContext?: { name: string; healthGoals: string[] }
+    userContext?: { name: string; healthGoals: string[]; userNote?: string }
   ): Promise<MealAnalysisResult> {
     const base64Data = imageBuffer.toString('base64');
 
@@ -119,6 +119,10 @@ Return STRICT JSON matching this schema:
     let lastError: Error | null = null;
 
     const ai = this.getClient();
+
+    const promptText = userContext?.userNote?.trim()
+      ? `${this.SYSTEM_PROMPT}\n\nIMPORTANT USER NOTE / HIDDEN INGREDIENTS: "${userContext.userNote.trim()}". The user noted these ingredients or preparation details (e.g. blended protein powder, peanut butter, oil/ghee, extra items). Include them in the recognized foods list with accurate estimated weights.`
+      : this.SYSTEM_PROMPT;
 
     for (const model of modelsToTry) {
       try {
@@ -136,7 +140,7 @@ Return STRICT JSON matching this schema:
                   },
                 },
                 {
-                  text: this.SYSTEM_PROMPT,
+                  text: promptText,
                 },
               ],
             },

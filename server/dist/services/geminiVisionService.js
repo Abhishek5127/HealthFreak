@@ -102,6 +102,9 @@ Return STRICT JSON matching this schema:
         let rawVisionOutput = null;
         let lastError = null;
         const ai = this.getClient();
+        const promptText = userContext?.userNote?.trim()
+            ? `${this.SYSTEM_PROMPT}\n\nIMPORTANT USER NOTE / HIDDEN INGREDIENTS: "${userContext.userNote.trim()}". The user noted these ingredients or preparation details (e.g. blended protein powder, peanut butter, oil/ghee, extra items). Include them in the recognized foods list with accurate estimated weights.`
+            : this.SYSTEM_PROMPT;
         for (const model of modelsToTry) {
             try {
                 console.log(`[Gemini Vision] Analyzing meal photo with model: ${model}...`);
@@ -118,7 +121,7 @@ Return STRICT JSON matching this schema:
                                     },
                                 },
                                 {
-                                    text: this.SYSTEM_PROMPT,
+                                    text: promptText,
                                 },
                             ],
                         },

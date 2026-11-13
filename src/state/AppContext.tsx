@@ -29,7 +29,7 @@ import { ScheduledAICall, LiveKitTokenData, AICallService } from '../services/ai
 import { NotificationService } from '../services/notificationService';
 import { pedometerService, PedometerState } from '../features/activity/services/pedometerService';
 import { streakService } from '../services/streakService';
-import { sleepService, SleepSession } from '../services/sleepService';
+import { sleepService, SleepSession, SleepHistoryItem, AutoSleepPrompt } from '../services/sleepService';
 import { syncWidgetStateToHomeScreen, getWaterWidgetState } from '../widgets/widgetStorage';
 import { ActivitySyncService } from '../features/activity/services/activitySyncService';
 import { getLocalDateString } from '../features/activity/utils/stepDateUtils';
@@ -187,8 +187,12 @@ interface AppContextType {
 
   // Sleep & Circadian Phase Tracker
   sleepSession: SleepSession;
+  sleepHistory: SleepHistoryItem[];
+  autoSleepPrompt: AutoSleepPrompt | null;
   startSleep: () => Promise<void>;
   wakeUp: () => Promise<void>;
+  confirmAutoSleep: () => Promise<void>;
+  dismissAutoSleep: () => void;
 
   // Insights Weekly Steps
   weeklySteps: number[];
@@ -240,7 +244,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }), [userProfileState, authProfile]);
   const [activities, setActivities] = useState<DailyActivityItem[]>(mockDailyActivities);
   const [pedometerState, setPedometerState] = useState<PedometerState>(() => pedometerService.getState());
-  const [sleepSession, setSleepSession] = useState<SleepSession>(() => sleepService.getState());
+  const [sleepSession, setSleepSession] = useState<SleepSession>(() => sleepService.getSession());
+  const [sleepHistory, setSleepHistory] = useState<SleepHistoryItem[]>(() => sleepService.getHistory());
+  const [autoSleepPrompt, setAutoSleepPrompt] = useState<AutoSleepPrompt | null>(() => sleepService.getAutoSleepPrompt());
   const [weeklySteps, setWeeklySteps] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
   const [metrics, setMetrics] = useState<ProgressMetric[]>(() =>
     computeProgressMetrics(pedometerService.getState().steps, mockDailyActivities)
@@ -912,6 +918,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const confirmAutoSleep = async () => {
+    triggerHaptic('success');
+    const sess = await sleepService.confirmAutoSleep();
+    setSleepSession(sess);
+    setSleepHistory(sleepService.getHistory());
+    setAutoSleepPrompt(null);
+  };
+
+  const dismissAutoSleep = () => {
+    triggerHaptic('selection');
+    sleepService.dismissAutoSleep();
+    setAutoSleepPrompt(null);
+  };
+
   // Scheduled AI Calls Handlers
   const openScheduleCallModal = () => {
     setActiveModalState('schedule_call');
@@ -1014,8 +1034,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 2. Initialize sleep tracker
     sleepService.initialize();
-    const unsubSleep = sleepService.subscribe((sess) => {
-      setSleepSession(sess);
+    const unsubSleep = sleepService.subscribe((sleepState) => {
+      setSleepSession(sleepState.currentSession);
+      setSleepHistory(sleepState.history);
+      setAutoSleepPrompt(sleepState.autoSleepPrompt);
     });
 
     // 3. Initialize pedometer & load weekly steps history
@@ -1101,8 +1123,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetPedometerSteps,
         requestPedometerPermission,
         sleepSession,
+        sleepHistory,
+        autoSleepPrompt,
         startSleep,
         wakeUp,
+        confirmAutoSleep,
+        dismissAutoSleep,
         weeklySteps,
         globalLoading,
         showLoading,
