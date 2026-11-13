@@ -143,11 +143,24 @@ aiCallRouter.post('/token', async (req: Request, res: Response): Promise<void> =
 aiCallRouter.post('/:id/accept', async (req: Request, res: Response): Promise<void> => {
   try {
     const callId = req.params.id;
-    const session = db.getCallSession(callId);
+    let session = db.getCallSession(callId);
 
     if (!session) {
-      res.status(404).json({ error: 'Call session not found' });
-      return;
+      // Auto-create in-app direct call session for immediate connection
+      const userId = (req.body?.userId as string) || (req.query?.userId as string) || 'usr_synthetic_alex';
+      const roomName = `room_${userId}_${Date.now()}`;
+      session = {
+        id: callId,
+        roomName,
+        userId,
+        type: 'in_app',
+        status: 'connected',
+        provider: config.voiceProvider as 'gemini' | 'openai',
+        transcript: [],
+        attemptNumber: 0,
+        summary: 'Direct Coaching Call',
+      };
+      db.createCallSession(session);
     }
 
     AICallScheduler.clearRinging(callId);

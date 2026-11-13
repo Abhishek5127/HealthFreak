@@ -293,7 +293,7 @@ export class AICallService {
     if (!isLocalhostOnNative) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 3500);
+        const timeout = setTimeout(() => controller.abort(), 12000);
         const res = await fetch(`${baseUrl}/api/ai-calls/${callId}/accept`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

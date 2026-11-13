@@ -30,3 +30,4 @@ This directory contains bilingual vocabulary and intent banks shared across Type
 > [!NOTE]
 > **No Medical Claims:**
 > These banks contain solely common nutritional, movement, and wellness vocabulary. No medical claims, diagnoses, or pharmaceutical advice are contained within these files.
+

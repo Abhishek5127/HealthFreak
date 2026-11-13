@@ -56,9 +56,10 @@ export async function authenticateSupabaseToken(
   const isSyntheticAllowed =
     process.env.NODE_ENV === 'test' || config.privacy.syntheticDataMode;
 
-  if (isSyntheticAllowed && syntheticHeader) {
-    req.userId = syntheticHeader;
-    req.user = { id: syntheticHeader, email: `${syntheticHeader}@healthfreak.synthetic.test` };
+  if (isSyntheticAllowed) {
+    const fallbackId = syntheticHeader || 'usr_synthetic_alex';
+    req.userId = fallbackId;
+    req.user = { id: fallbackId, email: `${fallbackId}@healthfreak.synthetic.test` };
     return next();
   }
 

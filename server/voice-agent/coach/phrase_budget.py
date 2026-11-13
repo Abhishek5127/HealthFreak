@@ -104,3 +104,4 @@ class PhraseBudget:
         variety.record_assistant_reply(processed_text)
 
         return processed_text, phrase_stripped, sc
+

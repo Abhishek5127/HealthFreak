@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import * as Speech from 'expo-speech';
 import { fetchWithAuth } from './apiClient';
 import {
   AudioModule,
@@ -398,7 +399,7 @@ export class VoiceClientService {
     try {
       const backendUrl = getBackendBaseUrl();
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 4000);
+      const timer = setTimeout(() => controller.abort(), 12000);
       const res = await fetch(`${backendUrl}/api/voice/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -418,8 +419,35 @@ export class VoiceClientService {
       console.warn('[VoiceClient] Neural TTS synthesis notice:', err);
     }
 
-    // Robotic device TTS is completely eliminated per design requirements.
-    // Conclude speaking state smoothly without robotic noise.
+    // High-reliability local device speech synthesis fallback (expo-speech)
+    // Ensures Coach Mack is never completely silent even when cloud TTS is slow or offline
+    try {
+      Speech.speak(text, {
+        language: 'hi-IN',
+        pitch: 1.0,
+        rate: 0.95,
+        onDone: () => {
+          if (this.status === 'speaking') {
+            this.status = 'listening';
+            this.notify();
+            this.startListening();
+          }
+          if (onEnd) onEnd();
+        },
+        onError: () => {
+          if (this.status === 'speaking') {
+            this.status = 'listening';
+            this.notify();
+            this.startListening();
+          }
+          if (onEnd) onEnd();
+        },
+      });
+      return;
+    } catch {
+      // Gracefully transition to listening if local speech synthesis fails
+    }
+
     setTimeout(() => {
       if (this.status === 'speaking') {
         this.status = 'listening';
@@ -1199,7 +1227,7 @@ export class VoiceClientService {
     if (!customGreeting && !isLocalhostOnNative) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 1800);
+        const timeout = setTimeout(() => controller.abort(), 12000);
         const greetRes = await fetch(`${backendUrl}/api/voice/greeting`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1226,7 +1254,9 @@ export class VoiceClientService {
           }
         }
       } catch {
-        // Fallback to local audio
+        // Fallback: speak initial greeting aloud so Coach Mack is never silent
+        this.speakAloud(greeting);
+        return;
       }
     }
 

@@ -115,3 +115,4 @@ class VarietyController:
         block_text = "\n".join(lines)
         token_estimate = int(len(block_text.split()) * 1.3)
         return block_text, token_estimate
+

@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { fetchWithAuth } from './apiClient';
 import { PROMPT_VERSION } from '../constants/version';
 
@@ -59,6 +60,23 @@ export function getBackendBaseUrl(): string {
     const host = window.location.hostname || 'localhost';
     if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.')) {
       return `http://${host}:3001`;
+    }
+  }
+
+  // In development with Expo (physical phone or emulator connected to Metro), connect to host machine backend
+  if (__DEV__) {
+    const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest2?.extra?.expoClient?.hostUri;
+    if (hostUri) {
+      const devHost = hostUri.split(':')[0];
+      if (devHost && devHost !== 'localhost' && devHost !== '127.0.0.1') {
+        return `http://${devHost}:3001`;
+      }
+    }
+    if (Platform.OS === 'android') {
+      return 'http://10.0.2.2:3001';
+    }
+    if (Platform.OS === 'ios') {
+      return 'http://localhost:3001';
     }
   }
 
