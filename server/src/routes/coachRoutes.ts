@@ -17,6 +17,7 @@ import {
 } from '../coach/postCallExtraction.js';
 import { getSuggestedExercises } from '../coach/exerciseCatalog.js';
 import { PlanGenerationService } from '../plans/planGenerationService.js';
+import { MemoryPurgeService } from '../coach/memory/purgeService.js';
 
 export const coachRouter = Router();
 
@@ -208,6 +209,97 @@ coachRouter.post('/log-workout', async (req: Request, res: Response): Promise<vo
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Failed to log workout' });
+  }
+});
+
+/**
+ * POST /api/coach/resolve-issue
+ * Permanently purges a resolved issue only after explicit user confirmation.
+ */
+coachRouter.post('/resolve-issue', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const coachReq = req as AuthenticatedCoachRequest;
+    const userId = coachReq.coachUserId!;
+    const { issue_id, confirmed_by_user } = req.body;
+
+    if (!issue_id) {
+      res.status(400).json({ success: false, error: 'issue_id is required' });
+      return;
+    }
+
+    if (confirmed_by_user !== true) {
+      res.status(400).json({
+        success: false,
+        error: 'Explicit user confirmation required (confirmed_by_user must be true)',
+      });
+      return;
+    }
+
+    const cleanId = String(issue_id).replace(/^\[id:/i, '').replace(/\]$/, '').trim();
+    const purgeResult = await MemoryPurgeService.purgeResolvedIssue(userId, cleanId);
+
+    res.json({ success: true, purged: purgeResult });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to resolve issue' });
+  }
+});
+
+/**
+ * POST /api/coach/record-issue
+ * Records a new temporary issue after explicit 1-sentence confirmation.
+ */
+coachRouter.post('/record-issue', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const coachReq = req as AuthenticatedCoachRequest;
+    const userId = coachReq.coachUserId!;
+    const { title, category = 'pain', severity = 'mild', confirmed_by_user } = req.body;
+
+    if (!title) {
+      res.status(400).json({ success: false, error: 'title is required' });
+      return;
+    }
+
+    if (confirmed_by_user !== true) {
+      res.status(400).json({
+        success: false,
+        error: 'Explicit user confirmation required (confirmed_by_user must be true)',
+      });
+      return;
+    }
+
+    const pool = SupabaseDb.getPool();
+    if (pool) {
+      // Dedupe against open issues
+      const existing = await pool.query(
+        `SELECT id, mention_count FROM user_issues
+         WHERE user_id = $1 AND title ILIKE $2 AND status IN ('open', 'improving')`,
+        [userId, title]
+      );
+
+      if (existing.rows.length > 0) {
+        await pool.query(
+          `UPDATE user_issues
+           SET mention_count = mention_count + 1, last_mentioned_at = NOW()
+           WHERE id = $1`,
+          [existing.rows[0].id]
+        );
+        res.json({ success: true, action: 'incremented_existing', issueId: existing.rows[0].id });
+        return;
+      }
+
+      const insertRes = await pool.query(
+        `INSERT INTO user_issues (user_id, title, category, severity, status, first_reported_at, last_mentioned_at, mention_count)
+         VALUES ($1, $2, $3, $4, 'open', NOW(), NOW(), 1)
+         RETURNING *;`,
+        [userId, title, category, severity]
+      );
+      res.json({ success: true, action: 'inserted_new', issue: insertRes.rows[0] });
+      return;
+    }
+
+    res.json({ success: true, action: 'mock_saved' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || 'Failed to record issue' });
   }
 });
 

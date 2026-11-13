@@ -42,12 +42,8 @@ class OpenIssue(BaseModel):
     last_mentioned: str = "recently"
     follow_up_question: Optional[str] = None
 
-class ResolvedIssue(BaseModel):
-    title: str
-    resolved_at: str
-
 class LastCall(BaseModel):
-    summary: str
+    topics_covered: List[str] = Field(default_factory=list)
     commitments: List[str] = Field(default_factory=list)
     date: Optional[str] = None
 
@@ -63,7 +59,6 @@ class ContextPack(BaseModel):
     seven_day_summary: Optional[SevenDaySummary] = None
     active_plan: Optional[ActivePlan] = None
     open_issues: List[OpenIssue] = Field(default_factory=list)
-    resolved_recently: List[ResolvedIssue] = Field(default_factory=list)
     last_call: Optional[LastCall] = None
     next_call: Optional[NextCall] = None
 
@@ -122,13 +117,10 @@ class ContextPack(BaseModel):
                     f"({issue.severity or 'mild'}, reported {issue.last_mentioned}){opener}"
                 )
 
-        if self.resolved_recently:
-            lines.append("Resolved recently (do NOT bring up unless the user does; if the same pain returns, ask whether it feels like before):")
-            for idx, issue in enumerate(self.resolved_recently[:3], 1):
-                lines.append(f"{idx}. {issue.title} (Resolved: {issue.resolved_at})")
-
         if self.last_call:
-            lines.append(f"Last Call: {self.last_call.summary}")
+            lines.append("Last Call:")
+            if self.last_call.topics_covered:
+                lines.append(f"- Topics Discussed: {', '.join(self.last_call.topics_covered)}")
             if self.last_call.commitments:
                 lines.append(f"- User Commitments: {'; '.join(self.last_call.commitments)}")
 

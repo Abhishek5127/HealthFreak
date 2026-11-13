@@ -17,7 +17,24 @@ This document provides the exact end-to-end deployment steps, verification check
 
 ---
 
+## 1.1 Strict Deployment Order
+
+Deploy components in the following exact sequence:
+1. **Database Migration 005 (Supabase Postgres)**: Apply `005_call_transcripts_and_extraction.sql` so columns exist before code writes to them.
+2. **Backend Server (Render)**: Deploy `healthfreak-1.onrender.com` on branch `coach-context-v2`. Verify `/health` returns status `ok` and runtime `promptVersion`.
+3. **LiveKit Voice Agent Worker (`server/voice-agent`)**: Deploy and start Python worker. Verify startup log line shows `PROMPT_VERSION` and HMAC credentials.
+4. **Mobile Client (Expo / EAS)**: Run `eas build -p android` (see Native EAS Build notice in Section 5).
+
+---
+
 ## 2. Component A: Supabase Postgres Database
+
+### Current Production Migration Status (Verified via Read-Only Audit)
+- **Migration 001** (`001_health_memory_and_food_diary.sql`): **APPLIED** (tables `meals`, `meal_items`, etc. present).
+- **Migration 002** (`002_daily_activity.sql`): **APPLIED** (table `activity_logs` present).
+- **Migration 003** (`003_google_auth_and_rls.sql`): **APPLIED** (table `profiles`, RLS policies present).
+- **Migration 004** (`004_coach_memory_and_daily_snapshots.sql`): **APPLIED** (table `user_issues`, `daily_health_snapshots` present).
+- **Migration 005** (`005_call_transcripts_and_extraction.sql`): **PENDING** (`transcript` column exists, `summary` and `key_takeaways` missing).
 
 ### Pre-Deployment Checks
 Ensure database connectivity and check if migration `005` has already run:
@@ -148,21 +165,24 @@ systemctl restart healthfreak-voice-agent # or restart container
 
 ## 5. Component D: Expo Mobile App (React Native)
 
-All changes from Stages 1–5 and Part 1 are JavaScript / TypeScript application logic (services, screens, state, styling). **No new native libraries or native configuration changes were added**. Therefore, changes can be shipped instantaneously via EAS Over-The-Air (OTA) updates without waiting for Google Play or App Store review.
+### Native Build Status & EAS Update Compatibility Notice
+> [!IMPORTANT]
+> **OTA Is NOT Enabled in the Native APK**:
+> An audit of `app.json` and `package.json` confirms:
+> 1. `runtimeVersion` is **not configured** in `app.json`.
+> 2. `updates` is **not configured** in `app.json`.
+> 3. `expo-updates` is **not installed** in `package.json`.
+>
+> While no new native permissions or native modules were added since the last build on Nov 11 (`100f93a`), OTA updates cannot be delivered without `expo-updates` embedded in the native binary.
+> **Therefore, an EAS build is required to ship these changes to end users.**
 
-### Option 1: EAS Over-The-Air (OTA) Update (Recommended & Immediate)
+### Build Command (EAS Standalone APK / Bundle)
 ```bash
-# 1. Ensure type-check and lint pass cleanly
+# Verify clean typecheck and lint
 npx tsc --noEmit
 npx expo lint
 
-# 2. Publish update to production channel
-bunx eas-cli update --branch production --message "Deploy Stages 1-5 + Part 1 (Coach Mack personalization & hygiene)"
-```
-
-### Option 2: Full Standalone APK / Bundle Build
-If generating a new native APK or AAB:
-```bash
+# Build standalone Android APK
 bunx eas-cli build --platform android --profile production
 ```
 
@@ -200,3 +220,4 @@ Or publish a quick revert OTA update from the previous known good commit.
 - [ ] Opening mobile app Profile screen displays the derived `PROMPT_VERSION`.
 - [ ] Sending 3 test messages in Coach Mack chat shows varied openers and respects consecutive name gating.
 - [ ] No synthetic `usr_synthetic_alex` data appears in responses for real authenticated users.
+

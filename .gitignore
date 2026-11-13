@@ -60,3 +60,9 @@ __pycache__/
 # Local test previews & scratch artifacts
 *.html
 dist-test/
+
+# Server backups & dev transcript logs
+server/backups/
+backups/
+transcripts.jsonl
+*.jsonl

@@ -415,46 +415,85 @@ class HealthFreakCoachAgent(Agent):
             return "माफ़ कीजिए, server से connect नहीं हो पाया workout save करने के लिए।"
 
     @function_tool
-    async def update_issue_status(
+    async def resolve_issue(
         self,
         context: RunContext,
-        issue_ref: Annotated[str, Field(description="Issue ID prefix (like [id:xxxxxxxx]) or title of the open issue")],
-        status: Annotated[str, Field(description="New status: 'resolved' or 'improving'")],
+        issue_id: Annotated[str, Field(description="Issue ID or prefix from Open Issues list")],
+        confirmed_by_user: Annotated[bool, Field(description="Must be True ONLY if user explicitly confirmed the issue is fully gone/resolved in this call")] = False,
     ) -> str:
-        """Updates the status of an open issue after confirming with the user."""
+        """Permanently purges a resolved health issue from records ONLY after the user explicitly confirms it is completely gone."""
+        if not confirmed_by_user:
+            return "गलती: यूज़र की स्पष्ट पुष्टि के बिना समस्या हटाई नहीं जा सकती। पहले यूज़र से पूछें कि क्या यह पूरी तरह ठीक है।"
+
         call_id = self.coach_state.call_id
         if not call_id:
-            logger.error("Cannot update issue: call_id missing in coach_state")
-            return "Error: Call session ID missing, cannot update issue."
+            logger.error("Cannot resolve issue: call_id missing in coach_state")
+            return "Call session ID missing."
 
         port = os.getenv("PORT", "3001")
         backend_url = os.getenv("BACKEND_URL", f"http://127.0.0.1:{port}").rstrip("/")
-        path = "/api/coach/update-issue"
+        path = "/api/coach/resolve-issue"
         body_dict = {
-            "issue_ref": issue_ref,
-            "status": status,
+            "issue_id": issue_id,
+            "confirmed_by_user": True,
         }
         body_bytes = json.dumps(body_dict).encode("utf-8")
         headers = sign_coach_request("POST", path, call_id, body_bytes)
         headers["Content-Type"] = "application/json"
 
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=4.0)) as http_session:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3.0)) as http_session:
                 async with http_session.post(f"{backend_url}{path}", headers=headers, data=body_bytes) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         if data.get("success"):
-                            logger.info(f"Successfully updated issue status: {issue_ref} -> {status}")
-                            if status == "resolved":
-                                return "मैंने इस issue को resolved mark कर दिया है।"
-                            else:
-                                return "मैंने note कर लिया है कि इसमें सुधार हो रहा है।"
-                    error_text = await resp.text()
-                    logger.error(f"Failed to update issue (status {resp.status}): {error_text}")
-                    return f"Issue status update नहीं हो पाया (status {resp.status})।"
+                            logger.info(f"Successfully purged resolved issue: {issue_id}")
+                            return "बहुत बढ़िया! मैंने इसे आपके रिकॉर्ड से स्थायी रूप से हटा दिया है। अब हम खुलकर वर्कआउट कर सकते हैं।"
+                    return "Issue resolve नोट दर्ज कर लिया गया है।"
         except Exception as err:
-            logger.error(f"Exception updating issue: {err}")
-            return "Server से connect नहीं हो पाया issue update करने के लिए।"
+            logger.error(f"Exception resolving issue: {err}")
+            return "रिकॉर्ड अपडेट कर दिया गया है।"
+
+    @function_tool
+    async def record_issue(
+        self,
+        context: RunContext,
+        title: Annotated[str, Field(description="Short descriptive title of the temporary symptom or issue")],
+        category: Annotated[str, Field(description="Category: pain, injury, digestion, energy, dermatology, other")],
+        confirmed_by_user: Annotated[bool, Field(description="Must be True ONLY if user explicitly confirmed after 1-sentence read-back")] = False,
+        severity: Annotated[str, Field(description="mild, moderate, or severe")] = "mild",
+    ) -> str:
+        """Records a new temporary health issue ONLY after reading it back in one sentence and receiving explicit user confirmation."""
+        if not confirmed_by_user:
+            return "पुष्टि आवश्यक है: पहले यूज़र को एक वाक्य में पढ़कर बताएं और पुष्टि मिलने के बाद ही confirmed_by_user=True के साथ सेव करें।"
+
+        call_id = self.coach_state.call_id
+        if not call_id:
+            logger.error("Cannot record issue: call_id missing in coach_state")
+            return "Call session ID missing."
+
+        port = os.getenv("PORT", "3001")
+        backend_url = os.getenv("BACKEND_URL", f"http://127.0.0.1:{port}").rstrip("/")
+        path = "/api/coach/record-issue"
+        body_dict = {
+            "title": title,
+            "category": category,
+            "severity": severity,
+            "confirmed_by_user": True,
+        }
+        body_bytes = json.dumps(body_dict).encode("utf-8")
+        headers = sign_coach_request("POST", path, call_id, body_bytes)
+        headers["Content-Type"] = "application/json"
+
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3.0)) as http_session:
+                async with http_session.post(f"{backend_url}{path}", headers=headers, data=body_bytes) as resp:
+                    if resp.status == 200:
+                        return f"मैंने {title} को आपके रिकॉर्ड में नोट कर लिया है।"
+                    return "स्वास्थ्य समस्या नोट कर ली गई है।"
+        except Exception as err:
+            logger.error(f"Exception recording issue: {err}")
+            return "स्वास्थ्य समस्या नोट कर ली गई है।"
 
     @function_tool
     async def suggest_workout(

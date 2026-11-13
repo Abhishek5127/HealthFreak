@@ -251,6 +251,11 @@ export class OpenerBudget {
     this.sessions.delete(sessionId);
   }
 
+  public static canUseOpener(sessionId: string): boolean {
+    const state = this.getState(sessionId);
+    return state.turnIndex === 0 || state.sentencesSinceLastOpener >= this.getMinGap();
+  }
+
   /**
    * Sanitizes conversation history turns so the model does not learn and repeat
    * leading openers from earlier turns.
@@ -287,26 +292,82 @@ export interface StreamingFilterOptions {
 
 export class StreamingOpenerFilter {
   private buffer = '';
+  private fullText = '';
   private prefixDecided = false;
+  private skipFiltering = false;
+  private turnProcessed = false;
   private options: StreamingFilterOptions;
-  private delimiterRegex = /[,!?:।\n]/;
+  private candidatePatterns: string[] = [];
 
   constructor(options: StreamingFilterOptions) {
     this.options = options;
+    if (OpenerBudget.canUseOpener(options.sessionId)) {
+      // Budget allows opener: skip filtering entirely
+      this.prefixDecided = true;
+      this.skipFiltering = true;
+    } else {
+      const pats = loadPatterns();
+      const allInterjections = [
+        ...pats.interjections_devanagari,
+        ...pats.interjections_roman,
+      ];
+      const name = (options.userName || '').trim().toLowerCase();
+      const list: string[] = [];
+      for (const p of allInterjections) {
+        list.push(p.toLowerCase());
+        if (name && name !== 'friend') {
+          list.push(`${p.toLowerCase()} ${name}`);
+        }
+      }
+      if (name && name !== 'friend') {
+        list.push(name);
+      }
+      this.candidatePatterns = list;
+    }
   }
 
   public async push(token: string): Promise<void> {
+    this.fullText += token;
     if (this.prefixDecided) {
       await this.options.onToken(token);
       return;
     }
 
     this.buffer += token;
-    const hasDelimiter = this.delimiterRegex.test(this.buffer);
-    const words = this.buffer.trim().split(/\s+/);
+    const trimmed = this.buffer.trimStart().toLowerCase();
+    if (trimmed.length === 0) {
+      return;
+    }
 
-    if (hasDelimiter || words.length >= 4 || this.buffer.length >= 35) {
-      this.prefixDecided = true;
+    // Buffer is a prefix of at least one candidate pattern
+    const isPrefix = this.candidatePatterns.some((p) => p.startsWith(trimmed));
+
+    if (isPrefix) {
+      // Check if it already matches a complete opener followed by delimiter or boundary
+      const det = detectLeadingOpener(this.buffer, this.options.userName);
+      if (det.hasOpener) {
+        this.prefixDecided = true;
+        this.turnProcessed = true;
+        const res = OpenerBudget.processReply({
+          sessionId: this.options.sessionId,
+          text: this.buffer,
+          userName: this.options.userName,
+          path: this.options.path,
+          lang: this.options.lang,
+        });
+        if (res.cleanedText) {
+          await this.options.onToken(res.cleanedText);
+        }
+        this.buffer = '';
+      }
+      return;
+    }
+
+    // NOT a prefix of any opener pattern: flush immediately!
+    this.prefixDecided = true;
+    this.turnProcessed = true;
+    const det = detectLeadingOpener(this.buffer, this.options.userName);
+    if (det.hasOpener) {
       const res = OpenerBudget.processReply({
         sessionId: this.options.sessionId,
         text: this.buffer,
@@ -317,24 +378,43 @@ export class StreamingOpenerFilter {
       if (res.cleanedText) {
         await this.options.onToken(res.cleanedText);
       }
-      this.buffer = '';
+    } else {
+      OpenerBudget.processReply({
+        sessionId: this.options.sessionId,
+        text: this.buffer,
+        userName: this.options.userName,
+        path: this.options.path,
+        lang: this.options.lang,
+      });
+      await this.options.onToken(this.buffer);
     }
+    this.buffer = '';
   }
 
   public async flush(): Promise<void> {
-    if (!this.prefixDecided && this.buffer) {
-      this.prefixDecided = true;
-      const res = OpenerBudget.processReply({
-        sessionId: this.options.sessionId,
-        text: this.buffer,
-        userName: this.options.userName,
-        path: this.options.path,
-        lang: this.options.lang,
-      });
-      if (res.cleanedText) {
-        await this.options.onToken(res.cleanedText);
+    if (!this.turnProcessed) {
+      this.turnProcessed = true;
+      if (this.skipFiltering) {
+        OpenerBudget.processReply({
+          sessionId: this.options.sessionId,
+          text: this.fullText,
+          userName: this.options.userName,
+          path: this.options.path,
+          lang: this.options.lang,
+        });
+      } else if (this.buffer) {
+        const res = OpenerBudget.processReply({
+          sessionId: this.options.sessionId,
+          text: this.buffer,
+          userName: this.options.userName,
+          path: this.options.path,
+          lang: this.options.lang,
+        });
+        if (res.cleanedText) {
+          await this.options.onToken(res.cleanedText);
+        }
+        this.buffer = '';
       }
-      this.buffer = '';
     }
   }
 }

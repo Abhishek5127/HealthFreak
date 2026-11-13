@@ -1,4 +1,5 @@
 import { SupabaseDb } from '../db/supabaseClient.js';
+import { FollowUpGenerator } from '../coach/memory/followupGenerator.js';
 import { HealthSnapshotService, DailySnapshotRecord } from './healthSnapshotService.js';
 import { config } from '../config/index.js';
 
@@ -46,12 +47,8 @@ export interface CoachContextPack {
     last_mentioned: string;
     follow_up_question?: string;
   }>;
-  resolved_recently?: Array<{
-    title: string;
-    resolved_at: string;
-  }>;
   last_call: {
-    summary: string;
+    topics_covered: string[];
     commitments: string[];
     date?: string;
   } | null;
@@ -220,22 +217,25 @@ export class CoachContextService {
     } else if (pool) {
       try {
         const issuesRes = await pool.query(
-          `SELECT i.id, i.title, i.category, i.severity, i.last_mentioned_at, f.question
+          `SELECT i.id, i.title, i.category, i.severity, i.last_mentioned_at
            FROM user_issues i
-           LEFT JOIN follow_ups f ON f.issue_id = i.id AND f.status = 'pending'
            WHERE i.user_id = $1 AND i.status IN ('open', 'improving')
            ORDER BY i.follow_up_due_at ASC NULLS LAST, i.last_mentioned_at DESC
            LIMIT 3;`,
           [userId]
         );
         if (issuesRes.rows.length > 0) {
-          openIssues = issuesRes.rows.map((r) => ({
+          openIssues = issuesRes.rows.map((r, idx) => ({
             id: r.id,
             title: r.title,
             category: r.category,
             severity: r.severity,
             last_mentioned: r.last_mentioned_at ? new Date(r.last_mentioned_at).toLocaleDateString() : 'recently',
-            follow_up_question: r.question || undefined,
+            follow_up_question: FollowUpGenerator.generateQuestion(
+              r,
+              profileData.language || 'hinglish',
+              idx
+            ),
           }));
         }
       } catch (err: any) {
@@ -243,61 +243,54 @@ export class CoachContextService {
       }
     }
 
-    // 4b. Resolved Recently (last 14 days)
-    let resolvedRecently: CoachContextPack['resolved_recently'] = [];
-    if (pool && !isSyntheticAlex) {
-      try {
-        const resolvedRes = await pool.query(
-          `SELECT title, resolved_at FROM user_issues
-           WHERE user_id = $1 AND status = 'resolved' AND resolved_at >= NOW() - INTERVAL '14 days'
-           ORDER BY resolved_at DESC LIMIT 3;`,
-          [userId]
-        );
-        if (resolvedRes.rows.length > 0) {
-          resolvedRecently = resolvedRes.rows.map((r) => ({
-            title: r.title,
-            resolved_at: r.resolved_at ? new Date(r.resolved_at).toLocaleDateString() : 'recently',
-          }));
-        }
-      } catch (err: any) {
-        console.warn('[CoachContextService] Resolved issues query warning:', err.message);
-      }
-    }
-
-    // 5. Last Call Summary & Commitments (Must come from extraction; otherwise null)
+    // 5. Last Call Structured Data (Topics covered & commitments filtered against live open issues)
     let lastCall: CoachContextPack['last_call'] = null;
 
     if (isSyntheticAlex) {
       lastCall = {
-        summary: 'Discussed mild knee tenderness during jumps and meal hydration.',
-        commitments: ['Swapped plyometrics for flat walking', 'Drink minimum 2.5L water daily'],
+        topics_covered: ['hydration', 'daily_movement'],
+        commitments: ['Drink minimum 2.5L water daily'],
         date: '2 days ago',
       };
     } else if (pool) {
       try {
         const callRes = await pool.query(
-          `SELECT id, ended_at, transcript FROM calls
+          `SELECT id, ended_at FROM calls
            WHERE user_id = $1 AND status IN ('completed', 'ended')
            ORDER BY started_at DESC LIMIT 1;`,
           [userId]
         );
         if (callRes.rows[0]) {
           const notesRes = await pool.query(
-            `SELECT note, checkpoint_type FROM call_notes
+            `SELECT note, checkpoint_type, data FROM call_notes
              WHERE call_id = $1 ORDER BY created_at ASC;`,
             [callRes.rows[0].id]
           );
-          const extractionNote = notesRes.rows.find(
-            (n) => n.checkpoint_type === 'extraction' || n.checkpoint_type === 'summary'
-          );
-          const commitments = notesRes.rows
-            .filter((n) => n.checkpoint_type === 'commitment_made')
-            .map((n) => n.note);
 
-          if (extractionNote && extractionNote.note) {
+          // Extract structured topics only, never free text
+          const topics = new Set<string>();
+          const liveIssueTitles = openIssues.map((i) => i.title.toLowerCase());
+          const validCommitments: string[] = [];
+
+          for (const row of notesRes.rows) {
+            if (row.checkpoint_type === 'topic_discussed' && row.data?.topic) {
+              topics.add(String(row.data.topic));
+            }
+            if (row.checkpoint_type === 'commitment_made' && row.note) {
+              // Ensure commitment does not reference a purged issue
+              const noteLower = row.note.toLowerCase();
+              const mentionsPurged = !liveIssueTitles.some((t) => noteLower.includes(t)) &&
+                (noteLower.includes('pain') || noteLower.includes('knee') || noteLower.includes('dard') || noteLower.includes('shoulder'));
+              if (!mentionsPurged) {
+                validCommitments.push(row.note);
+              }
+            }
+          }
+
+          if (topics.size > 0 || validCommitments.length > 0) {
             lastCall = {
-              summary: extractionNote.note,
-              commitments,
+              topics_covered: Array.from(topics),
+              commitments: validCommitments.slice(0, 2),
               date: callRes.rows[0].ended_at ? new Date(callRes.rows[0].ended_at).toLocaleDateString() : undefined,
             };
           }
@@ -345,7 +338,6 @@ export class CoachContextService {
       metrics,
       active_plan: activePlan,
       open_issues: openIssues,
-      resolved_recently: resolvedRecently,
       last_call: lastCall,
       next_call: nextCall,
     };
@@ -393,17 +385,12 @@ export class CoachContextService {
       });
     }
 
-    if (pack.resolved_recently && pack.resolved_recently.length > 0) {
-      lines.push('Resolved recently (do NOT bring up unless the user does; if the same pain returns, ask whether it feels like before):');
-      pack.resolved_recently.forEach((issue, idx) => {
-        lines.push(`${idx + 1}. ${issue.title} (Resolved: ${issue.resolved_at})`);
-      });
-    }
-
     if (pack.last_call) {
       lines.push('Last Call:');
-      lines.push(`- Summary: ${pack.last_call.summary}`);
-      if (pack.last_call.commitments.length > 0) {
+      if (pack.last_call.topics_covered && pack.last_call.topics_covered.length > 0) {
+        lines.push(`- Topics Discussed: ${pack.last_call.topics_covered.join(', ')}`);
+      }
+      if (pack.last_call.commitments && pack.last_call.commitments.length > 0) {
         lines.push(`- User Commitments: ${pack.last_call.commitments.join('; ')}`);
       }
     }

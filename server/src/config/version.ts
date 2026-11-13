@@ -14,7 +14,7 @@ function getGitCommitSha(): string {
     const sha = execSync('git rev-parse --short HEAD', { encoding: 'utf-8', timeout: 1500 }).trim();
     if (sha) return sha;
   } catch {}
-  return 'f4f6b3c';
+  return 'unknown';
 }
 
 function getFormattedDate(): string {

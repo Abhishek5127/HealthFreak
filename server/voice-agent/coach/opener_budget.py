@@ -19,7 +19,7 @@ def _get_git_commit_sha() -> str:
             return sha
     except Exception:
         pass
-    return "f4f6b3c"
+    return "unknown"
 
 def _get_prompt_version() -> str:
     date_str = datetime.utcnow().strftime("%Y-%m-%d")
@@ -238,6 +238,11 @@ class OpenerBudget:
         cls._sessions.pop(session_id, None)
 
     @classmethod
+    def can_use_opener(cls, session_id: str) -> bool:
+        state = cls.get_state(session_id)
+        return state.turn_index == 0 or state.sentences_since_last_opener >= cls.get_min_gap()
+
+    @classmethod
     def sanitize_history(cls, messages: list[dict], user_name: Optional[str] = None) -> list[dict]:
         """Strips leading opener clauses from earlier assistant turns."""
         sanitized = []
@@ -263,12 +268,28 @@ async def filter_streaming_opener(
     path: str = "voice_agent",
     lang: str = "hi"
 ) -> AsyncGenerator[str, None]:
-    """Buffers initial tokens to detect leading opener and enforce OpenerBudget,
-    yielding remaining text with minimal (~50-100ms) latency.
+    """Buffers initial tokens only while the text so far is a prefix of a detection pattern.
+    If budget allows an opener, skips filtering entirely and yields immediately.
     """
+    if OpenerBudget.can_use_opener(session_id):
+        # Skip filtering entirely
+        async for chunk in text_stream:
+            yield chunk
+        return
+
+    patterns_data = _load_patterns()
+    all_patterns = patterns_data.get("interjections_devanagari", []) + patterns_data.get("interjections_roman", [])
+    name = (user_name or "").strip().lower()
+    candidate_patterns = []
+    for p in all_patterns:
+        candidate_patterns.append(p.lower())
+        if name and name != "friend":
+            candidate_patterns.append(f"{p.lower()} {name}")
+    if name and name != "friend":
+        candidate_patterns.append(name)
+
     buffer = ""
     prefix_decided = False
-    delimiter_re = re.compile(r'[,!?:।\n]')
 
     async for chunk in text_stream:
         if prefix_decided:
@@ -276,26 +297,43 @@ async def filter_streaming_opener(
             continue
 
         buffer += chunk
+        trimmed = buffer.lstrip().lower()
+        if not trimmed:
+            continue
 
-        # Wait until we see a punctuation delimiter or at least 4 words / 35 characters
-        has_delimiter = bool(delimiter_re.search(buffer))
-        word_count = len(buffer.split())
-
-        if has_delimiter or word_count >= 4 or len(buffer) >= 35:
-            # Evaluate leading opener
+        is_prefix = any(p.startswith(trimmed) for p in candidate_patterns)
+        if is_prefix:
             det = detect_leading_opener(buffer, user_name)
             if det.has_opener:
-                cleaned, action, _ = OpenerBudget.process_reply(
+                cleaned, _, _ = OpenerBudget.process_reply(
                     session_id=session_id,
                     text=buffer,
                     user_name=user_name,
                     path=path,
                     lang=lang,
                 )
+                if cleaned:
+                    yield cleaned
+                buffer = ""
+                prefix_decided = True
+            continue
+
+        # Not a prefix of any pattern: flush immediately
+        prefix_decided = True
+        det = detect_leading_opener(buffer, user_name)
+        if det.has_opener:
+            cleaned, _, _ = OpenerBudget.process_reply(
+                session_id=session_id,
+                text=buffer,
+                user_name=user_name,
+                path=path,
+                lang=lang,
+            )
+            if cleaned:
                 yield cleaned
-            else:
-                yield buffer
-            prefix_decided = True
+        else:
+            yield buffer
+        buffer = ""
 
     if not prefix_decided and buffer:
         cleaned, _, _ = OpenerBudget.process_reply(
@@ -305,4 +343,5 @@ async def filter_streaming_opener(
             path=path,
             lang=lang,
         )
-        yield cleaned
+        if cleaned:
+            yield cleaned

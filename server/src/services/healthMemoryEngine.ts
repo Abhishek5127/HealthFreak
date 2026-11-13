@@ -1,6 +1,7 @@
 import { SupabaseDb } from '../db/supabaseClient.js';
 import { db } from '../db/index.js';
 import { healthMemoryStore } from '../db/healthMemoryStore.js';
+import { MemoryPurgeService } from '../coach/memory/purgeService.js';
 
 export interface RetrievedHealthContext {
   activeIssues: Array<{
@@ -150,13 +151,6 @@ export class HealthMemoryEngine {
         promptLines.push(
           `- [${issue.category.toUpperCase()}] ${issue.title} (Severity: ${issue.severity || 'mild'}, first reported ${issue.firstReported}, mentioned ${issue.mentionCount} times). Notes: ${issue.notes?.join('; ') || 'None'}.`
         );
-      });
-    }
-
-    if (historicalIssues.length > 0 && isWorkoutOrMovement) {
-      promptLines.push('HISTORICAL RESOLVED ISSUES (Check if recurring):');
-      historicalIssues.forEach((issue) => {
-        promptLines.push(`- Previous ${issue.title} (Resolved on ${issue.resolvedAt}). If user reports pain here again, ask if it feels like the earlier issue.`);
       });
     }
 
@@ -368,12 +362,15 @@ export class HealthMemoryEngine {
       });
     }
 
-    const resolvedClause = status === 'resolved' ? 'resolved_at = NOW(),' : 'resolved_at = NULL,';
+    if (status === 'resolved') {
+      const purgeRes = await MemoryPurgeService.purgeResolvedIssue(userId, issue.id);
+      return { id: issue.id, status: 'resolved', purged: true, details: purgeRes };
+    }
 
     const updateRes = await pool.query(
       `UPDATE user_issues
        SET status = $1,
-           ${resolvedClause}
+           resolved_at = NULL,
            notes = $2::jsonb,
            updated_at = NOW()
        WHERE id = $3 AND user_id = $4

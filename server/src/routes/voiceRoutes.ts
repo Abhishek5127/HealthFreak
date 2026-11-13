@@ -14,6 +14,7 @@ import { buildCoachSystemPrompt } from '../agent/coachPrompt.js';
 import { VoiceAgentProcess } from '../services/voiceAgentProcess.js';
 import { SarvamService, SentenceTTSBuffer, stripFormulaicOpener } from '../services/sarvamService.js';
 import { HealthMemoryEngine } from '../services/healthMemoryEngine.js';
+import { PendingOpsManager } from '../coach/memory/pendingOpsManager.js';
 import { authenticateSupabaseToken, AuthenticatedRequest } from '../middleware/authMiddleware.js';
 import { SupabaseDb } from '../db/supabaseClient.js';
 
@@ -728,12 +729,40 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
       return;
     }
 
-    // Context retrieval and background ingestion
+    // Context retrieval and confirmation-gated memory operations (Part 3)
     const healthContext = await HealthMemoryEngine.getRelevantContext(userId, message, activityContext);
-    HealthMemoryEngine.scheduleSymptomIngestion(userId, message);
+
+    const activeUserId = (req as any).userId || userId || sessionId || 'default';
+    PendingOpsManager.incrementTurn(activeUserId);
+    const existingOp = PendingOpsManager.getPendingOp(activeUserId);
+    let memoryDirective = '';
+
+    if (existingOp) {
+      const conf = PendingOpsManager.classifyConfirmation(message);
+      if (conf === 'yes') {
+        await PendingOpsManager.applyOp(existingOp);
+        PendingOpsManager.discardPendingOp(activeUserId);
+        if (existingOp.type === 'resolve_issue') {
+          memoryDirective = `\n[ACTION COMPLETED]: User confirmed ${existingOp.payload.title} is completely resolved. It has been permanently purged from records. Celebrate recovery warmly in 1 short sentence, and DO NOT mention this pain or issue ever again.`;
+        } else if (existingOp.type === 'add_issue') {
+          memoryDirective = `\n[ACTION COMPLETED]: User confirmed tracking for ${existingOp.payload.title}. It has been saved. Acknowledge supportively.`;
+        }
+      } else if (conf === 'no') {
+        PendingOpsManager.discardPendingOp(activeUserId);
+        memoryDirective = `\n[ACTION CANCELLED]: User stated the issue is not yet resolved. Continue caring for it gently without purging.`;
+      }
+    } else {
+      const openIssuesList = healthContext.activeIssues.map((i) => ({ id: i.id, title: i.title, category: i.category }));
+      const turnNum = PendingOpsManager.getTurn(activeUserId);
+      const candidateOp = PendingOpsManager.detectCandidate(message, openIssuesList, turnNum, activeUserId);
+      if (candidateOp) {
+        PendingOpsManager.setPendingOp(candidateOp);
+        memoryDirective = `\n[CONFIRMATION REQUIRED]: ${candidateOp.confirmationQuestion} Ask this exact confirmation in your reply in 1 short sentence before modifying any records.`;
+      }
+    }
 
     const activeFacts = user ? healthMemoryStore.getActiveProfileFacts(user.id) : [];
-    const memorySnippet = healthContext.promptSnippet || activeFacts.map((f) => `${f.key}: ${f.value}`).join('; ');
+    const memorySnippet = (healthContext.promptSnippet || activeFacts.map((f) => `${f.key}: ${f.value}`).join('; ')) + memoryDirective;
 
     const activitySnippet = activityContext
       ? `Today steps: ${activityContext.todaySteps || 0} / ${activityContext.stepGoal || 10000}, active calories: ${activityContext.caloriesBurned || 0} kcal`

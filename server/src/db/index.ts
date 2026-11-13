@@ -318,6 +318,18 @@ class InMemoryDatabase {
     return updated;
   }
 
+  public deleteCallSession(id: string): boolean {
+    return this.callSessions.delete(id);
+  }
+
+  public deleteUserCallSessions(userId: string): void {
+    for (const [id, s] of this.callSessions.entries()) {
+      if (s.userId === userId) {
+        this.callSessions.delete(id);
+      }
+    }
+  }
+
   public appendTranscript(id: string, speaker: 'coach' | 'user', text: string): void {
     const s = this.callSessions.get(id);
     if (!s) return;
