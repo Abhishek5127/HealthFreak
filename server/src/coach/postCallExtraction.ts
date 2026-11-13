@@ -3,6 +3,7 @@ import { db } from '../db/index.js';
 import { healthMemoryStore } from '../db/healthMemoryStore.js';
 import { HealthMemoryEngine } from '../services/healthMemoryEngine.js';
 import { ProfileFactEntity } from '../types/healthMemory.js';
+import { TranscriptRetentionJob } from './memory/retentionJob.js';
 
 export interface TranscriptTurn {
   callId: string;
@@ -416,6 +417,15 @@ export async function processCallExtraction(
       }
     } catch (err: any) {
       console.warn(`[postCallExtraction] Postgres job complete warning:`, err?.message || err);
+    }
+
+    // R6 Trigger: event-driven retention check right after extraction completes
+    if (TranscriptRetentionJob.isEnabled()) {
+      try {
+        await TranscriptRetentionJob.pruneUserCalls(userId, false);
+      } catch (retErr: any) {
+        console.warn(`[postCallExtraction] Event-driven retention notice:`, retErr?.message || retErr);
+      }
     }
 
     return { job, result };

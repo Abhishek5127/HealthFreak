@@ -33,5 +33,5 @@ ALTER TABLE issue_history ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS user_isolation_issue_history ON issue_history;
 CREATE POLICY user_isolation_issue_history ON issue_history
   FOR ALL
-  USING (auth.uid()::text = user_id OR user_id = 'usr_synthetic_alex');
+  USING (auth.uid()::text = user_id);
 

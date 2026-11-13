@@ -275,7 +275,7 @@ async function runTests() {
 
   const planAfterA = await pgA.query(`SELECT is_stale, safety_notes FROM exercise_plans WHERE user_id = $1`, [testUserId]);
   assert((planAfterA.rows[0] as any).is_stale === true, 'Exercise plan marked is_stale = true');
-  assert((planAfterA.rows[0] as any).safety_notes === null, 'Exercise plan safety notes cleaned');
+  assert((planAfterA.rows[0] as any).safety_notes !== null, 'Exercise plan safety notes preserved intact per F1');
 
   // Test 4B: Schema WITHOUT Migration 006 (006 Not Applied)
   console.log('\n  Scenario B: Disposable Postgres WITHOUT Migration 006 (Legacy Schema):');
@@ -336,12 +336,12 @@ async function runTests() {
   // --------------------------------------------------------------------------
   console.log('\n--- TEST 5: E5 - Transcript Retention Job ---');
   delete process.env.TRANSCRIPT_RETENTION_ENABLED;
-  const retDisabled = await TranscriptRetentionJob.runCleanup();
+  const retDisabled = await TranscriptRetentionJob.runDailySweep(true);
   assert(retDisabled.enabled === false, 'Retention job disabled by default when env flag is unset');
-  assert(retDisabled.prunedCount === 0, '0 records pruned when disabled');
+  assert(retDisabled.totalTurnsPruned === 0, '0 records pruned when disabled');
 
   process.env.TRANSCRIPT_RETENTION_ENABLED = '1';
-  const retDryRun = await TranscriptRetentionJob.runCleanup(true);
+  const retDryRun = await TranscriptRetentionJob.runDailySweep(true);
   assert(retDryRun.enabled === true, 'Retention job active when TRANSCRIPT_RETENTION_ENABLED=1');
   assert(retDryRun.dryRun === true, 'Retention job runs in dry-run mode by default');
 
@@ -379,6 +379,7 @@ async function runTests() {
   console.log('\n================================================================');
   if (failedTests === 0) {
     console.log(' ALL PART 3 EDIT TESTS PASSED! (0 failures)');
+    process.exit(0);
   } else {
     console.error(` ${failedTests} TEST(S) FAILED.`);
     process.exit(1);

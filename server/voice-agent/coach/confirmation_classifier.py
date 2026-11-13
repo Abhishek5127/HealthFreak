@@ -125,3 +125,4 @@ def verify_voice_confirmation(
             return False, "Preceding coach turn did not ask for confirmation or read back."
 
     return True, ""
+

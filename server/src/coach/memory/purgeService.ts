@@ -84,12 +84,16 @@ export class MemoryPurgeService {
         }
 
         // 3. Delete from follow_ups table
+        // F2: match by issue_id first; text match only for rows with no issue_id, and exact normalized equality, not ILIKE
         try {
           await client.query('SAVEPOINT sp_followups');
           const followUpsRes = await client.query(
             `DELETE FROM follow_ups
-             WHERE user_id = $1 AND (issue_id::text = $2 OR issue_title ILIKE $3)`,
-            [userId, issueId, searchPattern]
+             WHERE user_id = $1 AND (
+               (issue_id::text = $2) OR
+               (issue_id IS NULL AND LOWER(TRIM(issue_title)) = $3)
+             )`,
+            [userId, issueId, normalizedTitle]
           );
           result.recordsDeleted.follow_ups = followUpsRes.rowCount || 0;
           await client.query('RELEASE SAVEPOINT sp_followups');
@@ -162,12 +166,12 @@ export class MemoryPurgeService {
         }
 
         // 7. Exercise plans: mark plans stale if they constrained on this issue, exclude notes from future prompts
+        // F1: Do NOT set safety_notes to NULL. Leave safety_notes intact so unrelated constraints (doctor limits, allergies, pregnancy) survive!
         try {
           await client.query('SAVEPOINT sp_plans');
           const planRes = await client.query(
             `UPDATE exercise_plans
-             SET is_stale = true,
-                 safety_notes = NULL
+             SET is_stale = true
              WHERE user_id = $1 AND (
                safety_notes ILIKE $2 OR
                constraint_issue_ids::text ILIKE $3
@@ -182,7 +186,7 @@ export class MemoryPurgeService {
             await client.query('SAVEPOINT sp_plans_fb');
             const planFallback = await client.query(
               `UPDATE exercise_plans
-               SET safety_notes = NULL
+               SET is_stale = true
                WHERE user_id = $1 AND safety_notes ILIKE $2`,
               [userId, searchPattern]
             );

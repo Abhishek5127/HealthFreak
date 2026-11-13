@@ -200,6 +200,9 @@ export const ProfileScreen: React.FC = () => {
         <Text style={styles.privacyText}>
           Your health assessments and biomarker records are strictly confidential and encrypted under HealthFreak clinical guidelines.
         </Text>
+        <Text style={[styles.privacyText, { marginTop: 6, color: '#A3B899' }]}>
+          We keep your last 3 call transcripts so Coach Mack can follow up. Older ones are deleted; only your health notes and plans remain.
+        </Text>
       </View>
 
       {/* App & Prompt Version Footer */}
