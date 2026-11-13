@@ -29,6 +29,7 @@ import { CARTOON_AVATARS } from '../../constants/avatars';
 import { AppAvatar } from '../../components/common/AppAvatar';
 import { CartoonAvatarView } from '../../components/illustrations/CartoonAvatar';
 import { GlassButton } from '../../components/common/GlassButton';
+import { PROMPT_VERSION } from '../../constants/version';
 
 export const ProfileScreen: React.FC = () => {
   const {
@@ -200,6 +201,11 @@ export const ProfileScreen: React.FC = () => {
           Your health assessments and biomarker records are strictly confidential and encrypted under HealthFreak clinical guidelines.
         </Text>
       </View>
+
+      {/* App & Prompt Version Footer */}
+      <Text style={styles.versionFooter}>
+        HealthFreak v1.0.0 • Prompt: {PROMPT_VERSION}
+      </Text>
 
       {/* Bottom Sheet Modal: 15 Fictional Cartoon Mascots */}
       <Modal
@@ -480,6 +486,14 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSizes.xs - 1,
     fontFamily: Typography.fontFamilies.sansRegular,
     lineHeight: 16,
+  },
+  versionFooter: {
+    color: '#68806F',
+    fontSize: 11,
+    fontFamily: Typography.fontFamilies.sansRegular,
+    textAlign: 'center',
+    marginTop: 18,
+    marginBottom: 40,
   },
 
   // Modal / Bottom Sheet Styles

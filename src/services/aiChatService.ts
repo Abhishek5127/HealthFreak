@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { fetchWithAuth } from './apiClient';
+import { PROMPT_VERSION } from '../constants/version';
 
 export interface AudioChunkPayload {
   sequence: number;
@@ -105,6 +106,10 @@ Rules:
           }).filter((h) => h.parts[0].text.length > 0)
         : [];
 
+      if (__DEV__) {
+        console.log('[aiChatService] Direct Gemini turn - Multi-turn count:', cleanHistory.length + 1, 'Version:', PROMPT_VERSION);
+      }
+
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 6000);
 
@@ -115,6 +120,7 @@ Rules:
           contents: [
             ...cleanHistory,
             {
+              role: 'user',
               parts: [{ text: `${systemPrompt}\n\nUser says: ${message}` }],
             },
           ],
@@ -172,6 +178,10 @@ export async function askHealthCoachAI(
 ): Promise<{ text: string; suggestions: string[]; audioBase64?: string; audioMime?: string; audioUrl?: string }> {
   const backendUrl = getBackendBaseUrl();
 
+  if (__DEV__) {
+    console.log('[aiChatService] Hitting backend /api/voice/chat at:', backendUrl, 'Version:', PROMPT_VERSION);
+  }
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -209,6 +219,9 @@ export async function askHealthCoachAI(
     }
   } catch {
     // Backend unreachable from current network — proceed to direct client fallback
+    if (__DEV__) {
+      console.log('[aiChatService] Backend unreachable, falling back to direct client Gemini. Version:', PROMPT_VERSION);
+    }
   }
 
   // Dynamic direct fallback

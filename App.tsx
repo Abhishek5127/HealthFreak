@@ -32,6 +32,7 @@ import { Colors } from './src/theme/colors';
 import { BottomTabBar } from './src/components/navigation/BottomTabBar';
 
 import { SplashScreen } from './src/features/splash/SplashScreen';
+import { PROMPT_VERSION } from './src/constants/version';
 import { LoginScreen } from './src/features/auth/LoginScreen';
 import { DashboardScreen } from './src/features/dashboard/DashboardScreen';
 import { PlanScreen } from './src/features/plan/PlanScreen';
@@ -268,6 +269,12 @@ const NavigationRoot: React.FC = () => {
 };
 
 export default function App() {
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('[HealthFreak App] Startup - PROMPT_VERSION:', PROMPT_VERSION);
+    }
+  }, []);
+
   const [fontsLoaded] = useFonts({
     DMSerifDisplay_400Regular,
     DMSerifDisplay_400Regular_Italic,

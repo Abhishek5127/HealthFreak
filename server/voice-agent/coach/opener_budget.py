@@ -4,7 +4,28 @@ import json
 from pathlib import Path
 from typing import Optional, NamedTuple, AsyncIterable, AsyncGenerator
 
-PROMPT_VERSION = "2026-11-13.coach-context-v2.5c286b5"
+import subprocess
+from datetime import datetime
+
+def _get_git_commit_sha() -> str:
+    for env_var in ("RENDER_GIT_COMMIT", "EAS_BUILD_GIT_COMMIT_HASH", "GIT_COMMIT"):
+        val = os.getenv(env_var)
+        if val:
+            return val[:7]
+    try:
+        out = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL, timeout=2)
+        sha = out.decode("utf-8").strip()
+        if sha:
+            return sha
+    except Exception:
+        pass
+    return "f4f6b3c"
+
+def _get_prompt_version() -> str:
+    date_str = datetime.utcnow().strftime("%Y-%m-%d")
+    return f"{date_str}.coach-context-v2.{_get_git_commit_sha()}"
+
+PROMPT_VERSION = _get_prompt_version()
 
 class OpenerMatchResult(NamedTuple):
     has_opener: bool
