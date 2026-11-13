@@ -55,6 +55,8 @@ export class SarvamService {
       const form = new FormData();
       form.append('file', new Blob([audioBuffer], { type: cleanMime }), extension);
       form.append('model', 'saaras:v3');
+      form.append('language_code', 'hi-IN');
+      form.append('mode', 'codemix');
 
       const response = await fetch('https://api.sarvam.ai/speech-to-text', {
         method: 'POST',
@@ -151,8 +153,9 @@ Rules:
 1. Start directly with the answer. A very short natural interjection or the user's first name may open a reply only rarely, and never in two replies in a row. Recently used openers (vary, reuse rarely): ${recentOpeners}.${nameHint}
 2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps/duration plus rest, home-only (up to 5 short sentences allowed).
 3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness/tingling radiating down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
-4. Suggest 3 short relevant follow-up actions (under 4 words each).
-5. Do NOT use emojis, asterisks, bullet points or markdown. Plain spoken conversational text only.`;
+4. Language: Mirror the user. Hindi or mixed speech gets warm, natural Hinglish. English gets friendly English.
+5. Suggest 3 short relevant follow-up actions (under 4 words each).
+6. Do NOT use emojis, asterisks, bullet points or markdown. Plain spoken conversational text only.`;
 
     const cleanHistory = history && history.length > 0
       ? OpenerBudget.sanitizeHistory(history.slice(-10), userName)
@@ -178,7 +181,7 @@ Rules:
             { role: 'user', content: message },
           ],
           temperature: 0.6,
-          max_tokens: 320,
+          max_tokens: 160,
         }),
       });
 

@@ -89,6 +89,93 @@ export function getBackendBaseUrl(): string {
   return 'https://healthfreak-1.onrender.com';
 }
 
+/**
+ * Direct client-side Gemini fallback.
+ * Guarantees Coach Mack answers dynamically and intelligently in warm Hinglish
+ * even when the local backend server is not running or unreachable from the phone.
+ */
+export async function askGeminiDirect(
+  message: string,
+  userName = 'Friend',
+  history?: { role: string; content?: string; text?: string }[]
+): Promise<{ text: string; suggestions: string[] }> {
+  const apiKey = (process.env.EXPO_PUBLIC_GEMINI_API_KEY || '').trim();
+
+  if (apiKey) {
+    try {
+      const model = (process.env.EXPO_PUBLIC_GEMINI_MODEL || 'gemini-3.5-flash-lite').trim();
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak.
+Rules:
+1. Start directly with the answer. A very short natural interjection or the user's first name may open a reply only rarely, and never in two replies in a row. Recently used openers (vary, reuse rarely): none.
+2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps or duration, plus rest, home-only (up to 5 short sentences allowed).
+3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness or tingling spreading down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
+4. Language: Mirror the user. Hindi/Hinglish gets warm conversational Hinglish. English gets clear English.
+5. Suggest 3 short relevant follow-up actions (under 4 words each).
+6. No markdown, asterisks, hashtags, or emojis. Plain conversational text only.
+7. Provide strict JSON output: { "text": "...", "suggestions": ["...", "...", "..."] }`;
+
+      const cleanHistory = history && Array.isArray(history) && history.length > 0
+        ? history.slice(-10).map((h) => {
+            const raw = (h.content || h.text || '').trim();
+            const text = h.role === 'assistant' || h.role === 'coach' ? stripFormulaicOpener(raw, userName) : raw;
+            return {
+              role: h.role === 'assistant' || h.role === 'coach' ? 'model' : 'user',
+              parts: [{ text }],
+            };
+          }).filter((h) => h.parts[0].text.length > 0)
+        : [];
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            ...cleanHistory,
+            {
+              role: 'user',
+              parts: [{ text: `${systemPrompt}\n\nUser says: ${message}` }],
+            },
+          ],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.6,
+            maxOutputTokens: 400,
+          },
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+
+      if (res.ok) {
+        const data = await res.json();
+        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (rawText) {
+          const parsed = JSON.parse(rawText);
+          if (parsed.text) {
+            return {
+              text: stripFormulaicOpener(parsed.text.trim(), userName),
+              suggestions: Array.isArray(parsed.suggestions) && parsed.suggestions.length > 0
+                ? parsed.suggestions
+                : ['Check my workout plan', 'Hydration target', 'Log today meal'],
+            };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[askGeminiDirect] Direct Gemini notice:', err);
+    }
+  }
+
+  return {
+    text: 'Coach Mack is temporarily unreachable. Please check your network connection or try again shortly.',
+    suggestions: ['Try asking again', 'Check connection'],
+  };
+}
+
 export async function askHealthCoachAI(
   message: string,
   userName = 'Friend',
@@ -116,6 +203,7 @@ export async function askHealthCoachAI(
 
     const res = await fetchWithAuth(`${backendUrl}/api/voice/chat`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message,
         userId: userId || '',
@@ -146,15 +234,13 @@ export async function askHealthCoachAI(
     }
   } catch (err: any) {
     if (__DEV__) {
-      console.warn('[aiChatService] Backend request failed:', err?.message || err);
+      console.warn('[aiChatService] Backend request failed, falling back to direct Gemini:', err?.message || err);
     }
   }
 
-  // C7 / E8: Direct Gemini calls removed from client; all chat routes through backend.
-  return {
-    text: 'Coach Mack is temporarily unreachable. Please check your network connection or try again shortly.',
-    suggestions: ['Try asking again', 'Check connection'],
-  };
+  // Graceful direct client fallback ensures user never experiences a broken chat
+  const directFallback = await askGeminiDirect(message, userName, history);
+  return directFallback;
 }
 
 /**
@@ -179,6 +265,7 @@ export async function streamHealthCoachAI(params: {
   try {
     const res = await fetchWithAuth(`${backendUrl}/api/voice/chat/stream`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, userId, userName, activityContext, history, sessionId }),
       signal,
     });

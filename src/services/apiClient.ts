@@ -42,6 +42,9 @@ export async function fetchWithAuth(url: string, init: RequestInit = {}): Promis
 
   const applyHeaders = (authToken: string | null): Headers => {
     const headers = new Headers(init.headers || {});
+    if (!headers.has('Content-Type') && init.body && typeof init.body === 'string') {
+      headers.set('Content-Type', 'application/json');
+    }
     if (authToken) {
       headers.set('Authorization', `Bearer ${authToken}`);
     }

@@ -511,7 +511,8 @@ Core Coaching Instructions:
 2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, a routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps or duration, plus rest, home-only (up to 5 short sentences allowed).
 3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness or tingling spreading down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
 4. Show continuity naturally: If user mentions pain, reference their earlier reports without reciting bullet lists.
-5. Do NOT use emojis, asterisks, hashtags, or markdown. Output plain spoken conversational text only.`;
+5. Language: Mirror the user. Hindi or mixed speech gets warm, natural Hinglish. English gets friendly English.
+6. Do NOT use emojis, asterisks, hashtags, or markdown. Output plain spoken conversational text only.`;
     const cleanHistory = history && Array.isArray(history) && history.length > 0
         ? openerBudget_js_1.OpenerBudget.sanitizeHistory(history.slice(-10), userName)
             .map((h) => ({
@@ -892,16 +893,8 @@ function isSelfEcho(userText, coachText) {
             return true;
         }
     }
-    if (cleanUser.length >= 10 && cleanCoach.includes(cleanUser)) {
+    if (cleanUser.length >= 12 && cleanCoach.includes(cleanUser)) {
         return true;
-    }
-    const userWords = cleanUser.split(' ').filter((w) => w.length > 2);
-    if (userWords.length >= 3) {
-        const matchingWords = userWords.filter((w) => cleanCoach.includes(w));
-        const ratio = matchingWords.length / userWords.length;
-        if (ratio >= 0.65) {
-            return true;
-        }
     }
     return false;
 }
