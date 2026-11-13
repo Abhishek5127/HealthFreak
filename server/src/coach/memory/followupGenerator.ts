@@ -85,3 +85,4 @@ export class FollowUpGenerator {
     return template.replace(/\{title\}/g, issue.title);
   }
 }
+

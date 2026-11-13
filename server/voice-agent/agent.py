@@ -41,6 +41,7 @@ except ImportError:
 
 import aiohttp
 from coach.opener_budget import PROMPT_VERSION, OpenerBudget, filter_streaming_opener
+from coach.confirmation_classifier import verify_voice_confirmation, classify_confirmation
 from context_pack import (
     CoachState,
     ContextPack,
@@ -422,8 +423,17 @@ class HealthFreakCoachAgent(Agent):
         confirmed_by_user: Annotated[bool, Field(description="Must be True ONLY if user explicitly confirmed the issue is fully gone/resolved in this call")] = False,
     ) -> str:
         """Permanently purges a resolved health issue from records ONLY after the user explicitly confirms it is completely gone."""
-        if not confirmed_by_user:
-            return "गलती: यूज़र की स्पष्ट पुष्टि के बिना समस्या हटाई नहीं जा सकती। पहले यूज़र से पूछें कि क्या यह पूरी तरह ठीक है।"
+        # Verification in code (Rule E2): Check actual last user turn from session history
+        history = []
+        if hasattr(self, "session") and hasattr(self.session, "history"):
+            history = list(self.session.history)
+        elif hasattr(context, "session") and hasattr(context.session, "history"):
+            history = list(context.session.history)
+
+        verified, reason = verify_voice_confirmation(history, op_type="resolve_issue")
+        if not verified or not confirmed_by_user:
+            logger.warning(f"resolve_issue rejected by code verification: {reason}")
+            return f"पुष्टि आवश्यक है: {reason}"
 
         call_id = self.coach_state.call_id
         if not call_id:
@@ -448,6 +458,22 @@ class HealthFreakCoachAgent(Agent):
                         data = await resp.json()
                         if data.get("success"):
                             logger.info(f"Successfully purged resolved issue: {issue_id}")
+
+                            # Same-call staleness mitigation (Rule E3): Re-fetch context pack & update agent instructions
+                            try:
+                                fresh_pack = await _fetch_context_pack(call_id, self.coach_state.user_id)
+                                self.coach_state.context_pack = fresh_pack
+                            except Exception:
+                                if self.coach_state.context_pack and self.coach_state.context_pack.open_issues:
+                                    self.coach_state.context_pack.open_issues = [
+                                        iss for iss in self.coach_state.context_pack.open_issues
+                                        if not (iss.id == issue_id or iss.id.startswith(issue_id) or issue_id.lower() in iss.title.lower())
+                                    ]
+
+                            if self.coach_state.context_pack:
+                                new_instructions = self.coach_state.context_pack.render_prompt_text()
+                                self.update_instructions(new_instructions)
+
                             return "बहुत बढ़िया! मैंने इसे आपके रिकॉर्ड से स्थायी रूप से हटा दिया है। अब हम खुलकर वर्कआउट कर सकते हैं।"
                     return "Issue resolve नोट दर्ज कर लिया गया है।"
         except Exception as err:
@@ -464,8 +490,17 @@ class HealthFreakCoachAgent(Agent):
         severity: Annotated[str, Field(description="mild, moderate, or severe")] = "mild",
     ) -> str:
         """Records a new temporary health issue ONLY after reading it back in one sentence and receiving explicit user confirmation."""
-        if not confirmed_by_user:
-            return "पुष्टि आवश्यक है: पहले यूज़र को एक वाक्य में पढ़कर बताएं और पुष्टि मिलने के बाद ही confirmed_by_user=True के साथ सेव करें।"
+        # Verification in code (Rule E2): Check actual last user turn from session history
+        history = []
+        if hasattr(self, "session") and hasattr(self.session, "history"):
+            history = list(self.session.history)
+        elif hasattr(context, "session") and hasattr(context.session, "history"):
+            history = list(context.session.history)
+
+        verified, reason = verify_voice_confirmation(history, op_type="add_issue")
+        if not verified or not confirmed_by_user:
+            logger.warning(f"record_issue rejected by code verification: {reason}")
+            return f"पुष्टि आवश्यक है: {reason}"
 
         call_id = self.coach_state.call_id
         if not call_id:

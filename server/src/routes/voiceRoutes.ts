@@ -730,33 +730,57 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
     }
 
     // Context retrieval and confirmation-gated memory operations (Part 3)
-    const healthContext = await HealthMemoryEngine.getRelevantContext(userId, message, activityContext);
+    let activeUserId = (req as any).userId || userId || sessionId || 'default';
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      if (SupabaseDb.isConfigured()) {
+        try {
+          const { data } = await SupabaseDb.getClient().auth.getUser(token);
+          if (data?.user?.id) {
+            activeUserId = data.user.id;
+          }
+        } catch {}
+      }
+    }
 
-    const activeUserId = (req as any).userId || userId || sessionId || 'default';
-    PendingOpsManager.incrementTurn(activeUserId);
-    const existingOp = PendingOpsManager.getPendingOp(activeUserId);
+    const sessionKey = sessionId || activeUserId || 'default';
+    const healthContext = await HealthMemoryEngine.getRelevantContext(activeUserId, message, activityContext);
+
+    await PendingOpsManager.incrementTurn(activeUserId, sessionKey);
+    const existingOp = await PendingOpsManager.getPendingOp(activeUserId, sessionKey);
     let memoryDirective = '';
 
     if (existingOp) {
-      const conf = PendingOpsManager.classifyConfirmation(message);
+      const conf = PendingOpsManager.classifyConfirmation(message, existingOp.type);
       if (conf === 'yes') {
         await PendingOpsManager.applyOp(existingOp);
-        PendingOpsManager.discardPendingOp(activeUserId);
+        await PendingOpsManager.discardPendingOp(activeUserId, sessionKey);
         if (existingOp.type === 'resolve_issue') {
           memoryDirective = `\n[ACTION COMPLETED]: User confirmed ${existingOp.payload.title} is completely resolved. It has been permanently purged from records. Celebrate recovery warmly in 1 short sentence, and DO NOT mention this pain or issue ever again.`;
         } else if (existingOp.type === 'add_issue') {
           memoryDirective = `\n[ACTION COMPLETED]: User confirmed tracking for ${existingOp.payload.title}. It has been saved. Acknowledge supportively.`;
         }
+      } else if (conf === 'ambiguous') {
+        const attempts = (existingOp.ambiguousAttempts || 0) + 1;
+        if (attempts <= 1) {
+          existingOp.ambiguousAttempts = attempts;
+          await PendingOpsManager.setPendingOp(existingOp, sessionKey);
+          memoryDirective = `\n[AMBIGUOUS CONFIRMATION]: User answer was ambiguous. Re-ask ONCE in plain words: "हटा दूँ? हाँ या ना" (or "Should I remove it? Yes or No"). Do not modify records yet.`;
+        } else {
+          await PendingOpsManager.discardPendingOp(activeUserId, sessionKey);
+          memoryDirective = `\n[CONFIRMATION EXPIRED]: Ambiguous limit reached. Do not modify records.`;
+        }
       } else if (conf === 'no') {
-        PendingOpsManager.discardPendingOp(activeUserId);
+        await PendingOpsManager.discardPendingOp(activeUserId, sessionKey);
         memoryDirective = `\n[ACTION CANCELLED]: User stated the issue is not yet resolved. Continue caring for it gently without purging.`;
       }
     } else {
       const openIssuesList = healthContext.activeIssues.map((i) => ({ id: i.id, title: i.title, category: i.category }));
       const turnNum = PendingOpsManager.getTurn(activeUserId);
-      const candidateOp = PendingOpsManager.detectCandidate(message, openIssuesList, turnNum, activeUserId);
+      const candidateOp = PendingOpsManager.detectCandidate(message, openIssuesList, turnNum, activeUserId, sessionKey);
       if (candidateOp) {
-        PendingOpsManager.setPendingOp(candidateOp);
+        await PendingOpsManager.setPendingOp(candidateOp, sessionKey);
         memoryDirective = `\n[CONFIRMATION REQUIRED]: ${candidateOp.confirmationQuestion} Ask this exact confirmation in your reply in 1 short sentence before modifying any records.`;
       }
     }
@@ -768,7 +792,6 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
       ? `Today steps: ${activityContext.todaySteps || 0} / ${activityContext.stepGoal || 10000}, active calories: ${activityContext.caloriesBurned || 0} kcal`
       : '';
 
-    const sessionKey = sessionId || userId || 'default';
     const state = OpenerBudget.getState(sessionKey);
     const openerAllowed = OpenerBudget.isOpenerAllowed(sessionKey);
     const recentOpeners = state.lastOpenerUsed ? `"${state.lastOpenerUsed}"` : 'none';

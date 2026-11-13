@@ -18,6 +18,7 @@ import {
 import { getSuggestedExercises } from '../coach/exerciseCatalog.js';
 import { PlanGenerationService } from '../plans/planGenerationService.js';
 import { MemoryPurgeService } from '../coach/memory/purgeService.js';
+import { PendingOpsManager } from '../coach/memory/pendingOpsManager.js';
 
 export const coachRouter = Router();
 
@@ -220,7 +221,7 @@ coachRouter.post('/resolve-issue', async (req: Request, res: Response): Promise<
   try {
     const coachReq = req as AuthenticatedCoachRequest;
     const userId = coachReq.coachUserId!;
-    const { issue_id, confirmed_by_user } = req.body;
+    const { issue_id, confirmed_by_user, user_response } = req.body;
 
     if (!issue_id) {
       res.status(400).json({ success: false, error: 'issue_id is required' });
@@ -233,6 +234,39 @@ coachRouter.post('/resolve-issue', async (req: Request, res: Response): Promise<
         error: 'Explicit user confirmation required (confirmed_by_user must be true)',
       });
       return;
+    }
+
+    // Code verification (Rule E2): Check actual user response
+    if (user_response) {
+      const classification = PendingOpsManager.classifyConfirmation(String(user_response), 'resolve_issue');
+      if (classification !== 'yes') {
+        res.status(400).json({
+          success: false,
+          error: `User confirmation verification failed: supplied user response classified as '${classification}'`,
+        });
+        return;
+      }
+    } else if (coachReq.coachCallId) {
+      const pool = SupabaseDb.getPool();
+      if (pool) {
+        try {
+          const turnsRes = await pool.query(
+            `SELECT role, text FROM call_transcript_turns WHERE call_id = $1 ORDER BY turn_index DESC LIMIT 5`,
+            [coachReq.coachCallId]
+          );
+          const userTurn = turnsRes.rows.find((r) => r.role === 'user');
+          if (userTurn) {
+            const classification = PendingOpsManager.classifyConfirmation(userTurn.text, 'resolve_issue');
+            if (classification !== 'yes') {
+              res.status(400).json({
+                success: false,
+                error: `User confirmation verification failed: session history user turn classified as '${classification}'`,
+              });
+              return;
+            }
+          }
+        } catch {}
+      }
     }
 
     const cleanId = String(issue_id).replace(/^\[id:/i, '').replace(/\]$/, '').trim();
@@ -252,7 +286,7 @@ coachRouter.post('/record-issue', async (req: Request, res: Response): Promise<v
   try {
     const coachReq = req as AuthenticatedCoachRequest;
     const userId = coachReq.coachUserId!;
-    const { title, category = 'pain', severity = 'mild', confirmed_by_user } = req.body;
+    const { title, category = 'pain', severity = 'mild', confirmed_by_user, user_response } = req.body;
 
     if (!title) {
       res.status(400).json({ success: false, error: 'title is required' });
@@ -265,6 +299,39 @@ coachRouter.post('/record-issue', async (req: Request, res: Response): Promise<v
         error: 'Explicit user confirmation required (confirmed_by_user must be true)',
       });
       return;
+    }
+
+    // Code verification (Rule E2): Check actual user response
+    if (user_response) {
+      const classification = PendingOpsManager.classifyConfirmation(String(user_response), 'add_issue');
+      if (classification !== 'yes') {
+        res.status(400).json({
+          success: false,
+          error: `User confirmation verification failed: supplied user response classified as '${classification}'`,
+        });
+        return;
+      }
+    } else if (coachReq.coachCallId) {
+      const pool = SupabaseDb.getPool();
+      if (pool) {
+        try {
+          const turnsRes = await pool.query(
+            `SELECT role, text FROM call_transcript_turns WHERE call_id = $1 ORDER BY turn_index DESC LIMIT 5`,
+            [coachReq.coachCallId]
+          );
+          const userTurn = turnsRes.rows.find((r) => r.role === 'user');
+          if (userTurn) {
+            const classification = PendingOpsManager.classifyConfirmation(userTurn.text, 'add_issue');
+            if (classification !== 'yes') {
+              res.status(400).json({
+                success: false,
+                error: `User confirmation verification failed: session history user turn classified as '${classification}'`,
+              });
+              return;
+            }
+          }
+        } catch {}
+      }
     }
 
     const pool = SupabaseDb.getPool();

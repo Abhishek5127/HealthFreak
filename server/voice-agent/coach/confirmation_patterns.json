@@ -1,0 +1,32 @@
+{
+  "add_op": {
+    "yes": [
+      "theek hai", "ok", "okay", "haan", "yes", "ji", "chalega", "kar do",
+      "sure", "yep", "yup", "sahi", "sahi hai", "bilkul", "theek",
+      "theek h", "kardo", "ha", "haanji", "hanji", "zaroor",
+      "ठीक है", "हाँ", "जी", "कर दो", "चलेगा", "सही", "बिल्कुल", "हांजी", "हाँजी", "ज़रूर"
+    ],
+    "no": [
+      "nahi", "na", "mat", "ruko", "rehne do", "no", "nope", "nah",
+      "mat karo", "not now", "rehne dijiye",
+      "रहने दो", "नहीं", "ना", "मत", "रुको", "रहने दीजिए", "अभी नहीं"
+    ]
+  },
+  "resolve_op": {
+    "yes": [
+      "haan", "yes", "bilkul", "hata do", "delete", "hata dijiye",
+      "purged", "sahi hai hata do", "haan hata do", "haanji", "hanji",
+      "definitely", "completely gone", "ab theek hai", "theek ho gaya",
+      "हाँ", "हटा दो", "हटा दीजिए", "बिल्कुल", "डिलीट", "हाँजी", "पूरी तरह ठीक है"
+    ],
+    "ambiguous": [
+      "theek hai", "ok", "okay", "theek", "sure", "chalega", "acha",
+      "achha", "fine", "alright", "ठीक है", "चलेगा", "अच्छा"
+    ],
+    "no": [
+      "nahi", "na", "mat", "rehne do", "abhi hai", "still hurts", "not yet",
+      "no", "nah", "nope", "mat hatao", "mat delete karo", "abhi dard hai",
+      "रहने दो", "नहीं", "ना", "मत हटाओ", "अभी भी है", "अभी दर्द है"
+    ]
+  }
+}

@@ -73,9 +73,9 @@ async function runTests() {
   assert(PendingOpsManager.classifyConfirmation('sahi hai, hata do') === 'yes', 'Classifies "sahi hai, hata do" as yes');
   assert(PendingOpsManager.classifyConfirmation('हाँजी, बिल्कुल हटा दो') === 'yes', 'Classifies Devanagari "हाँजी, बिल्कुल हटा दो" as yes');
 
-  // Hard requirement: "theek hai" alone DOES NOT delete
-  assert(PendingOpsManager.classifyConfirmation('theek hai') === 'unrelated', '"theek hai" alone DOES NOT classify as yes (returns unrelated)');
-  assert(PendingOpsManager.classifyConfirmation('ok theek hai') === 'unrelated', '"ok theek hai" alone does not confirm');
+  // Hard requirement: "theek hai" alone DOES NOT delete (ambiguous per E1)
+  assert(PendingOpsManager.classifyConfirmation('theek hai', 'resolve_issue') === 'ambiguous', '"theek hai" alone classifies as ambiguous (does not delete)');
+  assert(PendingOpsManager.classifyConfirmation('ok theek hai', 'resolve_issue') === 'ambiguous', '"ok theek hai" alone classifies as ambiguous');
 
   // Negatives
   assert(PendingOpsManager.classifyConfirmation('no, still hurts') === 'no', 'Classifies "no, still hurts" as no');
@@ -85,7 +85,7 @@ async function runTests() {
   // --- SUITE 3: PENDING OP EXPIRY (3 TURNS) ---
   console.log('\n--- TEST SUITE 3: PENDING OP LIFECYCLE & EXPIRY ---');
   const expUser = 'user_test_exp';
-  PendingOpsManager.setPendingOp({
+  await PendingOpsManager.setPendingOp({
     id: 'op_exp_1',
     userId: expUser,
     type: 'add_issue',
@@ -95,13 +95,13 @@ async function runTests() {
     confirmationQuestion: 'Confirm back pain?',
   });
 
-  assert(PendingOpsManager.getPendingOp(expUser) !== null, 'Pending op is active at turn 1');
-  PendingOpsManager.incrementTurn(expUser); // 2
-  PendingOpsManager.incrementTurn(expUser); // 3
-  PendingOpsManager.incrementTurn(expUser); // 4
-  assert(PendingOpsManager.getPendingOp(expUser) !== null, 'Pending op is still active at turn 4');
-  PendingOpsManager.incrementTurn(expUser); // 5 (turn > 4)
-  assert(PendingOpsManager.getPendingOp(expUser) === null, 'Pending op expired after 3 turns');
+  assert((await PendingOpsManager.getPendingOp(expUser)) !== null, 'Pending op is active at turn 1');
+  await PendingOpsManager.incrementTurn(expUser); // 2
+  await PendingOpsManager.incrementTurn(expUser); // 3
+  await PendingOpsManager.incrementTurn(expUser); // 4
+  assert((await PendingOpsManager.getPendingOp(expUser)) !== null, 'Pending op is still active at turn 4');
+  await PendingOpsManager.incrementTurn(expUser); // 5 (turn > 4)
+  assert((await PendingOpsManager.getPendingOp(expUser)) === null, 'Pending op expired after 3 turns');
 
   // --- SUITE 4: IN-MEMORY PURGE & CLEANUP ---
   console.log('\n--- TEST SUITE 4: IN-MEMORY PURGE & CLEANUP ---');

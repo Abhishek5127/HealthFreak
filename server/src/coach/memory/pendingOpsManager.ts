@@ -1,9 +1,13 @@
+import fs from 'fs';
+import path from 'path';
 import { SupabaseDb } from '../../db/supabaseClient.js';
 import { MemoryPurgeService } from './purgeService.js';
+import { PendingOpStore } from './pendingOpStore.js';
 
 export interface PendingMemoryOp {
   id: string;
   userId: string;
+  sessionId?: string;
   type: 'add_issue' | 'resolve_issue' | 'add_fact' | 'remove_fact';
   payload: {
     issueId?: string;
@@ -17,109 +21,151 @@ export interface PendingMemoryOp {
   createdTurn: number;
   expiresAfterTurn: number;
   confirmationQuestion: string;
+  ambiguousAttempts?: number;
 }
 
-const AFFIRMATIVE_RESPONSES = new Set([
-  'yes', 'yeah', 'yep', 'yup', 'ha', 'haan', 'haanji', 'sahi', 'sahi hai', 'bilkul', 'hata do', 'hata dijiye',
-  'correct', 'sure', 'right', 'ha hata do', 'haan hata do', 'yes please', 'theek hai hata do', 'bilkul theek hai hata do',
-  'हां', 'हाँ', 'हाँजी', 'सही', 'बिल्कुल', 'हटा दो', 'हटा दीजिए', 'हाँ हटा दो'
-]);
+export type ConfirmationClassification = 'yes' | 'no' | 'ambiguous' | 'unrelated';
 
-const NEGATIVE_RESPONSES = new Set([
-  'no', 'nah', 'nahi', 'na', 'mat hatao', 'rehne do', 'not yet', 'nope', 'still hurts', 'abhi hai',
-  'abhi bhi dard hai', 'nahi abhi theek nahi', 'thoda dard hai', 'नहीं', 'ना', 'मत हटाओ', 'रहने दो', 'अभी भी दर्द है'
-]);
+interface ConfirmationPatternsSchema {
+  add_op: { yes: string[]; no: string[]; ambiguous?: string[] };
+  resolve_op: { yes: string[]; ambiguous: string[]; no: string[] };
+}
+
+let patternsCache: ConfirmationPatternsSchema | null = null;
+
+function loadPatterns(): ConfirmationPatternsSchema {
+  if (patternsCache) return patternsCache;
+
+  const candidates = [
+    typeof __dirname !== 'undefined' ? path.resolve(__dirname, 'confirmation_patterns.json') : '',
+    path.resolve(process.cwd(), 'src/coach/memory/confirmation_patterns.json'),
+    path.resolve(process.cwd(), 'server/src/coach/memory/confirmation_patterns.json'),
+  ].filter(Boolean);
+
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        patternsCache = JSON.parse(fs.readFileSync(p, 'utf-8'));
+        return patternsCache!;
+      }
+    } catch {}
+  }
+
+  // Fallback defaults
+  patternsCache = {
+    add_op: {
+      yes: ['theek hai', 'ok', 'okay', 'haan', 'yes', 'ji', 'chalega', 'kar do', 'ठीक है', 'हाँ', 'जी'],
+      no: ['nahi', 'na', 'mat', 'ruko', 'रहने दो', 'नहीं', 'ना', 'मत', 'रुको'],
+    },
+    resolve_op: {
+      yes: ['haan', 'yes', 'bilkul', 'hata do', 'delete', 'हाँ', 'हटा दो'],
+      ambiguous: ['theek hai', 'ok', 'okay', 'theek', 'ठीक है'],
+      no: ['nahi', 'na', 'mat', 'रहने दो', 'नहीं', 'ना', 'मत हटाओ'],
+    },
+  };
+  return patternsCache!;
+}
 
 export class PendingOpsManager {
-  private static ops = new Map<string, PendingMemoryOp>();
   private static userTurnCounters = new Map<string, number>();
 
   public static getTurn(userId: string): number {
     return this.userTurnCounters.get(userId) || 0;
   }
 
-  public static incrementTurn(userId: string): number {
+  public static async incrementTurn(userId: string, sessionId = 'default'): Promise<number> {
     const next = (this.userTurnCounters.get(userId) || 0) + 1;
     this.userTurnCounters.set(userId, next);
 
-    // Expire pending ops older than 3 turns
-    const op = this.ops.get(userId);
+    const op = await PendingOpStore.get(userId, sessionId);
     if (op && next > op.expiresAfterTurn) {
-      this.ops.delete(userId);
+      await PendingOpStore.delete(userId, sessionId);
     }
     return next;
   }
 
-  public static getPendingOp(userId: string): PendingMemoryOp | null {
-    const op = this.ops.get(userId);
+  public static async getPendingOp(userId: string, sessionId = 'default'): Promise<PendingMemoryOp | null> {
+    const op = await PendingOpStore.get(userId, sessionId);
     if (!op) return null;
     const currentTurn = this.getTurn(userId);
     if (currentTurn > op.expiresAfterTurn) {
-      this.ops.delete(userId);
+      await PendingOpStore.delete(userId, sessionId);
       return null;
     }
     return op;
   }
 
-  public static setPendingOp(op: PendingMemoryOp): void {
+  public static async setPendingOp(op: PendingMemoryOp, sessionId = 'default'): Promise<void> {
     if (!this.userTurnCounters.has(op.userId)) {
       this.userTurnCounters.set(op.userId, op.createdTurn);
     }
-    this.ops.set(op.userId, op);
+    op.sessionId = sessionId;
+    await PendingOpStore.save(op, sessionId, 600); // 10 minutes TTL
   }
 
-  public static discardPendingOp(userId: string): void {
-    this.ops.delete(userId);
+  public static async discardPendingOp(userId: string, sessionId = 'default'): Promise<void> {
+    await PendingOpStore.delete(userId, sessionId);
   }
 
   /**
-   * Strict classification of confirmation response.
-   * "theek hai" alone DOES NOT delete or confirm anything.
+   * Context-Aware Confirmation Classifier (Rule E1).
+   * Shared parity with Python confirmation_classifier.py via confirmation_patterns.json.
    */
-  public static classifyConfirmation(message: string): 'yes' | 'no' | 'unrelated' {
-    const trimmed = message.trim().toLowerCase().replace(/[.,!?:।]/g, '');
+  public static classifyConfirmation(
+    message: string,
+    opType: 'add_issue' | 'add_fact' | 'resolve_issue' | 'remove_fact' = 'resolve_issue'
+  ): ConfirmationClassification {
+    if (!message || !message.trim()) return 'unrelated';
 
-    // Check strict affirmative
-    if (AFFIRMATIVE_RESPONSES.has(trimmed)) {
-      return 'yes';
-    }
+    const patterns = loadPatterns();
+    const clean = message.trim().toLowerCase().replace(/[.,!?:।\n]/g, '');
 
-    // Check affirmative phrases
-    for (const aff of AFFIRMATIVE_RESPONSES) {
-      if (trimmed.startsWith(`${aff} `) || trimmed.endsWith(` ${aff}`)) {
+    const isAdd = opType === 'add_issue' || opType === 'add_fact';
+    const targetConfig = isAdd ? patterns.add_op : patterns.resolve_op;
+
+    // 1. Check strict affirmative
+    for (const y of targetConfig.yes) {
+      const yClean = y.toLowerCase().trim();
+      if (clean === yClean || clean.startsWith(`${yClean} `) || clean.endsWith(` ${yClean}`)) {
         return 'yes';
       }
     }
 
-    // Check strict negative
-    if (NEGATIVE_RESPONSES.has(trimmed)) {
-      return 'no';
+    // 2. Check ambiguous for resolve/remove ops (e.g. bare "theek hai" or "ok")
+    if (!isAdd && targetConfig.ambiguous) {
+      for (const a of targetConfig.ambiguous) {
+        const aClean = a.toLowerCase().trim();
+        if (clean === aClean || clean.startsWith(`${aClean} `) || clean.endsWith(` ${aClean}`)) {
+          return 'ambiguous';
+        }
+      }
     }
 
-    for (const neg of NEGATIVE_RESPONSES) {
-      if (trimmed.startsWith(`${neg} `) || trimmed.endsWith(` ${neg}`)) {
+    // 3. Check negative
+    for (const n of targetConfig.no) {
+      const nClean = n.toLowerCase().trim();
+      if (clean === nClean || clean.startsWith(`${nClean} `) || clean.endsWith(` ${nClean}`)) {
         return 'no';
       }
     }
 
-    // "theek hai" alone without "hata do" or affirmative qualifier is considered unrelated/neutral
     return 'unrelated';
   }
 
   /**
    * Evaluates incoming message for memory mutation candidates.
-   * Enforces False-Positive Guard (Rule 3) and resolution matching.
+   * Rewords add confirmation as one short statement merged with the next useful question.
    */
   public static detectCandidate(
     message: string,
     openIssues: Array<{ id: string; title: string; category?: string }>,
     currentTurn: number,
-    userId: string
+    userId: string,
+    sessionId = 'default'
   ): PendingMemoryOp | null {
     const lower = message.toLowerCase();
 
-    // 1. Check for Resolution Candidates against open issues
-    // Pattern examples: "kandhe ka dard ab theek hai", "ghutne me ab dard nahi hai", "knee pain is gone"
+    // 1. Resolution Candidates against open issues
     const resolutionWords = [
       'theek ho gaya', 'theek hai', 'dard khatam', 'bilkul theek', 'gone', 'cured', 'no more',
       'resolved', 'recovered', 'hurt nahi kar raha', 'dard nahi', 'dard nahi hai', 'pain nahi', 'no pain', 'not hurting'
@@ -140,11 +186,9 @@ export class PendingOpsManager {
         const titleLower = issue.title.toLowerCase();
         let matchesIssue = false;
 
-        // Direct substring check
         if (lower.includes(titleLower)) {
           matchesIssue = true;
         } else {
-          // Check body part / synonym match
           for (const [key, syns] of Object.entries(BODY_SYNONYMS)) {
             const issueHasKey = syns.some((s) => titleLower.includes(s));
             const msgHasKey = syns.some((s) => lower.includes(s));
@@ -159,6 +203,7 @@ export class PendingOpsManager {
           return {
             id: `op_${Date.now()}_res`,
             userId,
+            sessionId,
             type: 'resolve_issue',
             payload: {
               issueId: issue.id,
@@ -167,26 +212,27 @@ export class PendingOpsManager {
             },
             createdTurn: currentTurn,
             expiresAfterTurn: currentTurn + 3,
-            confirmationQuestion: `तो ${issue.title} अब पूरी तरह ठीक है, सही? मैं इसे आपके हेल्थ रिकॉर्ड से हटा देता हूँ।`,
+            confirmationQuestion: `तो ${issue.title} अब पूरी तरह ठीक है, सही? मैं इसे हटा देता हूँ।`,
+            ambiguousAttempts: 0,
           };
         }
       }
     }
 
     // 2. False-Positive Guard for Issue Addition:
-    // Never create an issue from positive statements like "my energy is great"
+    // Positive statements: never create an issue
     const positiveStatements = ['energy is great', 'energy achhi hai', 'feeling energetic', 'mast lag raha', 'sab badhiya', 'feel great', 'feel good'];
     if (positiveStatements.some((p) => lower.includes(p))) {
       return null;
     }
 
-    // Never create an issue from negated words like "no pain", "dard nahi hai"
+    // Negations: never create an issue
     const negations = ['no pain', 'dard nahi', 'pain nahi', 'not hurting', 'takleef nahi', 'bilkul dard nahi'];
     if (negations.some((n) => lower.includes(n))) {
       return null;
     }
 
-    // Check for explicit negative symptom report
+    // Explicit negative symptom report (Merged short statement with next useful question, Rule E1)
     const symptomPatterns = [
       { pattern: /(?:knee|ghutne)\s*(?:me|mein)?\s*(?:dard|pain|injury)/i, title: 'Knee Pain', category: 'pain' },
       { pattern: /(?:shoulder|kandhe)\s*(?:me|mein)?\s*(?:dard|pain|strain)/i, title: 'Shoulder Pain', category: 'pain' },
@@ -198,7 +244,6 @@ export class PendingOpsManager {
 
     for (const sp of symptomPatterns) {
       if (sp.pattern.test(message)) {
-        // Check if already open
         const alreadyOpen = openIssues.some(
           (o) => o.title.toLowerCase() === sp.title.toLowerCase()
         );
@@ -206,9 +251,11 @@ export class PendingOpsManager {
           return null;
         }
 
+        // Rule E1: short statement merged with next useful question (e.g. "कंधे का दर्द कल से है, सही? नोट कर लेता हूँ।")
         return {
           id: `op_${Date.now()}_add`,
           userId,
+          sessionId,
           type: 'add_issue',
           payload: {
             title: sp.title,
@@ -217,7 +264,8 @@ export class PendingOpsManager {
           },
           createdTurn: currentTurn,
           expiresAfterTurn: currentTurn + 3,
-          confirmationQuestion: `Aapne ${sp.title} mention kiya. Kya main ise workout safety ke liye track karu?`,
+          confirmationQuestion: `${sp.title} कल से है, सही? नोट कर लेता हूँ।`,
+          ambiguousAttempts: 0,
         };
       }
     }
@@ -237,7 +285,6 @@ export class PendingOpsManager {
     if (op.type === 'add_issue' && op.payload.title) {
       const pool = SupabaseDb.getPool();
       if (pool) {
-        // Dedupe against open issues
         const existing = await pool.query(
           `SELECT id, mention_count FROM user_issues
            WHERE user_id = $1 AND title ILIKE $2 AND status IN ('open', 'improving')`,
@@ -245,7 +292,6 @@ export class PendingOpsManager {
         );
 
         if (existing.rows.length > 0) {
-          // Increment mention count
           await pool.query(
             `UPDATE user_issues
              SET mention_count = mention_count + 1, last_mentioned_at = NOW()
@@ -255,7 +301,6 @@ export class PendingOpsManager {
           return { success: true, details: 'incremented_existing' };
         }
 
-        // Insert new confirmed issue
         await pool.query(
           `INSERT INTO user_issues (user_id, title, category, severity, status, first_reported_at, last_mentioned_at, mention_count)
            VALUES ($1, $2, $3, $4, 'open', NOW(), NOW(), 1)`,

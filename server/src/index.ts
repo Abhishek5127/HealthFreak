@@ -17,6 +17,7 @@ import { AICallScheduler } from './queue/aiCallScheduler.js';
 import { VoiceAgentProcess } from './services/voiceAgentProcess.js';
 import { coachRouter } from './routes/coachRoutes.js';
 import { PROMPT_VERSION } from './config/version.js';
+import { SupabaseDb } from './db/supabaseClient.js';
 
 process.on('uncaughtException', (err) => {
   console.error('[HealthFreak Server] Uncaught exception:', err.message);
@@ -41,7 +42,8 @@ app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 app.use('/assets', express.static(path.resolve(__dirname, '../../../assets')));
 
 // Health Check
-app.get('/health', (_req, res) => {
+app.get('/health', async (_req, res) => {
+  const migStatus = await SupabaseDb.checkMigrations().catch(() => ({ migrations_ok: false, missing: ['check_failed'] }));
   res.json({
     status: 'healthy',
     service: 'healthfreak-voice-ai-coach',
@@ -50,6 +52,8 @@ app.get('/health', (_req, res) => {
     provider: config.voiceProvider,
     syntheticMode: config.privacy.syntheticDataMode,
     voiceAgent: VoiceAgentProcess.getStatus(),
+    migrations_ok: migStatus.migrations_ok,
+    missing: migStatus.missing,
     timestamp: new Date().toISOString(),
   });
 });
@@ -352,6 +356,12 @@ async function startServer() {
     console.log(`[HealthFreak Voice Server] Selected Voice Provider: ${config.voiceProvider}`);
     console.log(`[HealthFreak Voice Server] Concurrency limit: ${config.callingLimits.maxConcurrentCalls}`);
     console.log(`[HealthFreak Voice Server] Synthetic Data Mode: ${config.privacy.syntheticDataMode}`);
+  });
+
+  SupabaseDb.checkMigrations().then((status) => {
+    console.log(`[Migrations] Status: migrations_ok=${status.migrations_ok}, missing=[${status.missing.join(', ')}]`);
+  }).catch((err) => {
+    console.warn('[Migrations] Check error:', err?.message || err);
   });
 
   ScheduledCallQueue.initialize().catch((err) => {

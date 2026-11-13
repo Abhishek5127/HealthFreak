@@ -89,7 +89,7 @@ class TestContextPack(unittest.TestCase):
 
         # Assertions
         self.assertIn("[USER CONTEXT PACK]", rendered)
-        self.assertIn("Alex", rendered)
+        self.assertIn("(name omitted)", rendered)
         self.assertIn("8,240 / 10,000 steps", rendered)
         self.assertIn("Right patellar knee tenderness", rendered)
         self.assertIn("Aapke right knee ka pain", rendered)

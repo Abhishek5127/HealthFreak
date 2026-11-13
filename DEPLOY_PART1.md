@@ -20,10 +20,11 @@ This document provides the exact end-to-end deployment steps, verification check
 ## 1.1 Strict Deployment Order
 
 Deploy components in the following exact sequence:
-1. **Database Migration 005 (Supabase Postgres)**: Apply `005_call_transcripts_and_extraction.sql` so columns exist before code writes to them.
-2. **Backend Server (Render)**: Deploy `healthfreak-1.onrender.com` on branch `coach-context-v2`. Verify `/health` returns status `ok` and runtime `promptVersion`.
-3. **LiveKit Voice Agent Worker (`server/voice-agent`)**: Deploy and start Python worker. Verify startup log line shows `PROMPT_VERSION` and HMAC credentials.
-4. **Mobile Client (Expo / EAS)**: Run `eas build -p android` (see Native EAS Build notice in Section 5).
+1. **Database Migration 005 (Supabase Postgres)**: Apply `005_call_transcripts_and_extraction.sql` (`call_transcript_turns`, `call_extraction_jobs`).
+2. **Database Migration 006 (Supabase Postgres)**: Apply `006_issue_history_and_memory_hygiene.sql` (`issue_history`, `scheduled_followups.issue_id`, `health_conditions.source_issue_id`, `exercise_plans.constraint_issue_ids`, `is_stale`).
+3. **Backend Server (Render)**: Deploy `healthfreak-1.onrender.com` on branch `coach-context-v2`. Verify `GET /health` returns `migrations_ok: true`, `missing: []`, and dynamic `prompt_version`.
+4. **LiveKit Voice Agent Worker (`server/voice-agent`)**: Deploy and start Python worker. Verify startup log line shows `PROMPT_VERSION` and verified confirmation classifier loading.
+5. **Mobile Client (Expo / EAS)**: Build / update with configured `runtimeVersion` and `updates` (see Section 5).
 
 ---
 
@@ -34,29 +35,25 @@ Deploy components in the following exact sequence:
 - **Migration 002** (`002_daily_activity.sql`): **APPLIED** (table `activity_logs` present).
 - **Migration 003** (`003_google_auth_and_rls.sql`): **APPLIED** (table `profiles`, RLS policies present).
 - **Migration 004** (`004_coach_memory_and_daily_snapshots.sql`): **APPLIED** (table `user_issues`, `daily_health_snapshots` present).
-- **Migration 005** (`005_call_transcripts_and_extraction.sql`): **PENDING** (`transcript` column exists, `summary` and `key_takeaways` missing).
+- **Migration 005** (`005_call_transcripts_and_extraction.sql`): **PENDING** (`call_transcript_turns`, `call_extraction_jobs`).
+- **Migration 006** (`006_issue_history_and_memory_hygiene.sql`): **PENDING** (`issue_history`, hygiene columns).
 
 ### Pre-Deployment Checks
-Ensure database connectivity and check if migration `005` has already run:
+Ensure database connectivity and check if migrations `005` and `006` are applied via the built-in health check:
 ```bash
-# From server/ directory
-npx tsx -e "
-import { SupabaseDb } from './src/db/supabaseClient';
-async function check() {
-  const p = SupabaseDb.getPool();
-  const res = await p.query(\"SELECT column_name FROM information_schema.columns WHERE table_name = 'calls' AND column_name = 'transcript'\");
-  console.log('Migration 005 status:', res.rows.length > 0 ? 'ALREADY APPLIED' : 'PENDING');
-  await p.end();
-}
-check();
-"
+# Verify via backend health check endpoint:
+curl https://healthfreak-1.onrender.com/health
+# Expecting: { "status": "healthy", "migrations_ok": true, "missing": [] }
 ```
 
-### Apply Migration (if pending)
-If migration `005` is pending, run:
+### Apply Migrations (Requires Explicit User "apply" First)
+Run in Supabase SQL editor or via psql in strict order (005 then 006):
 ```bash
-# Apply 005_call_transcripts_and_extraction.sql in Supabase SQL editor or via psql:
+# 1. Apply Migration 005
 psql "$SUPABASE_DATABASE_URL" -f server/src/db/migrations/005_call_transcripts_and_extraction.sql
+
+# 2. Apply Migration 006
+psql "$SUPABASE_DATABASE_URL" -f server/src/db/migrations/006_issue_history_and_memory_hygiene.sql
 ```
 
 ### Verification
@@ -166,15 +163,9 @@ systemctl restart healthfreak-voice-agent # or restart container
 ## 5. Component D: Expo Mobile App (React Native)
 
 ### Native Build Status & EAS Update Compatibility Notice
-> [!IMPORTANT]
-> **OTA Is NOT Enabled in the Native APK**:
-> An audit of `app.json` and `package.json` confirms:
-> 1. `runtimeVersion` is **not configured** in `app.json`.
-> 2. `updates` is **not configured** in `app.json`.
-> 3. `expo-updates` is **not installed** in `package.json`.
->
-> While no new native permissions or native modules were added since the last build on Nov 11 (`100f93a`), OTA updates cannot be delivered without `expo-updates` embedded in the native binary.
-> **Therefore, an EAS build is required to ship these changes to end users.**
+> [!NOTE]
+> `app.json` has now been prepared with `"runtimeVersion": { "policy": "appVersion" }` and `"updates": { "url": "https://u.expo.dev/795b6406-b121-4e16-9d07-0fba0525956e" }` (config only, no unapproved builds run).
+> For existing APK installations, a native rebuild with `eas build -p android` embeds the runtime configuration so future OTA updates can be pushed seamlessly via `eas update`.
 
 ### Build Command (EAS Standalone APK / Bundle)
 ```bash

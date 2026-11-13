@@ -4,6 +4,12 @@
     "slug": "HealthFreak",
     "scheme": "healthfreak",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/795b6406-b121-4e16-9d07-0fba0525956e"
+    },
     "orientation": "portrait",
     "icon": "./assets/logo/HealthFreakLogoBlackbg.png",
     "userInterfaceStyle": "dark",

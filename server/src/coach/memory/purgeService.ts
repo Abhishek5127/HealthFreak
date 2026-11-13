@@ -70,6 +70,7 @@ export class MemoryPurgeService {
 
         // 2. Insert tombstone into issue_history (NO free text stored)
         try {
+          await client.query('SAVEPOINT sp_tombstone');
           const tombstoneRes = await client.query(
             `INSERT INTO issue_history (id, user_id, category, opened_at, resolved_at, mention_count)
              VALUES ($1, $2, $3, $4, NOW(), $5)
@@ -77,22 +78,28 @@ export class MemoryPurgeService {
             [issue.id, userId, issue.category, issue.first_reported_at || new Date(), issue.mention_count || 1]
           );
           result.recordsDeleted.issue_history_tombstones = tombstoneRes.rowCount || 0;
+          await client.query('RELEASE SAVEPOINT sp_tombstone');
         } catch {
-          // If issue_history table not yet created via migration 006, continue gracefully
+          await client.query('ROLLBACK TO SAVEPOINT sp_tombstone').catch(() => {});
         }
 
         // 3. Delete from follow_ups table
         try {
+          await client.query('SAVEPOINT sp_followups');
           const followUpsRes = await client.query(
             `DELETE FROM follow_ups
              WHERE user_id = $1 AND (issue_id::text = $2 OR issue_title ILIKE $3)`,
             [userId, issueId, searchPattern]
           );
           result.recordsDeleted.follow_ups = followUpsRes.rowCount || 0;
-        } catch {}
+          await client.query('RELEASE SAVEPOINT sp_followups');
+        } catch {
+          await client.query('ROLLBACK TO SAVEPOINT sp_followups').catch(() => {});
+        }
 
         // 4. Delete from scheduled_followups
         try {
+          await client.query('SAVEPOINT sp_sched');
           const schedRes = await client.query(
             `DELETE FROM scheduled_followups
              WHERE user_id = $1 AND (
@@ -102,20 +109,26 @@ export class MemoryPurgeService {
             [userId, searchPattern, issueId]
           );
           result.recordsDeleted.scheduled_followups = schedRes.rowCount || 0;
+          await client.query('RELEASE SAVEPOINT sp_sched');
         } catch {
-          // If issue_id column not present, match on target_questions text
+          await client.query('ROLLBACK TO SAVEPOINT sp_sched').catch(() => {});
           try {
+            await client.query('SAVEPOINT sp_sched_fb');
             const schedFallback = await client.query(
               `DELETE FROM scheduled_followups
                WHERE user_id = $1 AND target_questions::text ILIKE $2`,
               [userId, searchPattern]
             );
             result.recordsDeleted.scheduled_followups = schedFallback.rowCount || 0;
-          } catch {}
+            await client.query('RELEASE SAVEPOINT sp_sched_fb');
+          } catch {
+            await client.query('ROLLBACK TO SAVEPOINT sp_sched_fb').catch(() => {});
+          }
         }
 
         // 5. Delete or anonymize tied call_notes within 30 days
         try {
+          await client.query('SAVEPOINT sp_notes');
           const notesRes = await client.query(
             `DELETE FROM call_notes
              WHERE user_id = $1 AND (
@@ -126,10 +139,14 @@ export class MemoryPurgeService {
             [userId, issueId, searchPattern]
           );
           result.recordsDeleted.call_notes = notesRes.rowCount || 0;
-        } catch {}
+          await client.query('RELEASE SAVEPOINT sp_notes');
+        } catch {
+          await client.query('ROLLBACK TO SAVEPOINT sp_notes').catch(() => {});
+        }
 
         // 6. Delete auto-created health_conditions (NEVER delete chronic conditions stated by user)
         try {
+          await client.query('SAVEPOINT sp_cond');
           const condRes = await client.query(
             `DELETE FROM health_conditions
              WHERE user_id = $1 AND (
@@ -139,10 +156,14 @@ export class MemoryPurgeService {
             [userId, issueId, searchPattern]
           );
           result.recordsDeleted.health_conditions = condRes.rowCount || 0;
-        } catch {}
+          await client.query('RELEASE SAVEPOINT sp_cond');
+        } catch {
+          await client.query('ROLLBACK TO SAVEPOINT sp_cond').catch(() => {});
+        }
 
         // 7. Exercise plans: mark plans stale if they constrained on this issue, exclude notes from future prompts
         try {
+          await client.query('SAVEPOINT sp_plans');
           const planRes = await client.query(
             `UPDATE exercise_plans
              SET is_stale = true,
@@ -154,9 +175,11 @@ export class MemoryPurgeService {
             [userId, searchPattern, `%${issueId}%`]
           );
           result.recordsDeleted.plans_marked_stale = planRes.rowCount || 0;
+          await client.query('RELEASE SAVEPOINT sp_plans');
         } catch {
-          // If is_stale column not present yet
+          await client.query('ROLLBACK TO SAVEPOINT sp_plans').catch(() => {});
           try {
+            await client.query('SAVEPOINT sp_plans_fb');
             const planFallback = await client.query(
               `UPDATE exercise_plans
                SET safety_notes = NULL
@@ -164,11 +187,15 @@ export class MemoryPurgeService {
               [userId, searchPattern]
             );
             result.recordsDeleted.plans_marked_stale = planFallback.rowCount || 0;
-          } catch {}
+            await client.query('RELEASE SAVEPOINT sp_plans_fb');
+          } catch {
+            await client.query('ROLLBACK TO SAVEPOINT sp_plans_fb').catch(() => {});
+          }
         }
 
         // 8. Delete related facts in profile_facts (delete entire superseded chain)
         try {
+          await client.query('SAVEPOINT sp_facts');
           const factsRes = await client.query(
             `WITH matched_facts AS (
                SELECT id, key, superseded_by_fact_id FROM profile_facts
@@ -182,7 +209,10 @@ export class MemoryPurgeService {
             [userId, searchPattern]
           );
           result.recordsDeleted.profile_facts = factsRes.rowCount || 0;
-        } catch {}
+          await client.query('RELEASE SAVEPOINT sp_facts');
+        } catch {
+          await client.query('ROLLBACK TO SAVEPOINT sp_facts').catch(() => {});
+        }
 
         // 9. Delete the user_issues row itself
         const delIssueRes = await client.query(
