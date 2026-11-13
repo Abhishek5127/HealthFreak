@@ -359,7 +359,7 @@ export class CoachContextService {
     const lines: string[] = [];
     lines.push('[USER CONTEXT PACK]');
     lines.push(
-      `Profile: ${pack.profile.first_name} | Language: ${pack.profile.language} | Timezone: ${pack.profile.tz} | Goal: ${pack.profile.goal} | Preferred Call: ${pack.profile.preferred_call_time}`
+      `User: (name omitted) | Language: ${pack.profile.language} | Timezone: ${pack.profile.tz} | Goal: ${pack.profile.goal} | Preferred Call: ${pack.profile.preferred_call_time}`
     );
 
     lines.push('Daily Health & Activity:');

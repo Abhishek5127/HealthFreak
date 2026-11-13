@@ -1,5 +1,4 @@
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
 import { fetchWithAuth } from './apiClient';
 
 export interface AudioChunkPayload {
@@ -10,23 +9,46 @@ export interface AudioChunkPayload {
   sampleRate?: number;
 }
 
+const OPENER_INTERJECTIONS = [
+  'arre', 'are', 'arey', 'arrey', 'oye', 'hey', 'oh', 'wah', 'namaste', 'hello', 'hi',
+  'अरे', 'ओह', 'वाह', 'अरे वाह', 'ओए', 'नमस्ते', 'हैलो', 'हाय'
+];
+
 export function stripFormulaicOpener(text: string, userName?: string): string {
   if (!text) return '';
   let cleaned = text.trim();
 
-  const escapedName = userName && userName !== 'Friend' ? userName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
+  const cleanName = userName && userName !== 'Friend' ? userName.trim() : '';
+  const escapedName = cleanName ? cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
+  const honorific = '(?:\\s+(?:ji|जी))?';
+
+  for (const inter of OPENER_INTERJECTIONS) {
+    const escInter = inter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (escapedName) {
+      const compRegex = new RegExp(`^(${escInter}\\s+${escapedName}${honorific}\\s*[,!:-]?\\s*)`, 'i');
+      const match = cleaned.match(compRegex);
+      if (match) {
+        cleaned = cleaned.slice(match[1].length).trim();
+        return cleaned.length > 0 ? (cleaned.charAt(0).toUpperCase() + cleaned.slice(1)) : '';
+      }
+    }
+    const interRegex = new RegExp(`^(${escInter}\\s*[,!:-]?\\s*)`, 'i');
+    const matchInter = cleaned.match(interRegex);
+    if (matchInter) {
+      cleaned = cleaned.slice(matchInter[1].length).trim();
+      return cleaned.length > 0 ? (cleaned.charAt(0).toUpperCase() + cleaned.slice(1)) : '';
+    }
+  }
 
   if (escapedName) {
-    const combinedRegex = new RegExp(`^(?:(?:arre|are|arey|oye|hey)(?:\\s+${escapedName})?|${escapedName})\\s*[!,.:-]?\\s*`, 'i');
-    cleaned = cleaned.replace(combinedRegex, '');
-  } else {
-    const genericRegex = /^(?:arre|are|arey|oye|hey)\s*[!,.:-]?\s*/i;
-    cleaned = cleaned.replace(genericRegex, '');
+    const nameRegex = new RegExp(`^(${escapedName}${honorific}\\s*[,!:-]?\\s*)`, 'i');
+    const matchName = cleaned.match(nameRegex);
+    if (matchName) {
+      cleaned = cleaned.slice(matchName[1].length).trim();
+      return cleaned.length > 0 ? (cleaned.charAt(0).toUpperCase() + cleaned.slice(1)) : '';
+    }
   }
 
-  if (cleaned.length > 0) {
-    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-  }
   return cleaned;
 }
 
@@ -55,22 +77,33 @@ export function getBackendBaseUrl(): string {
  */
 export async function askGeminiDirect(
   message: string,
-  userName = 'Friend'
+  userName = 'Friend',
+  history?: { role: string; content?: string; text?: string }[]
 ): Promise<{ text: string; suggestions: string[] }> {
   const apiKey = (process.env.EXPO_PUBLIC_GEMINI_API_KEY || '').trim();
-  const lower = message.toLowerCase();
 
   if (apiKey) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
-      const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak speaking directly with ${userName}.
+      const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak.
 Rules:
-1. Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.
+1. Start directly with the answer. A very short natural interjection or the user's first name may open a reply only rarely, and never in two replies in a row. Recently used openers (vary, reuse rarely): none.
 2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps or duration, plus rest, home-only (up to 5 short sentences allowed).
 3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness or tingling spreading down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
 4. Suggest 3 short relevant follow-up actions (under 4 words each).
 5. No markdown, asterisks, hashtags, or emojis. Plain conversational text only.
 6. Provide strict JSON output: { "text": "...", "suggestions": ["...", "...", "..."] }`;
+
+      const cleanHistory = history && Array.isArray(history) && history.length > 0
+        ? history.slice(-10).map((h) => {
+            const raw = (h.content || h.text || '').trim();
+            const text = h.role === 'assistant' || h.role === 'coach' ? stripFormulaicOpener(raw, userName) : raw;
+            return {
+              role: h.role === 'assistant' || h.role === 'coach' ? 'model' : 'user',
+              parts: [{ text }],
+            };
+          }).filter((h) => h.parts[0].text.length > 0)
+        : [];
 
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 6000);
@@ -80,6 +113,7 @@ Rules:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [
+            ...cleanHistory,
             {
               parts: [{ text: `${systemPrompt}\n\nUser says: ${message}` }],
             },
@@ -132,7 +166,9 @@ export async function askHealthCoachAI(
     caloriesBurned?: number;
     activeMinutes?: number;
   },
-  userId: string = ''
+  userId: string = '',
+  history?: { role: string; content?: string; text?: string }[],
+  sessionId?: string
 ): Promise<{ text: string; suggestions: string[]; audioBase64?: string; audioMime?: string; audioUrl?: string }> {
   const backendUrl = getBackendBaseUrl();
 
@@ -148,6 +184,8 @@ export async function askHealthCoachAI(
         userId: userId || '',
         userName,
         activityContext,
+        history,
+        sessionId,
       }),
       signal: controller.signal,
     });
@@ -174,7 +212,7 @@ export async function askHealthCoachAI(
   }
 
   // Dynamic direct fallback
-  const directReply = await askGeminiDirect(message, userName);
+  const directReply = await askGeminiDirect(message, userName, history);
   return directReply;
 }
 
@@ -187,19 +225,21 @@ export async function streamHealthCoachAI(params: {
   userId?: string;
   userName?: string;
   activityContext?: any;
+  history?: { role: string; content?: string; text?: string }[];
+  sessionId?: string;
   onTextDelta?: (delta: string) => void;
   onAudioChunk?: (chunk: AudioChunkPayload) => void;
   onComplete?: (result: { fullText: string; suggestions: string[] }) => void;
   signal?: AbortSignal;
 }): Promise<{ text: string; suggestions: string[] }> {
   const backendUrl = getBackendBaseUrl();
-  const { message, userId = '', userName, activityContext, onTextDelta, onAudioChunk, onComplete, signal } = params;
+  const { message, userId = '', userName, activityContext, history, sessionId, onTextDelta, onAudioChunk, onComplete, signal } = params;
 
   try {
     const res = await fetch(`${backendUrl}/api/voice/chat/stream`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, userId, userName, activityContext }),
+      body: JSON.stringify({ message, userId, userName, activityContext, history, sessionId }),
       signal,
     });
 

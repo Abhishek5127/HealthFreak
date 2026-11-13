@@ -84,7 +84,7 @@ class ContextPack(BaseModel):
     def render_prompt_text(self) -> str:
         lines = ["[USER CONTEXT PACK]"]
         lines.append(
-            f"Profile: {self.profile.first_name} | Language: {self.profile.language} | "
+            f"User: (name omitted) | Language: {self.profile.language} | "
             f"Timezone: {self.profile.tz} | Goal: {self.profile.goal} | Preferred Call: {self.profile.preferred_call_time}"
         )
         lines.append("Daily Health & Activity:")

@@ -16,6 +16,7 @@ import { aiCallRouter } from './routes/aiCallRoutes.js';
 import { AICallScheduler } from './queue/aiCallScheduler.js';
 import { VoiceAgentProcess } from './services/voiceAgentProcess.js';
 import { coachRouter } from './routes/coachRoutes.js';
+import { PROMPT_VERSION } from './config/version.js';
 
 process.on('uncaughtException', (err) => {
   console.error('[HealthFreak Server] Uncaught exception:', err.message);
@@ -45,6 +46,7 @@ app.get('/health', (_req, res) => {
     status: 'healthy',
     service: 'healthfreak-voice-ai-coach',
     version: '1.0.0',
+    prompt_version: PROMPT_VERSION,
     provider: config.voiceProvider,
     syntheticMode: config.privacy.syntheticDataMode,
     voiceAgent: VoiceAgentProcess.getStatus(),

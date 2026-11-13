@@ -6,7 +6,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from typing import Annotated, Optional
+from typing import Annotated, Optional, AsyncIterable, AsyncGenerator
 from dotenv import load_dotenv
 from pydantic import Field
 from livekit import rtc
@@ -26,8 +26,9 @@ try:
 except ImportError:
     from livekit.agents.beta import EndCallTool
 
+from livekit.agents import llm
 from livekit.agents.llm import ChatMessage, ToolError, function_tool
-from livekit.agents.voice import UserStateChangedEvent
+from livekit.agents.voice import UserStateChangedEvent, ModelSettings
 from livekit.agents.voice.events import ConversationItemAddedEvent, UserInputTranscribedEvent
 
 # Top-level plugin imports on main thread
@@ -39,6 +40,7 @@ except ImportError:
     noise_cancellation = None
 
 import aiohttp
+from coach.opener_budget import PROMPT_VERSION, OpenerBudget, filter_streaming_opener
 from context_pack import (
     CoachState,
     ContextPack,
@@ -106,7 +108,7 @@ def _build_instructions(context_pack: Optional[ContextPack] = None, is_anonymous
         'Use fillers sparingly ("हाँ जी", "अच्छा", "ठीक है").\n'
         "Call opening: Follow up ONLY on issues under Open Issues. Never mention anything under Resolved recently unless the user brings it up. "
         'Never recite all data. Mention numbers naturally ("kal aapne 8 हज़ार steps किए").\n'
-        "Opener style: Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.\n"
+        "Opener style: Start directly with the answer. A very short natural interjection or the user's first name may open a reply only rarely, and never in two replies in a row. Recently used openers (vary, reuse rarely): none.\n"
         "Tools available: log_meal, log_workout, update_issue_status, suggest_workout, and create_plan_draft. "
         "Use suggest_workout to retrieve safe exercises matched to the requested body part and filtered against open issues. "
         "Use create_plan_draft when the user has no active plan and agrees to create a draft.\n"
@@ -176,12 +178,13 @@ def _setup_eval_logging(session: AgentSession, stt_language: str, call_id: str |
                 "user_transcript": transcript_text,
                 "stt_language": last_user_turn["language"],
             }
-            try:
-                with open("transcripts.jsonl", "a", encoding="utf-8") as f:
-                    f.write(json.dumps(record, ensure_ascii=False) + "\n")
-                    f.flush()
-            except Exception as err:
-                logger.warning(f"Failed to append to transcripts.jsonl: {err}")
+            if os.getenv("DEV_TRANSCRIPT_LOG") == "1":
+                try:
+                    with open("transcripts.jsonl", "a", encoding="utf-8") as f:
+                        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+                        f.flush()
+                except Exception as err:
+                    logger.warning(f"Failed to append to transcripts.jsonl: {err}")
 
             turn_idx = turn_counter["index"]
             turn_counter["index"] += 1
@@ -203,12 +206,13 @@ def _setup_eval_logging(session: AgentSession, stt_language: str, call_id: str |
                 "stt_language": last_user_turn["language"],
                 "turn_latency_sec": latency,
             }
-            try:
-                with open("transcripts.jsonl", "a", encoding="utf-8") as f:
-                    f.write(json.dumps(record, ensure_ascii=False) + "\n")
-                    f.flush()
-            except Exception as err:
-                logger.warning(f"Failed to append to transcripts.jsonl: {err}")
+            if os.getenv("DEV_TRANSCRIPT_LOG") == "1":
+                try:
+                    with open("transcripts.jsonl", "a", encoding="utf-8") as f:
+                        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+                        f.flush()
+                except Exception as err:
+                    logger.warning(f"Failed to append to transcripts.jsonl: {err}")
             last_user_turn["start_time"] = 0.0
 
             if reply_text:
@@ -300,6 +304,35 @@ class HealthFreakCoachAgent(Agent):
 
         instructions = "Greet the user warmly in one short sentence and ask what they want to work on today."
         self.session.generate_reply(instructions=instructions)
+
+    async def on_user_turn_completed(
+        self, turn_ctx: llm.ChatContext, new_message: llm.ChatMessage
+    ) -> None:
+        call_id = self.coach_state.call_id or "livekit"
+        if not self.coach_state.is_anonymous and self.coach_state.context_pack:
+            pack = self.coach_state.context_pack
+            first_name = pack.profile.first_name if (pack.profile.first_name and pack.profile.first_name != "Friend") else None
+            if first_name and OpenerBudget.is_opener_allowed(call_id):
+                turn_ctx.add_message(
+                    role="system",
+                    content=[f"This turn you may open with the user's first name ({first_name}) or a very short interjection if natural."]
+                )
+
+    async def tts_node(
+        self, text: AsyncIterable[str], model_settings: ModelSettings
+    ) -> AsyncGenerator[rtc.AudioFrame, None]:
+        call_id = self.coach_state.call_id or "livekit"
+        pack = self.coach_state.context_pack
+        user_name = pack.profile.first_name if (pack and pack.profile.first_name and pack.profile.first_name != "Friend") else None
+        filtered_stream = filter_streaming_opener(
+            text_stream=text,
+            user_name=user_name,
+            session_id=call_id,
+            path="livekit_agent",
+            lang=self.coach_state.language or "hi",
+        )
+        async for frame in Agent.default.tts_node(self, filtered_stream, model_settings):
+            yield frame
 
     @function_tool
     async def log_meal(
@@ -580,6 +613,7 @@ if os.getenv("COACH_EXPLICIT_DISPATCH_ENABLED", "true").lower() == "false":
 
 @server.rtc_session(agent_name=AGENT_NAME)
 async def entrypoint(ctx: JobContext) -> None:
+    logger.info(f"Coach Mack LiveKit Agent starting job {ctx.job.id}. PROMPT_VERSION: {PROMPT_VERSION}")
     ctx.log_context_fields = {"room": ctx.room.name}
     # Connect immediately so LiveKit does not trigger the 10-second room connection timeout warning
     await ctx.connect()

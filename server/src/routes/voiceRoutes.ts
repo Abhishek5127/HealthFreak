@@ -8,6 +8,8 @@ import { healthMemoryStore } from '../db/healthMemoryStore.js';
 import { PlanService } from '../services/planService.js';
 import { CostAndPrivacyTracker } from '../services/costTracker.js';
 import { config } from '../config/index.js';
+import { PROMPT_VERSION } from '../config/version.js';
+import { OpenerBudget, StreamingOpenerFilter } from '../coach/style/openerBudget.js';
 import { buildCoachSystemPrompt } from '../agent/coachPrompt.js';
 import { VoiceAgentProcess } from '../services/voiceAgentProcess.js';
 import { SarvamService, SentenceTTSBuffer, stripFormulaicOpener } from '../services/sarvamService.js';
@@ -455,7 +457,7 @@ voiceRouter.post('/tts', async (req: Request, res: Response) => {
 // 13. Health Coach Streaming Turn (SSE: Sarvam AI 105B + Bulbul Neural Voice)
 voiceRouter.post('/chat/stream', async (req: Request, res: Response) => {
   const startTime = Date.now();
-  const { message, userId = 'usr_synthetic_alex', userName: incomingUserName, activityContext, lastCoachReply = '' } = req.body;
+  const { message, userId = 'usr_synthetic_alex', userName: incomingUserName, activityContext, lastCoachReply = '', sessionId, history } = req.body;
 
   if (!message || typeof message !== 'string') {
     res.status(400).json({ error: 'message is required' });
@@ -467,6 +469,7 @@ voiceRouter.post('/chat/stream', async (req: Request, res: Response) => {
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
+  res.setHeader('X-Prompt-Version', PROMPT_VERSION);
   res.flushHeaders?.();
 
   const abortController = new AbortController();
@@ -542,22 +545,33 @@ voiceRouter.post('/chat/stream', async (req: Request, res: Response) => {
 
   sendEvent('response_start', { timestamp: Date.now(), model: 'sarvam-105b-conversations' });
 
-  const prevWords = typeof lastCoachReply === 'string' && lastCoachReply.trim()
-    ? lastCoachReply.trim().split(/\s+/).slice(0, 3).join(' ')
+  const sessionKey = sessionId || userId || 'default';
+  const state = OpenerBudget.getState(sessionKey);
+  const openerAllowed = OpenerBudget.isOpenerAllowed(sessionKey);
+  const recentOpeners = state.lastOpenerUsed ? `"${state.lastOpenerUsed}"` : 'none';
+  const nameHint = openerAllowed && userName
+    ? `\nThis turn you may open with the user's first name (${userName}) or a very short interjection if natural.`
     : '';
-  const antiRepeatInstruction = prevWords ? `\n5. Do not start with these words: "${prevWords}".` : '';
 
   // 4. Construct System Prompt with contextual memory snippet
   const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak.
-You are speaking directly with ${userName}.
 ${healthContext.promptSnippet}
 
 Core Coaching Instructions:
-1. Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.
+1. Start directly with the answer. A very short natural interjection or the user's first name may open a reply only rarely, and never in two replies in a row. Recently used openers (vary, reuse rarely): ${recentOpeners}.${nameHint}
 2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, a routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps or duration, plus rest, home-only (up to 5 short sentences allowed).
 3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness or tingling spreading down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
 4. Show continuity naturally: If user mentions pain, reference their earlier reports without reciting bullet lists.
-5. Do NOT use emojis, asterisks, hashtags, or markdown. Output plain spoken conversational text only.${antiRepeatInstruction}`;
+5. Do NOT use emojis, asterisks, hashtags, or markdown. Output plain spoken conversational text only.`;
+
+  const cleanHistory = history && Array.isArray(history) && history.length > 0
+    ? OpenerBudget.sanitizeHistory(history.slice(-10), userName)
+        .map((h: any) => ({
+          role: h.role === 'coach' ? 'assistant' : h.role,
+          content: (h.content || h.text || '').trim(),
+        }))
+        .filter((h: any) => h.content.length > 0)
+    : [];
 
   let totalAudioChunks = 0;
   const ttsBuffer = new SentenceTTSBuffer((chunk) => {
@@ -567,21 +581,34 @@ Core Coaching Instructions:
 
   let fullGeneratedText = '';
 
+  const streamFilter = new StreamingOpenerFilter({
+    sessionId: sessionKey,
+    userName,
+    path: '/chat/stream',
+    lang: 'hi',
+    onToken: (filteredToken) => {
+      fullGeneratedText += filteredToken;
+      sendEvent('text_delta', { delta: filteredToken });
+      ttsBuffer.addToken(filteredToken);
+    },
+  });
+
   // 5. PRIMARY: Stream LLM via Sarvam 105B
   let sarvamSuccess = false;
   if (SarvamService.isConfigured()) {
     try {
-      fullGeneratedText = await SarvamService.streamChatCompletion({
+      await SarvamService.streamChatCompletion({
         messages: [
           { role: 'system', content: systemPrompt },
+          ...cleanHistory,
           { role: 'user', content: message },
         ],
         abortSignal: abortController.signal,
         onToken: (token) => {
-          sendEvent('text_delta', { delta: token });
-          ttsBuffer.addToken(token);
+          streamFilter.push(token);
         },
       });
+      await streamFilter.flush();
       sarvamSuccess = true;
     } catch (err: any) {
       console.warn('[VoiceRoutes/Stream] Sarvam streaming notice:', err?.message || err);
@@ -603,6 +630,10 @@ Core Coaching Instructions:
         const geminiStream = await ai.models.generateContentStream({
           model: config.gemini.model || 'gemini-3.5-flash-lite',
           contents: [
+            ...cleanHistory.map((h: any) => ({
+              role: h.role === 'assistant' ? 'model' : 'user',
+              parts: [{ text: h.content }],
+            })),
             {
               role: 'user',
               parts: [{ text: `${systemPrompt}\n\nUser says: ${message}` }],
@@ -614,11 +645,10 @@ Core Coaching Instructions:
           if (abortController.signal.aborted) break;
           const textChunk = chunk.text || '';
           if (textChunk) {
-            fullGeneratedText += textChunk;
-            sendEvent('text_delta', { delta: textChunk });
-            await ttsBuffer.addToken(textChunk);
+            await streamFilter.push(textChunk);
           }
         }
+        await streamFilter.flush();
         sarvamSuccess = true;
       } catch (geminiErr: any) {
         console.warn('[VoiceRoutes/Stream] Gemini fallback notice:', geminiErr?.message || geminiErr);
@@ -665,7 +695,8 @@ Core Coaching Instructions:
 // 14. Health Coach Chat Turn (Synchronous JSON Fallback)
 voiceRouter.post('/chat', async (req: Request, res: Response) => {
   try {
-    const { message, userId = 'usr_synthetic_alex', userName: incomingUserName, activityContext, lastCoachReply = '' } = req.body;
+    res.setHeader('X-Prompt-Version', PROMPT_VERSION);
+    const { message, userId = 'usr_synthetic_alex', userName: incomingUserName, activityContext, lastCoachReply = '', sessionId, history } = req.body;
     if (!message || typeof message !== 'string') {
       res.status(400).json({ error: 'message is required' });
       return;
@@ -708,12 +739,24 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
       ? `Today steps: ${activityContext.todaySteps || 0} / ${activityContext.stepGoal || 10000}, active calories: ${activityContext.caloriesBurned || 0} kcal`
       : '';
 
-    // PRIMARY: Generate conversational reply and neural voice directly via Sarvam AI
-    const prevWords = typeof lastCoachReply === 'string' && lastCoachReply.trim()
-      ? lastCoachReply.trim().split(/\s+/).slice(0, 3).join(' ')
+    const sessionKey = sessionId || userId || 'default';
+    const state = OpenerBudget.getState(sessionKey);
+    const openerAllowed = OpenerBudget.isOpenerAllowed(sessionKey);
+    const recentOpeners = state.lastOpenerUsed ? `"${state.lastOpenerUsed}"` : 'none';
+    const nameHint = openerAllowed && userName
+      ? `\nThis turn you may open with the user's first name (${userName}) or a very short interjection if natural.`
       : '';
-    const antiRepeatInstruction = prevWords ? `\n5. Do not start with these words: "${prevWords}".` : '';
 
+    const cleanHistory = history && Array.isArray(history) && history.length > 0
+      ? OpenerBudget.sanitizeHistory(history.slice(-10), userName)
+          .map((h: any) => ({
+            role: h.role === 'coach' ? 'assistant' : h.role,
+            content: (h.content || h.text || '').trim(),
+          }))
+          .filter((h: any) => h.content.length > 0)
+      : [];
+
+    // PRIMARY: Generate conversational reply and neural voice directly via Sarvam AI
     if (SarvamService.isConfigured()) {
       const sarvamResult = await SarvamService.generateChatReply({
         message,
@@ -722,7 +765,8 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
         memorySnippet,
         activitySnippet,
         synthesizeVoice: true,
-        antiRepeatWords: prevWords,
+        sessionId: sessionKey,
+        history: cleanHistory,
       });
 
       if (sarvamResult) {
@@ -743,15 +787,14 @@ voiceRouter.post('/chat', async (req: Request, res: Response) => {
 
     if (config.gemini.apiKey) {
       const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak.
-You are speaking directly with ${userName}.
 ${healthContext.promptSnippet}
 
 Rules:
-1. Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.
+1. Start directly with the answer. A very short natural interjection or the user's first name may open a reply only rarely, and never in two replies in a row. Recently used openers (vary, reuse rarely): ${recentOpeners}.${nameHint}
 2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, a routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps or duration, plus rest, home-only (up to 5 short sentences allowed).
 3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness or tingling spreading down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
 4. Provide 3 short relevant follow-up suggestions (under 4 words each).
-5. Return strict JSON: { "text": "...", "suggestions": ["...", "...", "..."] }${antiRepeatInstruction}`;
+5. Return strict JSON: { "text": "...", "suggestions": ["...", "...", "..."] }`;
 
       const modelsToTry = [
         config.gemini.model || 'gemini-3.5-flash-lite',
@@ -766,6 +809,10 @@ Rules:
           const response = await ai.models.generateContent({
             model: m,
             contents: [
+              ...cleanHistory.map((h: any) => ({
+                role: h.role === 'assistant' ? 'model' : 'user',
+                parts: [{ text: h.content }],
+              })),
               {
                 role: 'user',
                 parts: [{ text: `${systemPrompt}\n\nUser says: ${message}` }],
@@ -781,7 +828,14 @@ Rules:
           if (rawText) {
             const parsed = JSON.parse(rawText);
             if (parsed.text) {
-              replyText = stripFormulaicOpener(parsed.text, userName);
+              const processed = OpenerBudget.processReply({
+                sessionId: sessionKey,
+                text: parsed.text,
+                userName,
+                path: '/chat',
+                lang: 'hi',
+              });
+              replyText = processed.cleanedText;
               suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
               break;
             }
@@ -885,12 +939,15 @@ export function isSelfEcho(userText: string, coachText: string): boolean {
 voiceRouter.post('/audio-turn', authenticateSupabaseToken as any, async (req: Request, res: Response) => {
   const turnStart = Date.now();
   try {
+    res.setHeader('X-Prompt-Version', PROMPT_VERSION);
     const userId = (req as AuthenticatedRequest).userId!;
     const {
       audioBase64,
       mimeType = 'audio/m4a',
       lastCoachReply = '',
       userName: incomingUserName,
+      callId,
+      history,
     } = req.body;
 
     let dbName = '';
@@ -981,11 +1038,25 @@ voiceRouter.post('/audio-turn', authenticateSupabaseToken as any, async (req: Re
     const healthContext = await HealthMemoryEngine.getRelevantContext(userId, userTranscript);
     HealthMemoryEngine.scheduleSymptomIngestion(userId, userTranscript);
 
+    const sessionKey = callId || userId || 'default';
+    const state = OpenerBudget.getState(sessionKey);
+    const openerAllowed = OpenerBudget.isOpenerAllowed(sessionKey);
+    const recentOpeners = state.lastOpenerUsed ? `"${state.lastOpenerUsed}"` : 'none';
+    const nameHint = openerAllowed && userName
+      ? `\nThis turn you may open with the user's first name (${userName}) or a very short interjection if natural.`
+      : '';
+
+    const cleanHistory = history && Array.isArray(history) && history.length > 0
+      ? OpenerBudget.sanitizeHistory(history.slice(-10), userName)
+          .map((h: any) => ({
+            role: h.role === 'coach' ? 'assistant' : h.role,
+            content: (h.content || h.text || '').trim(),
+          }))
+          .filter((h: any) => h.content.length > 0)
+      : [];
+
     // 6. Primary LLM Generation: Sarvam 105B Conversations
     let coachReply = '';
-    const prevWords = typeof lastCoachReply === 'string' && lastCoachReply.trim()
-      ? lastCoachReply.trim().split(/\s+/).slice(0, 3).join(' ')
-      : '';
 
     if (SarvamService.isConfigured()) {
       const sarvamResult = await SarvamService.generateChatReply({
@@ -994,7 +1065,8 @@ voiceRouter.post('/audio-turn', authenticateSupabaseToken as any, async (req: Re
         conditions: user?.knownConditions || [],
         memorySnippet: healthContext.promptSnippet,
         synthesizeVoice: false,
-        antiRepeatWords: prevWords,
+        sessionId: sessionKey,
+        history: cleanHistory,
       });
       if (sarvamResult?.text) {
         coachReply = sarvamResult.text;
@@ -1005,19 +1077,21 @@ voiceRouter.post('/audio-turn', authenticateSupabaseToken as any, async (req: Re
     if (!coachReply && config.gemini.apiKey) {
       try {
         const ai = getGeminiClient();
-        const antiRepeatInstruction = prevWords ? `\n4. Do not start with these words: "${prevWords}".` : '';
-        const greetingTarget = userName ? `speaking directly with ${userName}` : '';
-        const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak ${greetingTarget}.
+        const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak.
 ${healthContext.promptSnippet}
 Rules:
-1. Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.
+1. Start directly with the answer. A very short natural interjection or the user's first name may open a reply only rarely, and never in two replies in a row. Recently used openers (vary, reuse rarely): ${recentOpeners}.${nameHint}
 2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, a routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps or duration, plus rest, home-only (up to 5 short sentences allowed).
 3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness or tingling spreading down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
-4. Plain spoken conversational text only. No markdown, asterisks, or emoji.${antiRepeatInstruction}`;
+4. Plain spoken conversational text only. No markdown, asterisks, or emoji.`;
 
         const resp = await ai.models.generateContent({
           model: config.gemini.model || 'gemini-3.5-flash-lite',
           contents: [
+            ...cleanHistory.map((h: any) => ({
+              role: h.role === 'assistant' ? 'model' : 'user',
+              parts: [{ text: h.content }],
+            })),
             {
               role: 'user',
               parts: [{ text: `${systemPrompt}\n\nUser says: ${userTranscript}` }],
@@ -1029,7 +1103,14 @@ Rules:
         });
         const geminiText = resp.text?.trim();
         if (geminiText) {
-          coachReply = stripFormulaicOpener(SarvamService.normalizeForSpokenTTS(geminiText), userName);
+          const processed = OpenerBudget.processReply({
+            sessionId: sessionKey,
+            text: SarvamService.normalizeForSpokenTTS(geminiText),
+            userName,
+            path: '/audio-turn',
+            lang: 'hi',
+          });
+          coachReply = processed.cleanedText;
         }
       } catch (geminiErr: any) {
         console.warn('[VoiceRoutes/AudioTurn] Gemini fallback notice:', geminiErr?.message || geminiErr);

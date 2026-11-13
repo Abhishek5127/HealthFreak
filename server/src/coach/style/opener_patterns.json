@@ -1,0 +1,30 @@
+{
+  "interjections_roman": [
+    "arre",
+    "are",
+    "arey",
+    "arrey",
+    "oye",
+    "hey",
+    "oh",
+    "wah",
+    "namaste",
+    "hello",
+    "hi"
+  ],
+  "interjections_devanagari": [
+    "अरे",
+    "ओह",
+    "वाह",
+    "अरे वाह",
+    "ओए",
+    "नमस्ते",
+    "हैलो",
+    "हाय"
+  ],
+  "honorifics": [
+    "ji",
+    "जी"
+  ],
+  "min_gap_sentences_default": 20
+}

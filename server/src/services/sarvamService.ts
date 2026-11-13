@@ -1,4 +1,5 @@
 import { config } from '../config/index.js';
+import { OpenerBudget, detectLeadingOpener } from '../coach/style/openerBudget.js';
 
 export interface SarvamChatResult {
   text: string;
@@ -16,22 +17,8 @@ export interface AudioChunkEvent {
 
 export function stripFormulaicOpener(text: string, userName?: string): string {
   if (!text) return '';
-  let cleaned = text.trim();
-
-  const escapedName = userName && userName !== 'Friend' ? userName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
-
-  if (escapedName) {
-    const combinedRegex = new RegExp(`^(?:(?:arre|are|arey|oye|hey)(?:\\s+${escapedName})?|${escapedName})\\s*[!,.:-]?\\s*`, 'i');
-    cleaned = cleaned.replace(combinedRegex, '');
-  } else {
-    const genericRegex = /^(?:arre|are|arey|oye|hey)\s*[!,.:-]?\s*/i;
-    cleaned = cleaned.replace(genericRegex, '');
-  }
-
-  if (cleaned.length > 0) {
-    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-  }
-  return cleaned;
+  const det = detectLeadingOpener(text, userName);
+  return det.hasOpener ? det.remainingText : text.trim();
 }
 
 export class SarvamService {
@@ -129,6 +116,8 @@ export class SarvamService {
     activitySnippet?: string;
     synthesizeVoice?: boolean;
     antiRepeatWords?: string;
+    sessionId?: string;
+    history?: Array<{ role: string; content?: string; text?: string }>;
   }): Promise<SarvamChatResult | null> {
     const apiKey = this.getApiKey();
     if (!apiKey) return null;
@@ -140,24 +129,39 @@ export class SarvamService {
       memorySnippet = '',
       activitySnippet = '',
       synthesizeVoice = true,
-      antiRepeatWords = '',
+      sessionId,
+      history,
     } = params;
 
-    const antiRepeatLine = antiRepeatWords ? `\n5. Do not start with these words: "${antiRepeatWords}".` : '';
+    const sessionKey = sessionId || 'default';
+    const state = OpenerBudget.getState(sessionKey);
+    const openerAllowed = OpenerBudget.isOpenerAllowed(sessionKey);
+    const recentOpeners = state.lastOpenerUsed ? `"${state.lastOpenerUsed}"` : 'none';
+    const nameHint = openerAllowed && userName && userName.toLowerCase() !== 'friend'
+      ? `\nThis turn you may open with the user's first name (${userName}) or a very short interjection if natural.`
+      : '';
 
     const systemPrompt = `You are Coach Mack, an elite AI Health and Wellness Coach at HealthFreak.
-You are speaking directly with ${userName}.
 User Profile:
 - Known conditions/injuries: ${conditions.join(', ') || 'None'}
 - Memory facts: ${memorySnippet || 'None'}
 - Physical activity today: ${activitySnippet || 'Not synced'}
 
 Rules:
-1. Use the user's name at most once per conversation, in the greeting only. Never start a reply with 'Arre' or the user's name. Never start two consecutive replies with the same word or phrase. Start by reacting to or answering what the user just said.
+1. Start directly with the answer. A very short natural interjection or the user's first name may open a reply only rarely, and never in two replies in a row. Recently used openers (vary, reuse rarely): ${recentOpeners}.${nameHint}
 2. Length & style: Keep ordinary conversation short (2 to 3 sentences). When user asks for an exercise, routine, or what to do, give a concrete prescription immediately: 3 to 4 exercises with sets and reps/duration plus rest, home-only (up to 5 short sentences allowed).
 3. Safety: Urgent-care advice ONLY for red flags (chest pain, breathlessness, fainting, numbness/tingling radiating down an arm or leg, sudden severe pain, trauma). For mild muscle strain or soreness, give safe mobility and strengthening guidance.
 4. Suggest 3 short relevant follow-up actions (under 4 words each).
-5. Do NOT use emojis, asterisks, bullet points or markdown. Plain spoken conversational text only.${antiRepeatLine}`;
+5. Do NOT use emojis, asterisks, bullet points or markdown. Plain spoken conversational text only.`;
+
+    const cleanHistory = history && history.length > 0
+      ? OpenerBudget.sanitizeHistory(history.slice(-10), userName)
+          .map((h) => ({
+            role: h.role === 'coach' ? 'assistant' : h.role,
+            content: (h.content || (h as any).text || '').trim(),
+          }))
+          .filter((h) => h.content.length > 0)
+      : [];
 
     try {
       const response = await fetch('https://api.sarvam.ai/v1/chat/completions', {
@@ -170,6 +174,7 @@ Rules:
           model: config.sarvam?.chatModel || 'sarvam-105b-conversations',
           messages: [
             { role: 'system', content: systemPrompt },
+            ...cleanHistory,
             { role: 'user', content: message },
           ],
           temperature: 0.6,
@@ -188,7 +193,14 @@ Rules:
       if (!rawReply) return null;
 
       const normalizedReply = this.normalizeForSpokenTTS(rawReply);
-      const cleanReply = stripFormulaicOpener(normalizedReply, userName);
+      const processed = OpenerBudget.processReply({
+        sessionId: sessionKey,
+        text: normalizedReply,
+        userName,
+        path: '/chat',
+        lang: 'hi',
+      });
+      const cleanReply = processed.cleanedText;
       const suggestions = this.generateSuggestions(message);
 
       let audioBase64: string | undefined;
