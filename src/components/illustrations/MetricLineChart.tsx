@@ -18,6 +18,7 @@ interface MetricLineChartProps {
   width?: number;
   color?: string;
   unit?: string;
+  activeDayIndex?: number;
 }
 
 export const MetricLineChart: React.FC<MetricLineChartProps> = ({
@@ -27,6 +28,7 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
   width = 320,
   color = '#FF715F',
   unit = 'steps',
+  activeDayIndex,
 }) => {
   const paddingX = 24;
   const paddingTop = 20;
@@ -35,8 +37,9 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
   const chartWidth = width - paddingX * 2;
   const chartHeight = height - paddingTop - paddingBottom;
 
-  const minVal = Math.min(...data) * 0.85;
-  const maxVal = Math.max(...data) * 1.1;
+  const allZeros = data.every((v) => v === 0);
+  const minVal = allZeros ? 0 : Math.min(...data) * 0.85;
+  const maxVal = allZeros ? (unit === 'hrs' ? 8 : 1000) : Math.max(unit === 'hrs' ? 8 : 1000, Math.max(...data) * 1.15);
   const range = maxVal - minVal || 1;
 
   // Calculate points
@@ -107,7 +110,7 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
 
         {/* Data points */}
         {points.map((pt, i) => {
-          const isLatest = i === points.length - 1;
+          const isLatest = activeDayIndex !== undefined ? i === activeDayIndex : i === points.length - 1;
           return (
             <Circle
               key={i}
@@ -124,17 +127,20 @@ export const MetricLineChart: React.FC<MetricLineChartProps> = ({
 
       {/* Day Labels below chart */}
       <View style={[styles.labelsRow, { paddingHorizontal: paddingX }]}>
-        {labels.map((lbl, idx) => (
-          <Text
-            key={idx}
-            style={[
-              styles.dayLabel,
-              idx === labels.length - 1 && styles.dayLabelActive,
-            ]}
-          >
-            {lbl}
-          </Text>
-        ))}
+        {labels.map((lbl, idx) => {
+          const isActive = activeDayIndex !== undefined ? idx === activeDayIndex : idx === labels.length - 1;
+          return (
+            <Text
+              key={idx}
+              style={[
+                styles.dayLabel,
+                isActive && [styles.dayLabelActive, { color }],
+              ]}
+            >
+              {lbl}
+            </Text>
+          );
+        })}
       </View>
     </View>
   );

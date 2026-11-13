@@ -60,12 +60,12 @@ export class SleepService {
       isSleeping: false,
       bedtimeIso: null,
       wakeTimeIso: null,
-      durationMinutes: 460, // 7h 40m default last night
-      recoveryScore: 88,
-      qualityLabel: 'Restored Balance',
-      deepSleepMinutes: 115,
-      remSleepMinutes: 105,
-      lightSleepMinutes: 240,
+      durationMinutes: 0,
+      recoveryScore: 0,
+      qualityLabel: 'No sleep logged',
+      deepSleepMinutes: 0,
+      remSleepMinutes: 0,
+      lightSleepMinutes: 0,
     },
     history: [],
     autoSleepPrompt: null,
@@ -76,7 +76,7 @@ export class SleepService {
   private appStateSubscription: any = null;
 
   private constructor() {
-    this.state.history = this.generateInitial7DayHistory();
+    this.state.history = [];
   }
 
   public static getInstance(): SleepService {
@@ -89,7 +89,7 @@ export class SleepService {
   public getState(): SleepState {
     return {
       currentSession: { ...this.state.currentSession },
-      history: [...this.state.history],
+      history: this.getWeeklySleepData(),
       autoSleepPrompt: this.state.autoSleepPrompt ? { ...this.state.autoSleepPrompt } : null,
     };
   }
@@ -99,7 +99,7 @@ export class SleepService {
   }
 
   public getHistory(): SleepHistoryItem[] {
-    return [...this.state.history];
+    return this.getWeeklySleepData();
   }
 
   public getAutoSleepPrompt(): AutoSleepPrompt | null {
@@ -135,25 +135,40 @@ export class SleepService {
       if (rawSession) {
         const parsed = JSON.parse(rawSession);
         if (parsed) {
-          this.state.currentSession = {
-            ...this.state.currentSession,
-            ...parsed,
-          };
+          // If stored session is the old demo 460m (7h 40m) and not currently sleeping, reset to 0
+          if (parsed.durationMinutes === 460 && !parsed.isSleeping) {
+            this.state.currentSession = {
+              isSleeping: false,
+              bedtimeIso: null,
+              wakeTimeIso: null,
+              durationMinutes: 0,
+              recoveryScore: 0,
+              qualityLabel: 'No sleep logged',
+              deepSleepMinutes: 0,
+              remSleepMinutes: 0,
+              lightSleepMinutes: 0,
+            };
+          } else {
+            this.state.currentSession = {
+              ...this.state.currentSession,
+              ...parsed,
+            };
+          }
         }
       }
 
-      // 2. Load 7-day history
+      // 2. Load history (Strictly real data only, discard dummy entries)
       const rawHistory = await expoSecureStoreAdapter.getItem(STORAGE_HISTORY_KEY);
       if (rawHistory) {
         const parsedHist = JSON.parse(rawHistory);
         if (Array.isArray(parsedHist) && parsedHist.length > 0) {
-          this.state.history = parsedHist;
+          this.state.history = parsedHist.filter(
+            (item: SleepHistoryItem) =>
+              item.source !== 'historical' && !item.id?.startsWith('hist_sleep_')
+          );
         }
       }
-
-      if (!this.state.history || this.state.history.length === 0) {
-        this.state.history = this.generateInitial7DayHistory();
-      }
+      await this.persist();
 
       // 3. Setup app state listener for inactivity tracking
       this.setupAppStateListener();
@@ -333,6 +348,8 @@ export class SleepService {
       isSleeping: true,
       bedtimeIso: nowIso,
       wakeTimeIso: null,
+      durationMinutes: 0,
+      recoveryScore: 0,
       qualityLabel: 'Sleeping...',
     };
     await this.persist();
@@ -355,11 +372,11 @@ export class SleepService {
 
     const deepSleepMinutes = Math.round(diffMinutes * 0.25);
     const remSleepMinutes = Math.round(diffMinutes * 0.22);
-    const lightSleepMinutes = diffMinutes - deepSleepMinutes - remSleepMinutes;
+    const lightSleepMinutes = Math.max(0, diffMinutes - deepSleepMinutes - remSleepMinutes);
 
     const hours = Math.floor(diffMinutes / 60);
     const mins = diffMinutes % 60;
-    const summaryText = `${hours}h ${mins}m (${recoveryScore}% recovery)`;
+    const summaryText = hours > 0 ? `${hours}h ${mins}m (${recoveryScore}% recovery)` : `${mins}m (${recoveryScore}% recovery)`;
 
     const updatedSession: SleepSession = {
       isSleeping: false,
@@ -398,7 +415,9 @@ export class SleepService {
   }
 
   private addOrUpdateTodayHistory(item: SleepHistoryItem): void {
-    const history = [...this.state.history];
+    const history = this.state.history.filter(
+      (h) => h.source !== 'historical' && !h.id.startsWith('hist_sleep_')
+    );
     const existingIdx = history.findIndex((h) => h.date === item.date);
 
     if (existingIdx >= 0) {
@@ -407,9 +426,76 @@ export class SleepService {
       history.push(item);
     }
 
-    // Keep sorted by date ascending, take last 7
     history.sort((a, b) => a.date.localeCompare(b.date));
+    // Rolling 7-day FIFO window: keeps the latest 7 entries, drops older than 7 days
     this.state.history = history.slice(-7);
+  }
+
+  /**
+   * Returns a rolling 7-day window ending today (FIFO):
+   * Day 1 (today - 6 days) to Day 7 (today).
+   * When day 8 arrives, it becomes Day 7, Day 7 becomes Day 6, Day 2 becomes Day 1, and Day 1 is removed.
+   */
+  public getWeeklySleepData(): SleepHistoryItem[] {
+    const now = new Date();
+    const startDate = new Date(now);
+    startDate.setDate(now.getDate() - 6);
+
+    const historyMap: Record<string, SleepHistoryItem> = {};
+    this.state.history.forEach((h) => {
+      if (h.source !== 'historical' && !h.id.startsWith('hist_sleep_')) {
+        historyMap[h.date] = h;
+      }
+    });
+
+    const todayDateStr = now.toISOString().split('T')[0];
+    const weeklyItems: SleepHistoryItem[] = [];
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      const yr = d.getFullYear();
+      const mo = String(d.getMonth() + 1).padStart(2, '0');
+      const da = String(d.getDate()).padStart(2, '0');
+      const dateKey = `${yr}-${mo}-${da}`;
+      const dayLabel = DAY_NAMES[d.getDay()];
+
+      if (dateKey === todayDateStr && this.state.currentSession.durationMinutes > 0) {
+        weeklyItems.push({
+          id: `sleep_today_${dateKey}`,
+          date: dateKey,
+          dayLabel,
+          bedtimeIso: this.state.currentSession.bedtimeIso || '',
+          wakeTimeIso: this.state.currentSession.wakeTimeIso || '',
+          durationMinutes: this.state.currentSession.durationMinutes,
+          recoveryScore: this.state.currentSession.recoveryScore,
+          qualityLabel: this.state.currentSession.qualityLabel,
+          deepSleepMinutes: this.state.currentSession.deepSleepMinutes,
+          remSleepMinutes: this.state.currentSession.remSleepMinutes,
+          lightSleepMinutes: this.state.currentSession.lightSleepMinutes,
+          source: 'manual',
+        });
+      } else if (historyMap[dateKey]) {
+        weeklyItems.push(historyMap[dateKey]);
+      } else {
+        weeklyItems.push({
+          id: `empty_${dateKey}`,
+          date: dateKey,
+          dayLabel,
+          bedtimeIso: '',
+          wakeTimeIso: '',
+          durationMinutes: 0,
+          recoveryScore: 0,
+          qualityLabel: 'No sleep logged',
+          deepSleepMinutes: 0,
+          remSleepMinutes: 0,
+          lightSleepMinutes: 0,
+          source: 'manual',
+        });
+      }
+    }
+
+    return weeklyItems;
   }
 
   private calculateRecoveryScore(minutes: number): { recoveryScore: number; qualityLabel: string } {
@@ -443,57 +529,6 @@ export class SleepService {
     hours = hours ? hours : 12;
     const minStr = minutes < 10 ? `0${minutes}` : minutes;
     return `${hours}:${minStr} ${ampm}`;
-  }
-
-  /**
-   * Generates realistic 7-day initial recovery history ending today
-   */
-  private generateInitial7DayHistory(): SleepHistoryItem[] {
-    const list: SleepHistoryItem[] = [];
-    const baseDate = new Date();
-
-    const templates = [
-      { offset: 6, dur: 450, score: 86, label: 'Restored Balance', bedH: 23, bedM: 15, wakeH: 6, wakeM: 45 },
-      { offset: 5, dur: 410, score: 78, label: 'Moderate Rest', bedH: 23, bedM: 45, wakeH: 6, wakeM: 35 },
-      { offset: 4, dur: 500, score: 95, label: 'Optimal Deep Recovery', bedH: 22, bedM: 45, wakeH: 7, wakeM: 0 },
-      { offset: 3, dur: 435, score: 84, label: 'Restored Balance', bedH: 23, bedM: 10, wakeH: 6, wakeM: 25 },
-      { offset: 2, dur: 470, score: 90, label: 'Optimal Deep Recovery', bedH: 23, bedM: 0, wakeH: 6, wakeM: 50 },
-      { offset: 1, dur: 490, score: 93, label: 'Optimal Deep Recovery', bedH: 22, bedM: 50, wakeH: 7, wakeM: 0 },
-      { offset: 0, dur: 460, score: 88, label: 'Restored Balance', bedH: 23, bedM: 10, wakeH: 6, wakeM: 50 },
-    ];
-
-    templates.forEach((t) => {
-      const d = new Date(baseDate.getTime() - t.offset * 24 * 3600 * 1000);
-      const dateStr = d.toISOString().split('T')[0];
-      const dayName = DAY_NAMES[d.getDay()];
-
-      const bed = new Date(d);
-      bed.setHours(t.bedH, t.bedM, 0, 0);
-
-      const wake = new Date(d.getTime() + (t.dur / 60) * 3600 * 1000);
-      wake.setHours(t.wakeH, t.wakeM, 0, 0);
-
-      const deep = Math.round(t.dur * 0.25);
-      const rem = Math.round(t.dur * 0.22);
-      const light = t.dur - deep - rem;
-
-      list.push({
-        id: `hist_sleep_${dateStr}`,
-        date: dateStr,
-        dayLabel: dayName,
-        bedtimeIso: bed.toISOString(),
-        wakeTimeIso: wake.toISOString(),
-        durationMinutes: t.dur,
-        recoveryScore: t.score,
-        qualityLabel: t.label,
-        deepSleepMinutes: deep,
-        remSleepMinutes: rem,
-        lightSleepMinutes: light,
-        source: 'historical',
-      });
-    });
-
-    return list;
   }
 
   private async persist(): Promise<void> {

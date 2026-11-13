@@ -878,7 +878,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const bedtimeMsg: ChatMessage = {
       id: `msg_sleep_${Date.now()}`,
       sender: 'coach',
-      text: `Shubh Ratri ${userFirstName}! 🌙 Bedtime logged at ${nowStr}. Keep your phone on silent and rest deeply. Kal subah milte hain!`,
+      text: `Good night ${userFirstName}! Bedtime logged at ${nowStr}. Rest well.`,
       timestamp: nowStr,
       suggestions: ['Sleep meditation', 'Set wake-up goal'],
     };
@@ -899,7 +899,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const wakeupMsg: ChatMessage = {
       id: `msg_wake_${Date.now()}`,
       sender: 'coach',
-      text: `Suprabhat ${userFirstName}! ☀️ You completed ${summaryText}. Sleep recovery recorded! Hydrate with water to kickstart your metabolic energy today.`,
+      text: `Good morning ${userFirstName}! You completed ${summaryText}. Sleep recovery recorded.`,
       timestamp: nowStr,
       suggestions: ['Log 350ml water', 'View morning routine', 'Plan breakfast'],
     };

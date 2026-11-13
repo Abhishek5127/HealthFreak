@@ -40,30 +40,44 @@ export const SleepWidget: React.FC<SleepWidgetProps> = ({
   onNavigateToHistory,
 }) => {
   const isSleeping = session.isSleeping;
+  const hasLogged = session.durationMinutes > 0;
 
-  // Format last night's duration (guard against < 15m test tap)
-  const effectiveDuration = session.durationMinutes >= 15 ? session.durationMinutes : 460;
-  const hours = Math.floor(effectiveDuration / 60);
-  const minutes = effectiveDuration % 60;
-  const durationText = `${hours}h ${minutes}m`;
+  // Format last night's duration (real recorded time, 0h 0m if unlogged)
+  const hours = Math.floor(session.durationMinutes / 60);
+  const minutes = session.durationMinutes % 60;
+  const durationText = hasLogged
+    ? hours > 0
+      ? `${hours}h ${minutes}m`
+      : `${minutes}m`
+    : '0h 0m';
 
-  // Format bedtime and wake time
-  const bedtimeStr = session.bedtimeIso && session.durationMinutes >= 15
+  // Real-time bedtime and wake-up formatting
+  const bedtimeStr = session.bedtimeIso
     ? new Date(session.bedtimeIso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-    : '11:10 PM';
+    : '--:--';
 
-  const wakeTimeStr = session.wakeTimeIso && session.durationMinutes >= 15
+  const wakeTimeStr = session.wakeTimeIso
     ? new Date(session.wakeTimeIso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-    : '6:50 AM';
+    : '--:--';
 
-  const effectiveRecovery = session.durationMinutes >= 15 ? session.recoveryScore : 88;
-  const effectiveQuality = session.durationMinutes >= 15 ? session.qualityLabel : 'Restored Balance';
+  const scheduleText = hasLogged && session.bedtimeIso && session.wakeTimeIso
+    ? `${bedtimeStr} → ${wakeTimeStr}`
+    : 'No sleep logged yet';
+
+  const effectiveRecovery = hasLogged ? session.recoveryScore : 0;
+  const effectiveQuality = hasLogged ? session.qualityLabel : 'Not logged yet';
+
+  // Active sleeping bedtime string (shows exact real-time when user pressed "Going to Bed")
+  const activeBedtimeStr = session.bedtimeIso
+    ? new Date(session.bedtimeIso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    : new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
   // Recovery badge color
   const getRecoveryColor = (score: number) => {
     if (score >= 85) return Colors.forestGreenLight;
     if (score >= 70) return Colors.softYellow;
-    return Colors.coralCTA;
+    if (score > 0) return Colors.coralCTA;
+    return Colors.textMuted;
   };
 
   const recoveryColor = getRecoveryColor(effectiveRecovery);
@@ -146,20 +160,15 @@ export const SleepWidget: React.FC<SleepWidgetProps> = ({
         /* Active Night / Sleeping Mode */
         <View style={styles.activeSleepingCard}>
           <View style={styles.sleepingMoonGlow}>
-            <Moon size={32} color={Colors.softYellow} />
+            <Moon size={32} color={Colors.forestGreenLight} />
           </View>
-          <Text style={styles.sleepingTitle}>Rest Deeply 🌙</Text>
+          <Text style={styles.sleepingTitle}>Sleep in Progress</Text>
           <Text style={styles.sleepingSubtitle}>
-            Bedtime logged at {bedtimeStr}. Screen off and rest — your restorative cellular recovery is tracking.
+            Bedtime logged at {activeBedtimeStr}
           </Text>
 
-          <View style={styles.sleepingTipBadge}>
-            <BatteryCharging size={14} color="#7AE69E" style={{ marginRight: 6 }} />
-            <Text style={styles.sleepingTipText}>Recharging metabolic tone & nervous system</Text>
-          </View>
-
           <GlassButton
-            title="☀️ I Woke Up"
+            title="I Woke Up"
             titleColor="#FFFFFF"
             size="md"
             height={48}
@@ -193,9 +202,7 @@ export const SleepWidget: React.FC<SleepWidgetProps> = ({
                 <Text style={styles.durationBig}>{durationText}</Text>
                 <Text style={styles.durationTarget}>/ 8h 00m</Text>
               </View>
-              <Text style={styles.scheduleText}>
-                {bedtimeStr} → {wakeTimeStr}
-              </Text>
+              <Text style={styles.scheduleText}>{scheduleText}</Text>
             </View>
 
             <View style={styles.qualityTag}>
@@ -206,55 +213,69 @@ export const SleepWidget: React.FC<SleepWidgetProps> = ({
           {/* Sleep Architecture Breakdown Bars - HealthFreak Theme Colors */}
           <View style={styles.architectureContainer}>
             <View style={styles.archBarTrack}>
-              <View
-                style={[
-                  styles.archSegment,
-                  {
-                    flex: session.deepSleepMinutes || 115,
-                    backgroundColor: Colors.forestGreenLight, // Forest Green
-                  },
-                ]}
-              />
-              <View
-                style={[
-                  styles.archSegment,
-                  {
-                    flex: session.remSleepMinutes || 105,
-                    backgroundColor: '#7AE69E', // Bright Sage Green
-                  },
-                ]}
-              />
-              <View
-                style={[
-                  styles.archSegment,
-                  {
-                    flex: session.lightSleepMinutes || 240,
-                    backgroundColor: Colors.lightSage, // Light Sage
-                  },
-                ]}
-              />
+              {hasLogged ? (
+                <>
+                  <View
+                    style={[
+                      styles.archSegment,
+                      {
+                        flex: Math.max(1, session.deepSleepMinutes),
+                        backgroundColor: Colors.forestGreenLight, // Forest Green
+                      },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.archSegment,
+                      {
+                        flex: Math.max(1, session.remSleepMinutes),
+                        backgroundColor: '#7AE69E', // Bright Sage Green
+                      },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.archSegment,
+                      {
+                        flex: Math.max(1, session.lightSleepMinutes),
+                        backgroundColor: Colors.lightSage, // Light Sage
+                      },
+                    ]}
+                  />
+                </>
+              ) : (
+                <View
+                  style={[
+                    styles.archSegment,
+                    {
+                      flex: 1,
+                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    },
+                  ]}
+                />
+              )}
             </View>
 
             {/* Stage Legend */}
             <View style={styles.legendRow}>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: Colors.forestGreenLight }]} />
+                <View style={[styles.legendDot, { backgroundColor: hasLogged ? Colors.forestGreenLight : Colors.textMuted }]} />
                 <Text style={styles.legendLabel}>
-                  Deep ({Math.floor((session.deepSleepMinutes || 115) / 60)}h {((session.deepSleepMinutes || 115) % 60)}m)
+                  Deep ({hasLogged ? (session.deepSleepMinutes >= 60 ? `${Math.floor(session.deepSleepMinutes / 60)}h ${session.deepSleepMinutes % 60}m` : `${session.deepSleepMinutes}m`) : '0m'})
                 </Text>
               </View>
 
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#7AE69E' }]} />
+                <View style={[styles.legendDot, { backgroundColor: hasLogged ? '#7AE69E' : Colors.textMuted }]} />
                 <Text style={styles.legendLabel}>
-                  REM ({Math.floor((session.remSleepMinutes || 105) / 60)}h {((session.remSleepMinutes || 105) % 60)}m)
+                  REM ({hasLogged ? (session.remSleepMinutes >= 60 ? `${Math.floor(session.remSleepMinutes / 60)}h ${session.remSleepMinutes % 60}m` : `${session.remSleepMinutes}m`) : '0m'})
                 </Text>
               </View>
 
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: Colors.lightSage }]} />
+                <View style={[styles.legendDot, { backgroundColor: hasLogged ? Colors.lightSage : Colors.textMuted }]} />
                 <Text style={styles.legendLabel}>
-                  Light ({Math.floor((session.lightSleepMinutes || 240) / 60)}h {((session.lightSleepMinutes || 240) % 60)}m)
+                  Light ({hasLogged ? (session.lightSleepMinutes >= 60 ? `${Math.floor(session.lightSleepMinutes / 60)}h ${session.lightSleepMinutes % 60}m` : `${session.lightSleepMinutes}m`) : '0m'})
                 </Text>
               </View>
             </View>
@@ -550,7 +571,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E2320',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(234, 214, 111, 0.3)',
+    borderColor: 'rgba(75, 119, 97, 0.35)',
     padding: Spacing.xl,
     alignItems: 'center',
   },
@@ -558,10 +579,10 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: 'rgba(234, 214, 111, 0.15)',
+    backgroundColor: 'rgba(75, 119, 97, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   sleepingTitle: {
     fontSize: 20,
@@ -574,22 +595,8 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
-    marginBottom: 16,
+    marginBottom: 20,
     maxWidth: 280,
-  },
-  sleepingTipBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(74, 184, 122, 0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginBottom: 18,
-  },
-  sleepingTipText: {
-    fontSize: 12,
-    color: Colors.forestGreenLight,
-    fontWeight: '600',
   },
   wakeUpButton: {
     width: '100%',

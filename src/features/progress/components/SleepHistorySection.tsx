@@ -8,12 +8,14 @@ import {
 import {
   Moon,
   BatteryCharging,
-  Clock,
+  TrendingUp,
+  Info,
 } from 'lucide-react-native';
 import { Colors } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { Spacing } from '../../../theme/spacing';
 import { SleepHistoryItem, SleepSession } from '../../../services/sleepService';
+import { MetricLineChart } from '../../../components/illustrations/MetricLineChart';
 
 interface SleepHistorySectionProps {
   history: SleepHistoryItem[];
@@ -24,60 +26,73 @@ export const SleepHistorySection: React.FC<SleepHistorySectionProps> = ({
   history,
   currentSession,
 }) => {
-  const safeHistory = history && history.length > 0 ? history : [];
-  const [selectedIdx, setSelectedIdx] = useState<number>(Math.max(0, safeHistory.length - 1));
+  const safeHistory = history && history.length === 7 ? history : [];
+  // In rolling 7-day FIFO window, the last index (6) is ALWAYS Today
+  const todayIndex = Math.max(0, safeHistory.length - 1);
+  const [selectedIdx, setSelectedIdx] = useState<number>(todayIndex);
 
-  // Compute 7-day stats
-  const totalRecovery = safeHistory.reduce((acc, item) => acc + item.recoveryScore, 0);
-  const avgRecovery = safeHistory.length > 0 ? Math.round(totalRecovery / safeHistory.length) : 88;
+  // Filter only real logged items (duration > 0)
+  const loggedItems = safeHistory.filter((item) => item.durationMinutes > 0);
+  const totalRecovery = loggedItems.reduce((acc, item) => acc + item.recoveryScore, 0);
+  const avgRecovery = loggedItems.length > 0 ? Math.round(totalRecovery / loggedItems.length) : 0;
 
-  const totalMinutes = safeHistory.reduce((acc, item) => acc + item.durationMinutes, 0);
-  const avgMinutes = safeHistory.length > 0 ? Math.round(totalMinutes / safeHistory.length) : 460;
+  const totalMinutes = loggedItems.reduce((acc, item) => acc + item.durationMinutes, 0);
+  const avgMinutes = loggedItems.length > 0 ? Math.round(totalMinutes / loggedItems.length) : 0;
   const avgHours = Math.floor(avgMinutes / 60);
   const avgMinsRemainder = avgMinutes % 60;
 
-  const selectedItem = safeHistory[selectedIdx] || safeHistory[safeHistory.length - 1];
+  // Selected item for inspection
+  const selectedItem = safeHistory[selectedIdx] || safeHistory[todayIndex];
+
+  // Today's sleep duration
+  const todayItem = safeHistory[todayIndex];
+  const todayDurationMinutes = currentSession.durationMinutes > 0
+    ? currentSession.durationMinutes
+    : (todayItem?.durationMinutes || 0);
+
+  const todayHours = Math.floor(todayDurationMinutes / 60);
+  const todayMins = todayDurationMinutes % 60;
+  const todayDurationText = todayDurationMinutes > 0
+    ? (todayHours > 0 ? `${todayHours}h ${todayMins}m` : `${todayMins}m`)
+    : '0h 0m';
+
+  // Duration line chart data in hours (e.g. 6.0 for 6 hours, 0 for untracked)
+  const durationChartData = safeHistory.map((item, idx) => {
+    if (idx === todayIndex && currentSession.durationMinutes > 0) {
+      return Number((currentSession.durationMinutes / 60).toFixed(1));
+    }
+    return Number((item.durationMinutes / 60).toFixed(1));
+  });
 
   const getBarColor = (score: number) => {
-    if (score >= 88) return Colors.forestGreenLight;
-    if (score >= 78) return '#7AE69E';
-    if (score >= 68) return Colors.softYellow;
-    return Colors.coralCTA;
+    if (score >= 80) return Colors.forestGreenLight;
+    if (score >= 65) return '#7AE69E';
+    if (score >= 50) return Colors.softYellow;
+    if (score > 0) return Colors.coralCTA;
+    return Colors.textMuted;
   };
 
-  const formatTimeStr = (iso: string) => {
-    try {
-      return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    } catch {
-      return '11:00 PM';
-    }
-  };
-
-  const formatDateDisplay = (dateStr: string, idx: number) => {
-    if (idx === safeHistory.length - 1) return 'Last Night / Today';
-    if (idx === safeHistory.length - 2) return 'Yesterday';
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
-    } catch {
-      return dateStr;
-    }
-  };
+  // Dynamic rolling 7-day labels ending today
+  const dayLabels = safeHistory.length === 7
+    ? safeHistory.map((item) => item.dayLabel)
+    : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   return (
     <View style={styles.container}>
-      {/* 1. Header with Icon & Subtitle */}
+      {/* 1. Section Header with Icon & Subtitle */}
       <View style={styles.headerRow}>
         <View style={styles.headerIconCircle}>
           <Moon size={18} color={Colors.lightSage} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>7-Day Sleep & Recovery</Text>
-          <Text style={styles.subtitle}>Daily circadian recovery and sleep duration</Text>
+          <Text style={styles.subtitle}>Circadian rhythm & sleep duration trend</Text>
         </View>
         <View style={styles.avgBadge}>
-          <BatteryCharging size={13} color={Colors.forestGreenLight} style={{ marginRight: 4 }} />
-          <Text style={styles.avgBadgeText}>{avgRecovery}% Avg</Text>
+          <BatteryCharging size={13} color={avgRecovery > 0 ? Colors.forestGreenLight : Colors.textMuted} style={{ marginRight: 4 }} />
+          <Text style={[styles.avgBadgeText, avgRecovery === 0 && { color: Colors.textMuted }]}>
+            {avgRecovery}% Avg
+          </Text>
         </View>
       </View>
 
@@ -86,189 +101,160 @@ export const SleepHistorySection: React.FC<SleepHistorySectionProps> = ({
         <View style={styles.statTile}>
           <Text style={styles.statLabel}>AVG RECOVERY</Text>
           <View style={styles.statValRow}>
-            <Text style={[styles.statValue, { color: Colors.forestGreenLight }]}>{avgRecovery}%</Text>
+            <Text style={[styles.statValue, { color: avgRecovery > 0 ? Colors.forestGreenLight : Colors.textMuted }]}>
+              {avgRecovery}%
+            </Text>
           </View>
-          <Text style={styles.statSub}>Optimal restoration</Text>
+          <Text style={styles.statSub}>Weekly average</Text>
         </View>
 
         <View style={styles.statTile}>
           <Text style={styles.statLabel}>AVG DURATION</Text>
           <View style={styles.statValRow}>
-            <Text style={styles.statValue}>{avgHours}h {avgMinsRemainder}m</Text>
+            <Text style={styles.statValue}>
+              {avgHours}h {avgMinsRemainder}m
+            </Text>
           </View>
-          <Text style={styles.statSub}>Per night target</Text>
+          <Text style={styles.statSub}>Per night logged</Text>
         </View>
 
         <View style={styles.statTile}>
-          <Text style={styles.statLabel}>CONSISTENCY</Text>
+          <Text style={styles.statLabel}>DAYS LOGGED</Text>
           <View style={styles.statValRow}>
-            <Text style={[styles.statValue, { color: '#7AE69E' }]}>94%</Text>
+            <Text style={[styles.statValue, { color: loggedItems.length > 0 ? '#7AE69E' : Colors.textMuted }]}>
+              {loggedItems.length}/7
+            </Text>
           </View>
-          <Text style={styles.statSub}>Circadian alignment</Text>
+          <Text style={styles.statSub}>This week</Text>
         </View>
       </View>
 
-      {/* 3. 7-Day Interactive Visual Bar Chart */}
-      <View style={styles.chartCard}>
+      {/* 3. Weekly Sleep Duration Line Chart (Pedometer-style real graph) */}
+      <View style={styles.durationChartCard}>
         <View style={styles.chartHeaderRow}>
-          <Text style={styles.chartTitle}>Recovery Score by Day</Text>
-          <Text style={styles.chartHint}>Tap bar to inspect</Text>
+          <View>
+            <Text style={styles.chartMetricValue}>{todayDurationText}</Text>
+            <Text style={styles.chartMetricSub}>Sleep recorded today</Text>
+          </View>
+          <View style={styles.trendPill}>
+            <TrendingUp size={13} color={todayDurationMinutes > 0 ? Colors.forestGreenLight : Colors.textMuted} />
+            <Text
+              style={[
+                styles.trendPillText,
+                todayDurationMinutes === 0 && { color: Colors.textMuted },
+              ]}
+            >
+              {todayDurationMinutes >= 420
+                ? 'Goal reached (7h+)'
+                : todayDurationMinutes > 0
+                ? `${todayDurationText} logged`
+                : 'Ready to sleep'}
+            </Text>
+          </View>
+        </View>
+
+        <MetricLineChart
+          data={durationChartData}
+          labels={dayLabels}
+          color={Colors.forestGreenLight}
+          height={160}
+          width={330}
+          unit="hrs"
+          activeDayIndex={todayIndex}
+        />
+      </View>
+
+      {/* 4. Sleek Recovery Score by Day Bar Chart (100% Real Logs) */}
+      <View style={styles.recoveryChartCard}>
+        <View style={styles.recoveryHeaderRow}>
+          <View>
+            <Text style={styles.recoveryChartTitle}>Recovery Score by Day</Text>
+            <Text style={styles.recoveryChartSub}>Tap bar to view details</Text>
+          </View>
+          <View style={styles.recoveryAvgPill}>
+            <BatteryCharging size={12} color="#7AE69E" style={{ marginRight: 4 }} />
+            <Text style={styles.recoveryAvgPillText}>{avgRecovery}% Avg</Text>
+          </View>
         </View>
 
         <View style={styles.barsContainer}>
           {safeHistory.map((item, idx) => {
             const isSelected = idx === selectedIdx;
-            const barHeightPct = Math.max(30, Math.min(100, item.recoveryScore));
+            const isToday = idx === todayIndex;
+            const hasScore = item.recoveryScore > 0;
+            const barHeightPct = hasScore ? Math.max(12, Math.min(100, item.recoveryScore)) : 0;
             const barColor = getBarColor(item.recoveryScore);
 
             return (
               <Pressable
-                key={item.id || item.date}
+                key={item.id || item.date || idx}
                 style={styles.barCol}
                 onPress={() => setSelectedIdx(idx)}
               >
-                {/* Score Pill above Bar */}
+                {/* Score label above bar */}
                 <Text
                   style={[
                     styles.barScoreLabel,
-                    isSelected && { color: barColor, fontWeight: '700' },
+                    hasScore
+                      ? { color: isSelected ? barColor : Colors.textSecondary, fontWeight: '700' }
+                      : { color: Colors.textMuted, opacity: 0.5 },
                   ]}
                 >
-                  {item.recoveryScore}%
+                  {hasScore ? `${item.recoveryScore}%` : '-'}
                 </Text>
 
-                {/* Vertical Bar Track & Fill */}
-                <View style={[styles.barTrack, isSelected && styles.barTrackSelected]}>
-                  <View
-                    style={[
-                      styles.barFill,
-                      {
-                        height: `${barHeightPct}%`,
-                        backgroundColor: barColor,
-                      },
-                    ]}
-                  />
+                {/* Vertical Bar Capsule */}
+                <View
+                  style={[
+                    styles.barTrack,
+                    isSelected && styles.barTrackSelected,
+                  ]}
+                >
+                  {hasScore ? (
+                    <View
+                      style={[
+                        styles.barFill,
+                        {
+                          height: `${barHeightPct}%`,
+                          backgroundColor: barColor,
+                        },
+                      ]}
+                    />
+                  ) : (
+                    <View style={styles.barEmptyDot} />
+                  )}
                 </View>
 
                 {/* Day of Week Label */}
-                <Text style={[styles.barDayLabel, isSelected && styles.barDayLabelSelected]}>
-                  {item.dayLabel.charAt(0)}
+                <Text
+                  style={[
+                    styles.barDayLabel,
+                    isToday && styles.barDayLabelToday,
+                    isSelected && styles.barDayLabelSelected,
+                  ]}
+                >
+                  {dayLabels[idx]}
                 </Text>
               </Pressable>
             );
           })}
         </View>
-      </View>
 
-      {/* 4. Selected Day Deep-Dive Detail Card (#1E2320 theme) */}
-      {selectedItem && (
-        <View style={styles.selectedDetailCard}>
-          <View style={styles.selectedHeader}>
-            <View>
-              <Text style={styles.selectedDateTitle}>
-                {formatDateDisplay(selectedItem.date, selectedIdx)}
+        {/* Selected Day Inspection Info Pill */}
+        {selectedItem && (
+          <View style={styles.inspectionChip}>
+            <Info size={13} color={Colors.lightSage} style={{ marginRight: 6 }} />
+            <Text style={styles.inspectionChipText} numberOfLines={1}>
+              <Text style={{ fontWeight: '700', color: Colors.textPrimary }}>
+                {dayLabels[selectedIdx]}
+                {selectedIdx === todayIndex ? ' (Today): ' : ': '}
               </Text>
-              <Text style={styles.selectedWindowText}>
-                {formatTimeStr(selectedItem.bedtimeIso)} → {formatTimeStr(selectedItem.wakeTimeIso)}
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.selectedScorePill,
-                {
-                  backgroundColor: `${getBarColor(selectedItem.recoveryScore)}18`,
-                  borderColor: `${getBarColor(selectedItem.recoveryScore)}45`,
-                },
-              ]}
-            >
-              <BatteryCharging size={14} color={getBarColor(selectedItem.recoveryScore)} style={{ marginRight: 5 }} />
-              <Text style={[styles.selectedScoreText, { color: getBarColor(selectedItem.recoveryScore) }]}>
-                {selectedItem.recoveryScore}% Recovery
-              </Text>
-            </View>
+              {selectedItem.durationMinutes > 0
+                ? `${Math.floor(selectedItem.durationMinutes / 60)}h ${selectedItem.durationMinutes % 60}m sleep • ${selectedItem.recoveryScore}% recovery (${selectedItem.qualityLabel})`
+                : 'No sleep recorded on this day'}
+            </Text>
           </View>
-
-          {/* Quality badge & Duration */}
-          <View style={styles.selectedQualityRow}>
-            <View style={styles.durationBadge}>
-              <Clock size={13} color="#FFFFFF" style={{ marginRight: 5 }} />
-              <Text style={styles.durationBadgeText}>
-                {Math.floor(selectedItem.durationMinutes / 60)}h {selectedItem.durationMinutes % 60}m
-              </Text>
-            </View>
-            <Text style={styles.qualityDescription}>{selectedItem.qualityLabel}</Text>
-          </View>
-
-          {/* Stages Breakdown */}
-          <View style={styles.stagesRow}>
-            <View style={styles.stageCol}>
-              <View style={[styles.stageDot, { backgroundColor: Colors.forestGreenLight }]} />
-              <Text style={styles.stageVal}>
-                {Math.floor((selectedItem.deepSleepMinutes || 115) / 60)}h {(selectedItem.deepSleepMinutes || 115) % 60}m
-              </Text>
-              <Text style={styles.stageKey}>Deep Sleep</Text>
-            </View>
-
-            <View style={styles.stageCol}>
-              <View style={[styles.stageDot, { backgroundColor: '#7AE69E' }]} />
-              <Text style={styles.stageVal}>
-                {Math.floor((selectedItem.remSleepMinutes || 105) / 60)}h {(selectedItem.remSleepMinutes || 105) % 60}m
-              </Text>
-              <Text style={styles.stageKey}>REM Sleep</Text>
-            </View>
-
-            <View style={styles.stageCol}>
-              <View style={[styles.stageDot, { backgroundColor: Colors.lightSage }]} />
-              <Text style={styles.stageVal}>
-                {Math.floor((selectedItem.lightSleepMinutes || 240) / 60)}h {(selectedItem.lightSleepMinutes || 240) % 60}m
-              </Text>
-              <Text style={styles.stageKey}>Light Sleep</Text>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* 5. 7-Day Day-by-Day Historical List (#1E2320 theme) */}
-      <View style={styles.historyListContainer}>
-        <Text style={styles.historyListTitle}>Past 7 Days Breakdown</Text>
-
-        {[...safeHistory].reverse().map((item, revIdx) => {
-          const actualIdx = safeHistory.length - 1 - revIdx;
-          const color = getBarColor(item.recoveryScore);
-          const hours = Math.floor(item.durationMinutes / 60);
-          const mins = item.durationMinutes % 60;
-
-          return (
-            <Pressable
-              key={item.id || item.date}
-              style={[
-                styles.historyItemCard,
-                selectedIdx === actualIdx && styles.historyItemCardActive,
-              ]}
-              onPress={() => setSelectedIdx(actualIdx)}
-            >
-              <View style={styles.itemLeft}>
-                <View style={[styles.itemDayBadge, { backgroundColor: `${color}18` }]}>
-                  <Text style={[styles.itemDayText, { color }]}>{item.dayLabel}</Text>
-                </View>
-                <View>
-                  <Text style={styles.itemNameText}>
-                    {formatDateDisplay(item.date, actualIdx)}
-                  </Text>
-                  <Text style={styles.itemSubText}>
-                    {formatTimeStr(item.bedtimeIso)} - {formatTimeStr(item.wakeTimeIso)} • {item.qualityLabel}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.itemRight}>
-                <Text style={styles.itemDuration}>{hours}h {mins}m</Text>
-                <Text style={[styles.itemRecovery, { color }]}>{item.recoveryScore}%</Text>
-              </View>
-            </Pressable>
-          );
-        })}
+        )}
       </View>
     </View>
   );
@@ -318,19 +304,22 @@ const styles = StyleSheet.create({
     color: Colors.forestGreenLight,
   },
 
-  // Stat Tiles - App Theme (#1E2320)
+  // Summary Tiles
   statsRow: {
     flexDirection: 'row',
-    gap: 8,
+    justifyContent: 'space-between',
     marginBottom: Spacing.md,
+    gap: 8,
   },
   statTile: {
     flex: 1,
     backgroundColor: '#1E2320',
     borderRadius: 16,
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: Colors.borderSubtle,
+    alignItems: 'center',
   },
   statLabel: {
     fontSize: 9,
@@ -344,244 +333,168 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
     color: Colors.textPrimary,
-    fontFamily: Typography.fontFamilies.serif,
   },
   statSub: {
     fontSize: 10,
-    color: Colors.textSecondary,
-    marginTop: 3,
+    color: Colors.textMuted,
+    marginTop: 2,
   },
 
-  // Chart Card - App Theme (#1E2320)
-  chartCard: {
+  // Weekly Sleep Duration Line Chart Card (Matches pedometer card)
+  durationChartCard: {
     backgroundColor: '#1E2320',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.borderSubtle,
-    padding: Spacing.lg,
+    borderRadius: 22,
+    padding: 18,
     marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#262D28',
+    alignItems: 'center',
   },
   chartHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.lg,
+    width: '100%',
+    marginBottom: 6,
   },
-  chartTitle: {
+  chartMetricValue: {
+    color: Colors.textPrimary,
+    fontSize: Typography.fontSizes.xl,
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
+  chartMetricSub: {
+    color: Colors.textSecondary,
+    fontSize: Typography.fontSizes.xs,
+    fontFamily: Typography.fontFamilies.sansRegular,
+  },
+  trendPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(78, 154, 111, 0.14)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Spacing.borderRadius.round,
+  },
+  trendPillText: {
+    color: Colors.forestGreenLight,
+    fontSize: Typography.fontSizes.xs - 1,
+    fontFamily: Typography.fontFamilies.sansBold,
+  },
+
+  // Recovery Bar Chart Card
+  recoveryChartCard: {
+    backgroundColor: '#1E2320',
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#262D28',
+  },
+  recoveryHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  recoveryChartTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: Colors.textPrimary,
   },
-  chartHint: {
+  recoveryChartSub: {
     fontSize: 11,
     color: Colors.textMuted,
+    marginTop: 1,
+  },
+  recoveryAvgPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(74, 184, 122, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  recoveryAvgPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7AE69E',
   },
   barsContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    height: 140,
+    alignItems: 'flex-end',
+    height: 155,
     paddingBottom: 4,
   },
   barCol: {
     flex: 1,
     alignItems: 'center',
-    height: '100%',
     justifyContent: 'flex-end',
+    height: '100%',
   },
   barScoreLabel: {
     fontSize: 10,
-    color: Colors.textMuted,
     marginBottom: 6,
-    fontWeight: '500',
+    fontFamily: Typography.fontFamilies.sansMedium,
   },
   barTrack: {
-    width: 22,
-    height: 90,
+    width: 14,
+    height: 105,
+    borderRadius: 7,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 11,
-    overflow: 'hidden',
     justifyContent: 'flex-end',
-    borderWidth: 1,
-    borderColor: 'transparent',
+    overflow: 'hidden',
+    alignItems: 'center',
   },
   barTrackSelected: {
-    borderColor: 'rgba(74, 184, 122, 0.4)',
-    backgroundColor: 'rgba(74, 184, 122, 0.1)',
+    borderWidth: 1.5,
+    borderColor: '#7AE69E',
+    backgroundColor: 'rgba(122, 230, 158, 0.08)',
   },
   barFill: {
     width: '100%',
-    borderRadius: 11,
+    borderRadius: 7,
+  },
+  barEmptyDot: {
+    width: 6,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    marginBottom: 4,
   },
   barDayLabel: {
     fontSize: 11,
     color: Colors.textMuted,
+    fontFamily: Typography.fontFamilies.sansMedium,
     marginTop: 8,
-    fontWeight: '600',
+  },
+  barDayLabelToday: {
+    color: '#7AE69E',
+    fontFamily: Typography.fontFamilies.sansBold,
   },
   barDayLabelSelected: {
-    color: Colors.textPrimary,
-    fontWeight: '800',
-  },
-
-  // Selected Detail Card - App Theme (#1E2320)
-  selectedDetailCard: {
-    backgroundColor: '#1E2320',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.borderSubtle,
-    padding: Spacing.md,
-    marginBottom: Spacing.md,
-  },
-  selectedHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 10,
-  },
-  selectedDateTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  selectedWindowText: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  selectedScorePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  selectedScoreText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  selectedQualityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  durationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  durationBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
     color: '#FFFFFF',
-  },
-  qualityDescription: {
-    fontSize: 12,
-    color: Colors.lightSage,
-    fontWeight: '600',
-  },
-  stagesRow: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-  },
-  stageCol: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  stageDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginBottom: 4,
-  },
-  stageVal: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  stageKey: {
-    fontSize: 10,
-    color: Colors.textMuted,
-    marginTop: 2,
+    fontFamily: Typography.fontFamilies.sansBold,
   },
 
-  // 7-Day History List - App Theme (#1E2320)
-  historyListContainer: {
-    backgroundColor: '#1E2320',
-    borderRadius: 20,
+  // Inspection Chip
+  inspectionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
-    padding: Spacing.md,
-  },
-  historyListTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-    marginBottom: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  historyItemCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 12,
-    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginTop: 14,
   },
-  historyItemCardActive: {
-    backgroundColor: 'rgba(74, 184, 122, 0.12)',
-  },
-  itemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  itemDayBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  itemDayText: {
+  inspectionChipText: {
     fontSize: 12,
-    fontWeight: '800',
-  },
-  itemNameText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  itemSubText: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    marginTop: 1,
-  },
-  itemRight: {
-    alignItems: 'flex-end',
-  },
-  itemDuration: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  itemRecovery: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 1,
+    color: Colors.textSecondary,
+    flex: 1,
   },
 });
