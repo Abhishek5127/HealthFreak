@@ -1,0 +1,179 @@
+{
+  "intents": {
+    "acknowledge": [
+      "theek hai",
+      "samajh gaya",
+      "haan yeh sahi hai",
+      "badhiya",
+      "achha",
+      "zaroor",
+      "saaf hai",
+      "note kar liya",
+      "haan theek hai",
+      "baat samajh aa gayi",
+      "bilkul",
+      "haan ji",
+      "sahi baat hai",
+      "clear hai",
+      "dhyaan me rakhunga",
+      "haan darj kar liya",
+      "theek samjha main",
+      "sahi hai"
+    ],
+    "transition": [
+      "ab baat karte hain",
+      "iske baad",
+      "ek chhoti si baat",
+      "sabse pehle",
+      "aaj ke liye",
+      "aage badhte hain",
+      "agla step yeh hai",
+      "ab is par aate hain",
+      "saath hi",
+      "ek aur baat",
+      "ab main baat par aate hain",
+      "chaliye aage dekhte hain",
+      "doosri baat yeh hai",
+      "iske saath hi",
+      "ab routine par aate hain",
+      "seedhe point par aate hain"
+    ],
+    "encourage": [
+      "aap sahi disha me hain",
+      "yeh chhota kadam bhi count hota hai",
+      "consistently karte rahiye farq dikhega",
+      "achha chal raha hai",
+      "yeh bohot badhiya shuruaat hai",
+      "aapki mehnat dikh rahi hai",
+      "dheere dheere habit ban jayegi",
+      "har din ka effort matter karta hai",
+      "great progress hai",
+      "aise hi lage rahiye",
+      "ek ek step se hi bada change aata hai",
+      "bohot balanced ja rahe hain",
+      "achha discipline hai",
+      "yeh momentum banaye rakhiye",
+      "positive change shuru ho chuka hai"
+    ],
+    "nudge": [
+      "aaj bas itna kar lijiye",
+      "ek kaam kijiye",
+      "koshish kijiye ki",
+      "aaj ka target rakhiye",
+      "shuruaat me sirf itna kijiye",
+      "aaj shaam ko yeh poora kar lijiye",
+      "kal subah se yeh start kijiye",
+      "aaj ke liye bas ek habit chuniye",
+      "afternoon me thoda time nikaliye",
+      "easy start rakhiye",
+      "aaj is par dhyaan dijiye",
+      "pehle 10 minute se start kijiye",
+      "ek chhota change try kijiye",
+      "paani ki bottle paas rakhiye",
+      "khaane ke turant baad 10 min walk kijiye",
+      "aaj time par sone ki koshish kijiye"
+    ],
+    "followup_checkin": [
+      "aaj kaisa lag raha hai",
+      "pehle se kitna farq hai",
+      "takleef abhi bhi waisi hai ya kam hui",
+      "aaj energy level kaisa hai",
+      "kya koi tightness ya heaviness feel ho rahi hai",
+      "aaj ki routine kaisi rahi",
+      "kya dard me kuch relief mila",
+      "aaj ki walk kaisi rahi",
+      "kya sleep me kuch improvement feel hua",
+      "body me koi stiffness toh nahi hai",
+      "aaj ka meal time par hua",
+      "kal ke change se kuch farq pada",
+      "fatigue pehle se kam hai ya waisi hi",
+      "kya aaj light feel ho raha hai",
+      "koi discomfort toh nahi hui"
+    ],
+    "clarify": [
+      "kya yeh dard constant rehta hai ya kabhi kabhi",
+      "yeh issue kab se notice ho raha hai",
+      "meal ke turant baad hota hai ya late",
+      "kya koi specific time par badhta hai",
+      "mild pain hai ya sharp",
+      "kya movement se takleef badhti hai",
+      "din me kis time fatigue sabse zyada lagti hai",
+      "kya sleep beech me break hoti hai",
+      "paani kitna pee paate hain daily",
+      "work ke time zyada sitting rehti hai",
+      "kya breakfast daily karte hain",
+      "sugar cravings kis time hoti hain",
+      "dinner kitne baje karte hain",
+      "exercise ghar par karte hain ya gym me",
+      "kya doctor ne koi advice di hai"
+    ],
+    "closing": [
+      "aaj itna hi rakhte hain, kal baat karenge.",
+      "apna dhyaan rakhiye aur water intake poora kijiye.",
+      "kal ke updates ka intezaar rahega.",
+      "aaj ka plan complete kijiye, baaki kal.",
+      "fit rahiye aur active rahiye.",
+      "aaj evening walk miss mat kijiye.",
+      "time par dinner aur proper sleep lijiye.",
+      "kal subah phir milte hain.",
+      "koi bhi issue ho toh zaroor batayiye.",
+      "dheere dheere progress karte rahiye.",
+      "aaj ka target complete kar lijiye.",
+      "kal ki call me progress review karenge.",
+      "great day ahead.",
+      "consistency banaye rakhiye, result zaroor milega.",
+      "all the best, kal milenge."
+    ]
+  },
+  "domain": {
+    "food": [
+      "daal", "chawal", "roti", "sabzi", "poha", "upma", "idli", "daliya", "chana", "sattu",
+      "paneer", "dahi", "chaas", "moong", "rajma", "makhana", "egg", "chicken", "palak", "methi",
+      "lauki", "turai", "bhindi", "tinda", "karela", "kheera", "tamatar", "gajar", "chukandar", "salad",
+      "sprouted moong", "boiled chana", "besan chilla", "moong daal chilla", "bajra", "jowar", "ragi", "oats", "khichdi", "walnuts",
+      "almonds", "flaxseeds", "chia seeds", "sunflower seeds", "pumpkin seeds", "soyabean", "tofu", "peanuts", "apple", "papaya",
+      "guava", "orange", "banana", "pomegranate", "coconut water", "saunf water", "jeera water", "lemon water", "green tea", "cinnamon tea"
+    ],
+    "movement": [
+      "surya namaskar", "tadasana", "bhujangasana", "vajrasana", "balasana", "shavasana", "trikonasana", "vrikshasana", "setu bandhasana", "marjaryasana",
+      "adho mukha svanasana", "utkatasana", "virabhadrasana", "paschimottanasana", "matsyasana", "pawanmuktasana", "supta vajrasana", "gomukhasana", "baddha konasana", "halasana",
+      "walk", "brisk walk", "morning walk", "evening walk", "stairs", "stretching", "warm-up", "cool-down", "bodyweight squats", "wall sit",
+      "push-ups", "knee push-ups", "wall push-ups", "glute bridge", "calf raises", "plank", "knee plank", "bird dog", "dead bug", "shoulder taps",
+      "arm circles", "neck rolls", "hip openers", "ankle rotation", "cat cow", "side plank", "leg raises", "reverse crunches", "mountain climbers", "jumping jacks",
+      "high knees", "butt kicks", "lunges", "reverse lunges", "side lunges", "step-ups", "shadow boxing", "asanas", "flexibility work", "mobility drill"
+    ],
+    "body": [
+      "shoulder", "lower back", "knee", "calf", "stomach", "neck", "back", "lower back", "upper back", "elbow",
+      "wrist", "ankle", "heel", "foot", "thigh", "hip", "neck base", "palm", "fingers", "chest",
+      "head", "forehead", "eyes", "spine", "ribs", "muscles", "joints", "nerves", "back nerve", "neck nerve",
+      "right shoulder", "left shoulder", "right knee", "left knee", "right lower back", "left lower back", "neck strain", "back stiffness", "shoulder stiffness", "knee swelling",
+      "calf pain", "ankle sprain", "heel pain", "leg fatigue", "hand numbness", "muscle soreness", "joint pain", "lumbar area", "core muscles", "lower abdomen",
+      "upper abdomen", "side obliques", "pelvic area", "chest tightness", "shoulder blade", "mid spine", "knee cap", "toes", "jaw", "back of head"
+    ],
+    "wellness": [
+      "pranayama", "anulom vilom", "kapalabhati", "bhramari", "sheetali", "ujjayi", "deep breathing", "meditation", "relaxation", "stress relief",
+      "good sleep", "deep sleep", "bedtime consistency", "sleep quality", "mental calm", "positive mindset", "energy level", "freshness", "clarity", "fatigue recovery",
+      "hydration", "adequate water", "digestion", "lightness", "gut health", "acidity relief", "gas relief", "constipation prevention", "appetite control", "metabolism",
+      "flexibility", "stamina", "balance", "posture correction", "daily routine", "morning sunlight", "fresh air", "screen break", "eye rest", "evening wind down",
+      "balanced diet", "stress management", "emotional balance", "active lifestyle", "breath awareness", "body awareness", "regularity", "discipline", "healthy habits", "daily vitality",
+      "nervous system calm", "muscle relaxation", "nadi shodhana", "self care", "lifestyle balance", "focus", "circadian rhythm", "inner strength", "holistic wellness", "overall fitness"
+    ]
+  },
+  "by_goal": {
+    "weight_loss": [
+      "calorie balance", "salad portion", "sugar avoidance", "portion control", "active walk", "light dinner"
+    ],
+    "muscle_gain": [
+      "protein intake", "daal and paneer", "post workout snack", "strength training", "muscle recovery", "nutrition balance"
+    ],
+    "metabolic_energy": [
+      "avoid sugar spikes", "10 min post-meal walk", "timely breakfast", "hydration all day", "sustained energy", "active routine"
+    ],
+    "gut_health": [
+      "chaas and curd", "fiber rich meals", "light khichdi", "sprouts", "saunf water", "better digestion"
+    ],
+    "mindful_rest": [
+      "shavasana", "deep breathing", "no screens before bed", "caffeine cut off", "calm environment", "stress free mind"
+    ]
+  }
+}

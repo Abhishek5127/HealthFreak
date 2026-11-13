@@ -1,0 +1,179 @@
+{
+  "intents": {
+    "acknowledge": [
+      "Understood",
+      "Got it",
+      "That makes sense",
+      "Sounds good",
+      "Great",
+      "Noted",
+      "Clear",
+      "Certainly",
+      "Right on track",
+      "I hear you",
+      "Fair enough",
+      "Absolutely",
+      "Makes total sense",
+      "Logged and noted",
+      "I have got that down",
+      "Understood clearly",
+      "That is valid",
+      "Noted down"
+    ],
+    "transition": [
+      "Next up",
+      "Moving forward",
+      "On that note",
+      "First off",
+      "For today",
+      "Let us focus on",
+      "The next step is",
+      "Turning to that",
+      "Along with that",
+      "One more thing",
+      "To address that directly",
+      "Looking ahead",
+      "In addition",
+      "Taking that further",
+      "Now for your routine",
+      "Getting straight to the point"
+    ],
+    "encourage": [
+      "You are heading in the right direction",
+      "Every small step adds up",
+      "Stay consistent and you will see the shift",
+      "Things are progressing nicely",
+      "This is a solid start",
+      "Your effort is showing",
+      "Consistency builds the habit",
+      "Daily progress matters most",
+      "Solid momentum right here",
+      "Keep this rhythm going",
+      "Small steady wins create big change",
+      "You are maintaining great balance",
+      "Good discipline on display",
+      "Keep up this focus",
+      "The positive habit is forming"
+    ],
+    "nudge": [
+      "Let us aim for just this today",
+      "Here is one practical step",
+      "Try aiming for",
+      "Set this as your target today",
+      "Keep the start light and simple",
+      "Aim to finish this by this evening",
+      "Kick this off tomorrow morning",
+      "Pick just one small win today",
+      "Take a few minutes this afternoon",
+      "Keep the entry barrier low",
+      "Put your focus here today",
+      "Start with just a 10-minute block",
+      "Try this minor tweak",
+      "Keep a water bottle within reach",
+      "Take a 10-minute walk right after meals",
+      "Aim for an earlier bedtime tonight"
+    ],
+    "followup_checkin": [
+      "How are you feeling today",
+      "How does it compare to earlier",
+      "Has that discomfort eased up or stayed the same",
+      "How are your energy levels today",
+      "Are you noticing any tightness or heaviness",
+      "How did your routine go today",
+      "Did you get any relief from the pain",
+      "How was your walk today",
+      "Did your sleep feel more restful",
+      "Any lingering stiffness in the body",
+      "Did you get your meals in on time",
+      "Did yesterday's adjustment make a difference",
+      "Is fatigue lower or about the same",
+      "Are you feeling lighter today",
+      "Did any discomfort crop up"
+    ],
+    "clarify": [
+      "Is that pain constant or does it come and go",
+      "When did you first start noticing this",
+      "Does this happen right after eating or later",
+      "Does it peak at a specific time of day",
+      "Is it a mild ache or a sharper sensation",
+      "Does movement make it feel worse",
+      "What time of day does fatigue hit the hardest",
+      "Does your sleep get interrupted at night",
+      "Roughly how much water do you drink daily",
+      "Does your workday involve mostly sitting",
+      "Do you usually have breakfast every morning",
+      "When do sugar cravings typically hit",
+      "Around what time do you have dinner",
+      "Do you train mostly at home or in a gym",
+      "Has your doctor given any specific guidelines"
+    ],
+    "closing": [
+      "Let us keep it there for today and catch up tomorrow.",
+      "Take good care and keep your hydration up.",
+      "Looking forward to hearing your updates tomorrow.",
+      "Wrap up today's plan and we will continue tomorrow.",
+      "Stay active and stay well.",
+      "Do not skip that evening walk today.",
+      "Get dinner on time and rest well tonight.",
+      "Talk to you again tomorrow morning.",
+      "Reach out if anything feels off.",
+      "Keep making steady progress.",
+      "Hit today's simple goal.",
+      "We will check your progress on tomorrow's call.",
+      "Have a productive and healthy day ahead.",
+      "Stay consistent and the results will follow.",
+      "All the best, speak tomorrow."
+    ]
+  },
+  "domain": {
+    "food": [
+      "lentils", "rice", "roti", "vegetables", "poha", "upma", "idli", "oatmeal", "chickpeas", "roasted gram flour",
+      "cottage cheese", "curd", "buttermilk", "mung beans", "kidney beans", "fox nuts", "eggs", "chicken", "spinach", "fenugreek",
+      "bottle gourd", "ridge gourd", "okra", "apple gourd", "bitter gourd", "cucumber", "tomatoes", "carrots", "beetroot", "salad",
+      "sprouted mung", "boiled chickpeas", "gram flour pancake", "mung bean pancake", "millet", "sorghum", "finger millet", "rolled oats", "khichdi", "walnuts",
+      "almonds", "flaxseeds", "chia seeds", "sunflower seeds", "pumpkin seeds", "soybeans", "tofu", "peanuts", "apples", "papaya",
+      "guava", "oranges", "bananas", "pomegranate", "coconut water", "fennel seed water", "cumin water", "lemon water", "green tea", "cinnamon tea"
+    ],
+    "movement": [
+      "sun salutation", "mountain pose", "cobra pose", "diamond pose", "child pose", "corpse pose", "triangle pose", "tree pose", "bridge pose", "cat cow pose",
+      "downward facing dog", "chair pose", "warrior pose", "seated forward bend", "fish pose", "wind relieving pose", "reclined thunderbolt", "cow face pose", "bound angle pose", "plow pose",
+      "walk", "brisk walk", "morning walk", "evening walk", "stairs", "stretching", "warm-up", "cool-down", "bodyweight squats", "wall sit",
+      "push-ups", "knee push-ups", "wall push-ups", "glute bridge", "calf raises", "plank", "knee plank", "bird dog", "dead bug", "shoulder taps",
+      "arm circles", "neck rolls", "hip openers", "ankle rotations", "cat cow", "side plank", "leg raises", "reverse crunches", "mountain climbers", "jumping jacks",
+      "high knees", "butt kicks", "lunges", "reverse lunges", "side lunges", "step-ups", "shadow boxing", "yoga postures", "flexibility training", "mobility drills"
+    ],
+    "body": [
+      "shoulder", "lower back", "knee", "calf", "abdomen", "neck", "back", "lumbar spine", "upper back", "elbow",
+      "wrist", "ankle", "heel", "foot", "thigh", "hip", "cervical spine", "palm", "fingers", "chest",
+      "head", "forehead", "eyes", "spine", "ribs", "muscles", "joints", "tendons", "sciatic nerve", "neck muscles",
+      "right shoulder", "left shoulder", "right knee", "left knee", "right lumbar", "left lumbar", "neck strain", "back stiffness", "shoulder tightness", "knee effusion",
+      "calf tightness", "ankle sprain", "heel tenderness", "leg fatigue", "hand tingling", "delayed soreness", "joint discomfort", "lower back muscles", "core musculature", "lower belly",
+      "upper abdomen", "obliques", "pelvis", "chest tension", "scapula", "thoracic spine", "patella", "toes", "jaw", "occiput"
+    ],
+    "wellness": [
+      "breath regulation", "alternate nostril breathing", "skull shining breath", "humming bee breath", "cooling breath", "victorious breath", "deep breathing", "meditation", "relaxation", "stress relief",
+      "restful sleep", "deep sleep", "sleep schedule", "sleep quality", "mental clarity", "positive outlook", "vitality", "daytime alertness", "focus", "fatigue recovery",
+      "hydration", "optimal water intake", "digestion", "abdominal lightness", "gut comfort", "acidity management", "reduced bloating", "regular bowel movement", "satiety", "metabolic rate",
+      "joint mobility", "physical stamina", "motor balance", "posture alignment", "daily cadence", "morning sunshine", "fresh air", "screen hiatus", "ocular rest", "evening wind down",
+      "balanced nutrition", "stress resilience", "emotional grounding", "active lifestyle", "breath pacing", "body awareness", "consistency", "self-discipline", "sustainable habits", "daily energy",
+      "parasympathetic tone", "muscular release", "channel purification", "self-care", "lifestyle equilibrium", "concentration", "circadian rhythm", "core resilience", "holistic wellness", "overall fitness"
+    ]
+  },
+  "by_goal": {
+    "weight_loss": [
+      "caloric equilibrium", "vegetable volume", "sugar moderation", "portion moderation", "active walking", "light dinner"
+    ],
+    "muscle_gain": [
+      "adequate protein", "lentils and paneer", "post-workout nutrition", "progressive strength", "muscle recovery", "balanced calories"
+    ],
+    "metabolic_energy": [
+      "steady glucose levels", "10-minute post-meal stroll", "protein at breakfast", "all-day hydration", "sustained stamina", "active movement"
+    ],
+    "gut_health": [
+      "buttermilk and yogurt", "high-fiber produce", "light khichdi", "sprouted legumes", "fennel water", "digestive ease"
+    ],
+    "mindful_rest": [
+      "corpse pose relaxation", "paced breathing", "evening screen curfew", "afternoon caffeine cutoff", "quiet environment", "uncluttered mind"
+    ]
+  }
+}
