@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   Pressable,
+  Platform,
 } from 'react-native';
 import {
   Moon,
@@ -13,12 +14,15 @@ import {
   X,
   BatteryCharging,
   Bed,
+  Plus,
+  Clock,
+  Sun,
 } from 'lucide-react-native';
 import { Colors } from '../../../theme/colors';
 import { Typography } from '../../../theme/typography';
 import { Spacing } from '../../../theme/spacing';
-import { GlassButton } from '../../../components/common/GlassButton';
 import { SleepSession, AutoSleepPrompt } from '../../../services/sleepService';
+import { requestPinWidget } from 'react-native-android-widget';
 
 interface SleepWidgetProps {
   session: SleepSession;
@@ -82,10 +86,19 @@ export const SleepWidget: React.FC<SleepWidgetProps> = ({
 
   const recoveryColor = getRecoveryColor(effectiveRecovery);
 
+  const handlePinWidget = async () => {
+    if (Platform.OS !== 'android') return;
+    try {
+      await requestPinWidget({ widgetName: 'SleepTrackingWidget' });
+    } catch (e) {
+      console.warn('[SleepWidget] Pin widget error:', e);
+    }
+  };
+
   return (
     <View style={styles.sectionContainer}>
-      {/* 1. Inactivity Auto-Detection Prompt (Shown ONLY when 7-8h inactivity occurs) */}
-      {autoPrompt && !isSleeping && (
+      {/* 1. Inactivity Auto-Detection Prompt (Shown ONLY on 7-8h inactivity when no sleep has been recorded yet) */}
+      {autoPrompt && !isSleeping && session.durationMinutes === 0 && (
         <View style={styles.autoPromptCard}>
           <View style={styles.autoPromptHeader}>
             <View style={styles.autoPromptBadge}>
@@ -146,13 +159,25 @@ export const SleepWidget: React.FC<SleepWidgetProps> = ({
           </View>
         </View>
 
-        <Pressable
-          style={styles.historyLinkPill}
-          onPress={onNavigateToHistory}
-        >
-          <Text style={styles.historyLinkText}>7-Day History</Text>
-          <ChevronRight size={13} color={Colors.lightSage} />
-        </Pressable>
+        <View style={styles.headerRightActions}>
+          {Platform.OS === 'android' && (
+            <Pressable
+              style={styles.pinWidgetBtn}
+              onPress={handlePinWidget}
+            >
+              <Plus size={11} color="#7AE69E" style={{ marginRight: 3 }} />
+              <Text style={styles.pinWidgetText}>Add Widget</Text>
+            </Pressable>
+          )}
+
+          <Pressable
+            style={styles.historyLinkPill}
+            onPress={onNavigateToHistory}
+          >
+            <Text style={styles.historyLinkText}>7-Day History</Text>
+            <ChevronRight size={13} color={Colors.lightSage} />
+          </Pressable>
+        </View>
       </View>
 
       {/* 3. Main Sleep Widget Card */}
@@ -160,22 +185,20 @@ export const SleepWidget: React.FC<SleepWidgetProps> = ({
         /* Active Night / Sleeping Mode */
         <View style={styles.activeSleepingCard}>
           <View style={styles.sleepingMoonGlow}>
-            <Moon size={32} color={Colors.forestGreenLight} />
+            <Moon size={32} color="#7AE69E" />
           </View>
           <Text style={styles.sleepingTitle}>Sleep in Progress</Text>
           <Text style={styles.sleepingSubtitle}>
             Bedtime logged at {activeBedtimeStr}
           </Text>
 
-          <GlassButton
-            title="I Woke Up"
-            titleColor="#FFFFFF"
-            size="md"
-            height={48}
-            borderRadius={14}
+          <Pressable
+            style={styles.wakeUpActionBtn}
             onPress={onWakeUp}
-            style={styles.wakeUpButton}
-          />
+          >
+            <Sun size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.wakeUpActionBtnText}>I Woke Up</Text>
+          </Pressable>
         </View>
       ) : (
         /* Normal Day Mode - Glanceable Last Night Sleep */
@@ -183,7 +206,7 @@ export const SleepWidget: React.FC<SleepWidgetProps> = ({
           {/* Top row: Last night badge and Recovery score pill */}
           <View style={styles.cardTopRow}>
             <View style={styles.lastNightPill}>
-              <Bed size={13} color={Colors.lightSage} style={{ marginRight: 5 }} />
+              <Bed size={13} color="#7AE69E" style={{ marginRight: 5 }} />
               <Text style={styles.lastNightPillText}>LAST NIGHT</Text>
             </View>
 
@@ -202,11 +225,14 @@ export const SleepWidget: React.FC<SleepWidgetProps> = ({
                 <Text style={styles.durationBig}>{durationText}</Text>
                 <Text style={styles.durationTarget}>/ 8h 00m</Text>
               </View>
-              <Text style={styles.scheduleText}>{scheduleText}</Text>
+              <View style={styles.scheduleRow}>
+                <Clock size={12} color="#7AE69E" style={{ marginRight: 5 }} />
+                <Text style={styles.scheduleText}>{scheduleText}</Text>
+              </View>
             </View>
 
-            <View style={styles.qualityTag}>
-              <Text style={styles.qualityTagLabel}>{effectiveQuality}</Text>
+            <View style={[styles.qualityTag, { borderColor: `${recoveryColor}35`, backgroundColor: `${recoveryColor}12` }]}>
+              <Text style={[styles.qualityTagLabel, { color: recoveryColor }]}>{effectiveQuality}</Text>
             </View>
           </View>
 
@@ -220,7 +246,7 @@ export const SleepWidget: React.FC<SleepWidgetProps> = ({
                       styles.archSegment,
                       {
                         flex: Math.max(1, session.deepSleepMinutes),
-                        backgroundColor: Colors.forestGreenLight, // Forest Green
+                        backgroundColor: '#2E7D52', // Deep Forest Green
                       },
                     ]}
                   />
@@ -238,7 +264,7 @@ export const SleepWidget: React.FC<SleepWidgetProps> = ({
                       styles.archSegment,
                       {
                         flex: Math.max(1, session.lightSleepMinutes),
-                        backgroundColor: Colors.lightSage, // Light Sage
+                        backgroundColor: '#B6DEC0', // Light Mint Sage
                       },
                     ]}
                   />
@@ -259,7 +285,7 @@ export const SleepWidget: React.FC<SleepWidgetProps> = ({
             {/* Stage Legend */}
             <View style={styles.legendRow}>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: hasLogged ? Colors.forestGreenLight : Colors.textMuted }]} />
+                <View style={[styles.legendDot, { backgroundColor: hasLogged ? '#2E7D52' : Colors.textMuted }]} />
                 <Text style={styles.legendLabel}>
                   Deep ({hasLogged ? (session.deepSleepMinutes >= 60 ? `${Math.floor(session.deepSleepMinutes / 60)}h ${session.deepSleepMinutes % 60}m` : `${session.deepSleepMinutes}m`) : '0m'})
                 </Text>
@@ -273,7 +299,7 @@ export const SleepWidget: React.FC<SleepWidgetProps> = ({
               </View>
 
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: hasLogged ? Colors.lightSage : Colors.textMuted }]} />
+                <View style={[styles.legendDot, { backgroundColor: hasLogged ? '#B6DEC0' : Colors.textMuted }]} />
                 <Text style={styles.legendLabel}>
                   Light ({hasLogged ? (session.lightSleepMinutes >= 60 ? `${Math.floor(session.lightSleepMinutes / 60)}h ${session.lightSleepMinutes % 60}m` : `${session.lightSleepMinutes}m`) : '0m'})
                 </Text>
@@ -286,8 +312,8 @@ export const SleepWidget: React.FC<SleepWidgetProps> = ({
             style={styles.bedtimeBtn}
             onPress={onStartSleep}
           >
-            <Moon size={16} color="#FFFFFF" style={{ marginRight: 8 }} />
-            <Text style={styles.bedtimeBtnText}>Going to Bed (Start Sleep)</Text>
+            <Moon size={16} color="#7AE69E" style={{ marginRight: 8 }} />
+            <Text style={styles.bedtimeBtnText}>Going to Bed</Text>
           </Pressable>
         </View>
       )}
@@ -416,6 +442,26 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 1,
   },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pinWidgetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(74, 184, 122, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(74, 184, 122, 0.3)',
+  },
+  pinWidgetText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7AE69E',
+  },
   historyLinkPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -436,10 +482,15 @@ const styles = StyleSheet.create({
   // Normal Card - App Theme (#1E2320)
   sleepCard: {
     backgroundColor: '#1E2320',
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
-    padding: Spacing.lg,
+    borderColor: '#2D3830',
+    padding: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 3,
   },
   cardTopRow: {
     flexDirection: 'row',
@@ -450,22 +501,24 @@ const styles = StyleSheet.create({
   lastNightPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    backgroundColor: 'rgba(74, 184, 122, 0.12)',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(74, 184, 122, 0.25)',
   },
   lastNightPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.lightSage,
-    letterSpacing: 0.5,
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#7AE69E',
+    letterSpacing: 0.8,
   },
   recoveryPill: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 10,
     borderWidth: 1,
   },
@@ -475,55 +528,65 @@ const styles = StyleSheet.create({
   },
   mainStatsRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: Spacing.lg,
+    marginBottom: 16,
+    marginTop: 4,
   },
   durationRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
   },
   durationBig: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '800',
-    color: Colors.textPrimary,
-    letterSpacing: -1,
-    fontFamily: Typography.fontFamilies.serif,
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+    fontFamily: Typography.fontFamilies.sansBold,
   },
   durationTarget: {
-    fontSize: 14,
-    color: Colors.textMuted,
+    fontSize: 13,
+    color: '#7D9083',
     marginLeft: 6,
     fontWeight: '600',
   },
+  scheduleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 5,
+  },
   scheduleText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginTop: 3,
+    fontSize: 12,
+    color: '#9CB0A2',
+    fontFamily: Typography.fontFamilies.sansMedium,
   },
   qualityTag: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 10,
+    borderWidth: 1,
   },
   qualityTagLabel: {
     fontSize: 12,
-    color: Colors.textPrimary,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
   // Architecture Bar
   architectureContainer: {
-    marginBottom: Spacing.lg,
+    marginBottom: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.18)',
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.04)',
   },
   archBarTrack: {
-    height: 8,
+    height: 7,
     borderRadius: 4,
     overflow: 'hidden',
     flexDirection: 'row',
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   archSegment: {
     height: '100%',
@@ -541,12 +604,12 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    marginRight: 4,
+    marginRight: 5,
   },
   legendLabel: {
-    fontSize: 10,
-    color: Colors.textMuted,
-    fontWeight: '600',
+    fontSize: 11,
+    color: '#9CB0A2',
+    fontFamily: Typography.fontFamilies.sansMedium,
   },
 
   // Bedtime Button - Forest Green Theme
@@ -554,32 +617,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#27382F',
-    borderWidth: 1,
-    borderColor: '#385D4B',
-    borderRadius: 14,
+    backgroundColor: '#24382C',
+    borderWidth: 1.2,
+    borderColor: '#3D6B52',
+    borderRadius: 16,
     paddingVertical: 14,
   },
   bedtimeBtnText: {
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
 
   // Active Night Card - App Theme (#1E2320)
   activeSleepingCard: {
     backgroundColor: '#1E2320',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(75, 119, 97, 0.35)',
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: 'rgba(75, 119, 97, 0.45)',
     padding: Spacing.xl,
     alignItems: 'center',
   },
   sleepingMoonGlow: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(75, 119, 97, 0.15)',
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(75, 119, 97, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(122, 230, 158, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 14,
@@ -587,19 +653,32 @@ const styles = StyleSheet.create({
   sleepingTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 6,
+    color: '#FFFFFF',
+    marginBottom: 4,
   },
   sleepingSubtitle: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: '#A8B5AB',
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: 20,
     maxWidth: 280,
   },
-  wakeUpButton: {
+  wakeUpActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4B7761',
+    borderWidth: 1,
+    borderColor: '#7AE69E',
+    borderRadius: 16,
+    paddingVertical: 14,
     width: '100%',
-    backgroundColor: Colors.forestGreenLight,
+  },
+  wakeUpActionBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
 });

@@ -82,6 +82,16 @@
               "targetCellHeight": 2,
               "previewImage": "./assets/water_widget_preview.png",
               "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "SleepTrackingWidget",
+              "label": "HealthFreak Sleep Tracker",
+              "description": "1-tap bedtime and wake-up sleep tracker for restorative cellular recovery",
+              "minWidth": "160dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "updatePeriodMillis": 1800000
             }
           ]
         }

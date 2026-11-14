@@ -1,5 +1,7 @@
 import { AppState, AppStateStatus } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { expoSecureStoreAdapter } from './auth/secureStorageAdapter';
+import { syncSleepWidgetToHomeScreen } from '../widgets/widgetStorage';
 
 export interface SleepSession {
   isSleeping: boolean;
@@ -130,8 +132,11 @@ export class SleepService {
     this.isInitialized = true;
 
     try {
-      // 1. Load session
-      const rawSession = await expoSecureStoreAdapter.getItem(STORAGE_SESSION_KEY);
+      // 1. Load session (Checks AsyncStorage first to sync any widget actions taken outside the app)
+      let rawSession = await AsyncStorage.getItem(STORAGE_SESSION_KEY);
+      if (!rawSession) {
+        rawSession = await expoSecureStoreAdapter.getItem(STORAGE_SESSION_KEY);
+      }
       if (rawSession) {
         const parsed = JSON.parse(rawSession);
         if (parsed) {
@@ -158,7 +163,10 @@ export class SleepService {
       }
 
       // 2. Load history (Strictly real data only, discard dummy entries)
-      const rawHistory = await expoSecureStoreAdapter.getItem(STORAGE_HISTORY_KEY);
+      let rawHistory = await AsyncStorage.getItem(STORAGE_HISTORY_KEY);
+      if (!rawHistory) {
+        rawHistory = await expoSecureStoreAdapter.getItem(STORAGE_HISTORY_KEY);
+      }
       if (rawHistory) {
         const parsedHist = JSON.parse(rawHistory);
         if (Array.isArray(parsedHist) && parsedHist.length > 0) {
@@ -170,7 +178,7 @@ export class SleepService {
       }
       await this.persist();
 
-      // 3. Setup app state listener for inactivity tracking
+      // 3. Setup app state listener for inactivity tracking & widget sync
       this.setupAppStateListener();
 
       // 4. Check for inactivity auto-detection (7-8 hours gap)
@@ -184,7 +192,7 @@ export class SleepService {
   }
 
   /**
-   * Monitor app background/foreground transitions to track inactivity
+   * Monitor app background/foreground transitions to track inactivity & sync widget actions
    */
   private setupAppStateListener(): void {
     if (this.appStateSubscription) return;
@@ -196,6 +204,28 @@ export class SleepService {
           await expoSecureStoreAdapter.setItem(STORAGE_LAST_ACTIVE_KEY, now.toString());
         } catch {}
       } else if (nextState === 'active') {
+        // App resumed: check if user started or ended sleep on the home screen widget while app was closed
+        try {
+          const latestWidgetRaw = await AsyncStorage.getItem(STORAGE_SESSION_KEY);
+          if (latestWidgetRaw) {
+            const parsedWidget = JSON.parse(latestWidgetRaw);
+            if (
+              parsedWidget &&
+              (parsedWidget.isSleeping !== this.state.currentSession.isSleeping ||
+                parsedWidget.bedtimeIso !== this.state.currentSession.bedtimeIso ||
+                parsedWidget.durationMinutes !== this.state.currentSession.durationMinutes)
+            ) {
+              this.state.currentSession = {
+                ...this.state.currentSession,
+                ...parsedWidget,
+              };
+              this.notify();
+            }
+          }
+        } catch (err) {
+          console.warn('[SleepService] widget resume sync note:', err);
+        }
+
         await this.checkForInactivitySleep();
         try {
           await expoSecureStoreAdapter.setItem(STORAGE_LAST_ACTIVE_KEY, now.toString());
@@ -207,28 +237,40 @@ export class SleepService {
   /**
    * Check if user was inactive for 7-8+ hours overnight and prompt
    * "Did you sleep from 9PM to 7AM"
+   * ONLY triggers on true overnight gaps when no sleep has been logged yet.
    */
   public async checkForInactivitySleep(): Promise<void> {
     try {
       const now = new Date();
       const todayStr = now.toISOString().split('T')[0];
 
-      // Check if already dismissed today
+      // 1. If sleep is already recorded for today or user is currently sleeping, DO NOT prompt
+      if (this.state.currentSession.isSleeping || this.state.currentSession.durationMinutes > 0) {
+        this.state.autoSleepPrompt = null;
+        return;
+      }
+
+      // Check if today already has a logged sleep session in history
+      const alreadyLoggedToday = this.state.history.some(
+        (h) => h.date === todayStr && h.durationMinutes > 0
+      );
+      if (alreadyLoggedToday) {
+        this.state.autoSleepPrompt = null;
+        return;
+      }
+
+      // 2. Check if already dismissed today
       const dismissedDate = await expoSecureStoreAdapter.getItem(STORAGE_PROMPT_DISMISSED_KEY);
       if (dismissedDate === todayStr) {
+        this.state.autoSleepPrompt = null;
         return;
       }
 
-      // Check if user is actively in manual sleep mode
-      if (this.state.currentSession.isSleeping) {
-        return;
-      }
-
-      // Check last active timestamp
+      // 3. Check last active timestamp
       const lastActiveRaw = await expoSecureStoreAdapter.getItem(STORAGE_LAST_ACTIVE_KEY);
 
       if (!lastActiveRaw) {
-        // First run or no prior inactivity saved: record current timestamp and DO NOT show prompt
+        // First run or baseline: record current timestamp and do not prompt
         await expoSecureStoreAdapter.setItem(STORAGE_LAST_ACTIVE_KEY, now.getTime().toString());
         this.state.autoSleepPrompt = null;
         return;
@@ -238,16 +280,27 @@ export class SleepService {
       const gapMs = now.getTime() - lastActiveTime;
       const gapMinutes = Math.round(gapMs / (1000 * 60));
 
-      // Strictly require 7 to 14 hours (420 to 840 mins) of inactivity
-      if (gapMinutes < 420 || gapMinutes > 840) {
+      // Strictly require overnight 7 to 10 hours (420 to 600 mins) of inactivity
+      if (gapMinutes < 420 || gapMinutes > 600) {
         this.state.autoSleepPrompt = null;
         return;
       }
 
       const bedtime = new Date(lastActiveTime);
       const wakeTime = now;
-      const durationMinutes = gapMinutes;
 
+      // Realistic overnight circadian window: bedtime between 8 PM (20) & 3:30 AM (3), wake between 5 AM & 11:30 AM
+      const bedHour = bedtime.getHours();
+      const wakeHour = wakeTime.getHours();
+      const isNightBedtime = bedHour >= 20 || bedHour <= 3;
+      const isMorningWake = wakeHour >= 5 && wakeHour <= 11;
+
+      if (!isNightBedtime || !isMorningWake) {
+        this.state.autoSleepPrompt = null;
+        return;
+      }
+
+      const durationMinutes = gapMinutes;
       const bedtimeFormatted = this.formatTime12(bedtime);
       const wakeTimeFormatted = this.formatTime12(wakeTime);
       const hours = Math.floor(durationMinutes / 60);
@@ -533,8 +586,15 @@ export class SleepService {
 
   private async persist(): Promise<void> {
     try {
-      await expoSecureStoreAdapter.setItem(STORAGE_SESSION_KEY, JSON.stringify(this.state.currentSession));
-      await expoSecureStoreAdapter.setItem(STORAGE_HISTORY_KEY, JSON.stringify(this.state.history));
+      const sessStr = JSON.stringify(this.state.currentSession);
+      const histStr = JSON.stringify(this.state.history);
+      await Promise.all([
+        expoSecureStoreAdapter.setItem(STORAGE_SESSION_KEY, sessStr),
+        expoSecureStoreAdapter.setItem(STORAGE_HISTORY_KEY, histStr),
+        AsyncStorage.setItem(STORAGE_SESSION_KEY, sessStr),
+        AsyncStorage.setItem(STORAGE_HISTORY_KEY, histStr),
+      ]);
+      syncSleepWidgetToHomeScreen(this.state.currentSession).catch(() => {});
     } catch (e) {
       console.warn('[SleepService] error saving sleep state:', e);
     }

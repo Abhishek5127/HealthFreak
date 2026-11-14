@@ -1,11 +1,71 @@
 import React from 'react';
 import type { WidgetTaskHandlerProps } from 'react-native-android-widget';
 import { WaterBottleWidget } from './WaterBottleWidget';
-import { getWaterWidgetState, addWaterFromWidget } from './widgetStorage';
+import { SleepTrackingWidget } from './SleepTrackingWidget';
+import {
+  getWaterWidgetState,
+  addWaterFromWidget,
+  getSleepWidgetState,
+  startSleepFromWidget,
+  wakeUpFromWidget,
+} from './widgetStorage';
 
 export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
   const { widgetAction, clickAction, renderWidget, widgetInfo } = props;
+  const widgetName = widgetInfo?.widgetName;
 
+  // -------------------------------------------------------------
+  // 1. SLEEP TRACKING WIDGET
+  // -------------------------------------------------------------
+  if (widgetName === 'SleepTrackingWidget') {
+    switch (widgetAction) {
+      case 'WIDGET_ADDED':
+      case 'WIDGET_UPDATE':
+      case 'WIDGET_RESIZED': {
+        const sleepState = await getSleepWidgetState();
+        renderWidget(
+          <SleepTrackingWidget
+            state={sleepState}
+            widgetWidth={widgetInfo?.width}
+            widgetHeight={widgetInfo?.height}
+          />
+        );
+        break;
+      }
+
+      case 'WIDGET_CLICK': {
+        if (clickAction === 'START_SLEEP') {
+          const nextState = await startSleepFromWidget();
+          renderWidget(
+            <SleepTrackingWidget
+              state={nextState}
+              widgetWidth={widgetInfo?.width}
+              widgetHeight={widgetInfo?.height}
+            />
+          );
+        } else if (clickAction === 'WAKE_UP') {
+          const nextState = await wakeUpFromWidget();
+          renderWidget(
+            <SleepTrackingWidget
+              state={nextState}
+              widgetWidth={widgetInfo?.width}
+              widgetHeight={widgetInfo?.height}
+            />
+          );
+        }
+        break;
+      }
+
+      case 'WIDGET_DELETED':
+      default:
+        break;
+    }
+    return;
+  }
+
+  // -------------------------------------------------------------
+  // 2. WATER BOTTLE WIDGET
+  // -------------------------------------------------------------
   switch (widgetAction) {
     case 'WIDGET_ADDED':
     case 'WIDGET_UPDATE':
